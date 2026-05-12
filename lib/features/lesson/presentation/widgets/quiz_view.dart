@@ -28,12 +28,14 @@ class QuizView extends ConsumerWidget {
       return QuizResultView(
         total: questions.length,
         correct: state.correctCount,
+        xpEarned: state.xpEarned,
         onRestart: controller.reset,
       );
     }
 
     final question = questions[state.currentIndex];
     final selected = state.answers[state.currentIndex];
+    final isLast = state.currentIndex == questions.length - 1;
 
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -64,9 +66,7 @@ class QuizView extends ConsumerWidget {
           ),
           AppButton(
             onPressed: selected == null ? null : () => controller.next(),
-            label: state.currentIndex == questions.length - 1
-                ? 'Finalizar'
-                : 'Próxima',
+            label: isLast ? 'Finalizar' : 'Próxima',
           ),
         ],
       ),

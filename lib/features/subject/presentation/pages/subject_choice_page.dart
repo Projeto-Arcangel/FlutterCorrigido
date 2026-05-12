@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../domain/entities/subject.dart';
 import '../providers/subject_providers.dart';
 import '../widgets/subject_button.dart';
 
@@ -12,7 +13,7 @@ class SubjectChoicePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final subjects = ref.watch(subjectsProvider);
+    final asyncSubjects = ref.watch(subjectsProvider);
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.surface,
@@ -29,35 +30,61 @@ class SubjectChoicePage extends ConsumerWidget {
         ],
       ),
       body: SafeArea(
-        child: GestureDetector(
-          onTap: () => FocusScope.of(context).unfocus(),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  'Qual caminho você\ndeseja trilhar?',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-                const SizedBox(height: 32),
-                for (final subject in subjects) ...[
-                  SubjectButton(
-                    subject: subject,
-                    onTap: () {
-                      ref.read(selectedSubjectProvider.notifier).state =
-                          subject;
-                      context.go(AppRoutes.lessons);
-                    },
-                  ),
-                  const SizedBox(height: 16),
-                ],
-              ],
-            ),
+        child: asyncSubjects.when(
+          // Carregando
+          loading: () => const Center(child: CircularProgressIndicator()),
+
+          // Erro (não bloqueia — usa catálogo como fallback) 
+          error: (err, _) => _SubjectList(
+            subjects: Subject.catalog.map((s) => s.copyWith(
+              unlocked: s.id == SubjectId.history,
+            )).toList(),
+            ref: ref,
           ),
+
+          // Dados carregados
+          data: (subjects) => _SubjectList(subjects: subjects, ref: ref),
+        ),
+      ),
+    );
+  }
+}
+
+// Widget interno extraído para não duplicar a lista nos 3 estados
+class _SubjectList extends StatelessWidget {
+  const _SubjectList({required this.subjects, required this.ref});
+
+  final List<Subject> subjects;
+  final WidgetRef ref;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Qual caminho você\ndeseja trilhar?',
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                  ),
+            ),
+            const SizedBox(height: 32),
+            for (final subject in subjects) ...[
+              SubjectButton(
+                subject: subject,
+                onTap: () {
+                  ref.read(selectedSubjectProvider.notifier).state = subject;
+                  context.go(AppRoutes.lessons);
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ],
         ),
       ),
     );

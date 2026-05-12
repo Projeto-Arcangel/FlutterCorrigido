@@ -20,13 +20,15 @@ class Subject extends Equatable {
     required this.lockColor,
   });
 
-  static const List<Subject> all = [
+  // Catálogo base — unlocked sempre false aqui.
+  // Quem decide o desbloqueio real é o subjectsProvider via XP do usuário.
+  static const List<Subject> catalog = [
     Subject(
       id: SubjectId.history,
       name: 'História',
-      unlocked: true,
+      unlocked: false, // será sobrescrito pelo provider
       color: AppColors.subjectHistory,
-      lockColor: AppColors.lockOnPhilosophy, // não usado quando unlocked
+      lockColor: AppColors.lockOnPhilosophy,
     ),
     Subject(
       id: SubjectId.philosophy,
@@ -50,6 +52,16 @@ class Subject extends Equatable {
       lockColor: AppColors.lockOnGeography,
     ),
   ];
+
+  Subject copyWith({bool? unlocked}) {
+    return Subject(
+      id: id,
+      name: name,
+      unlocked: unlocked ?? this.unlocked,
+      color: color,
+      lockColor: lockColor,
+    );
+  }
 
   @override
   List<Object?> get props => [id, name, unlocked, color, lockColor];

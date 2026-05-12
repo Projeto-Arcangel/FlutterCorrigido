@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../../../features/auth/presentation/providers/login_controller.dart';
@@ -12,6 +11,7 @@ class QuizState {
   final Map<int, int> answers;
   final bool finished;
   final int correctCount;
+  final double xpEarned; // ← NOVO: expõe o XP para a view não recalcular
   final bool xpSaved;
 
   const QuizState({
@@ -19,6 +19,7 @@ class QuizState {
     this.answers = const {},
     this.finished = false,
     this.correctCount = 0,
+    this.xpEarned = 0,   // ← NOVO
     this.xpSaved = false,
   });
 
@@ -27,6 +28,7 @@ class QuizState {
     Map<int, int>? answers,
     bool? finished,
     int? correctCount,
+    double? xpEarned,    // ← NOVO
     bool? xpSaved,
   }) {
     return QuizState(
@@ -34,6 +36,7 @@ class QuizState {
       answers: answers ?? this.answers,
       finished: finished ?? this.finished,
       correctCount: correctCount ?? this.correctCount,
+      xpEarned: xpEarned ?? this.xpEarned, // ← NOVO
       xpSaved: xpSaved ?? this.xpSaved,
     );
   }
@@ -62,20 +65,23 @@ class QuizController extends _$QuizController {
           .where((e) => _questions[e.key].isCorrect(e.value))
           .length;
 
-      state = state.copyWith(finished: true, correctCount: correct);
+      final xp = correct * 50.0; // ← calcula uma vez e guarda no estado
 
-      await _saveXp(correct);
+      state = state.copyWith(
+        finished: true,
+        correctCount: correct,
+        xpEarned: xp,  // ← NOVO: estado passa a carregar o valor
+      );
+
+      await _saveXp(correct, xp); // ← passa xp calculado para evitar recalcular
     }
   }
 
-  Future<void> _saveXp(int correct) async {
-    if (state.xpSaved) return; // guarda idempotência
+  Future<void> _saveXp(int correct, double xpGained) async {
+    if (state.xpSaved) return;
 
     final user = ref.read(authStateProvider).valueOrNull;
     if (user == null) return;
-
-    // 50 XP por acerto — igual ao valor original do FlutterFlow
-    final xpGained = correct * 50.0;
 
     if (xpGained <= 0) return;
 
