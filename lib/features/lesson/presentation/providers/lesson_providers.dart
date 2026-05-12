@@ -1,20 +1,21 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/infrastructure/firebase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
+import '../../data/datasources/firebase/lesson_firestore_datasource.dart';
 import '../../data/repositories/lesson_repository_impl.dart';
 import '../../domain/entities/lesson.dart';
 import '../../domain/repositories/lesson_repository.dart';
 import '../../domain/usecases/get_all_lessons.dart';
 import '../../domain/usecases/get_lesson_by_id.dart';
 
-final firestoreProvider = Provider<FirebaseFirestore>(
-  (ref) => FirebaseFirestore.instance,
+final lessonFirestoreDataSourceProvider = Provider<LessonFirestoreDataSource>(
+  (ref) => LessonFirestoreDataSource(ref.watch(firestoreProvider)),
 );
 
 final lessonRepositoryProvider = Provider<LessonRepository>((ref) {
   return LessonRepositoryImpl(
-    ref.watch(firestoreProvider),
+    ref.watch(lessonFirestoreDataSourceProvider),
     ref.watch(loggerProvider),
   );
 });
@@ -37,7 +38,8 @@ final lessonByIdProvider =
   );
 });
 
-final allLessonsProvider = FutureProvider.autoDispose<List<Lesson>>((ref) async {
+final allLessonsProvider =
+    FutureProvider.autoDispose<List<Lesson>>((ref) async {
   final useCase = ref.watch(getAllLessonsProvider);
   final result = await useCase();
   return result.fold(

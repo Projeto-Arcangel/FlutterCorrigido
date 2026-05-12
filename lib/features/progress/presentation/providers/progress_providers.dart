@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/infrastructure/firebase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
-import '../../../lesson/presentation/providers/lesson_providers.dart';
 import '../../data/repositories/progress_repository_impl.dart';
 import '../../domain/entities/user_progress.dart';
 import '../../domain/repositories/progress_repository.dart';
