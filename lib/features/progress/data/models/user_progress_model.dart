@@ -9,6 +9,8 @@ class UserProgressModel extends UserProgress {
     required super.level,
     required super.gold,
     required super.currentPhase,
+    super.streak,
+    super.lastLoginDate,
   });
 
   factory UserProgressModel.fromSnapshot(DocumentSnapshot snap) {
@@ -19,6 +21,8 @@ class UserProgressModel extends UserProgress {
       level: (data['level'] as num?)?.toInt() ?? 1,
       gold: (data['gold'] as num?)?.toInt() ?? 0,
       currentPhase: (data['faseAtual'] as num?)?.toInt() ?? 0,
+      streak: (data['streak'] as num?)?.toInt() ?? 0,
+      lastLoginDate: (data['lastLoginDate'] as Timestamp?)?.toDate(),
     );
   }
 
@@ -27,5 +31,8 @@ class UserProgressModel extends UserProgress {
         'level': level,
         'gold': gold,
         'faseAtual': currentPhase,
+        'streak': streak,
+        if (lastLoginDate != null)
+          'lastLoginDate': Timestamp.fromDate(lastLoginDate!),
       };
 }

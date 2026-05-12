@@ -135,5 +135,8 @@ class AuthRepositoryImpl implements AuthRepository {
         email: user.email ?? '',
         displayName: user.displayName,
         photoUrl: user.photoURL,
+        // TODO: ler `role` de Firestore Users/{uid} quando o perfil de
+        // professor for implementado. Por ora todo login resulta em aluno.
+        role: UserRole.student,
       );
 }
