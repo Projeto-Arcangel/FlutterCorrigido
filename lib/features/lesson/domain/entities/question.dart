@@ -27,6 +27,9 @@ class Question extends Equatable {
   final int correctAnswer;
   final String explanation;
   final QuestionType type;
+  final String? imageUrl;
+  final String? imageAuthor;
+  final String? imageSource;
 
   const Question({
     required this.id,
@@ -35,10 +38,17 @@ class Question extends Equatable {
     required this.correctAnswer,
     required this.explanation,
     required this.type,
+    this.imageUrl,
+    this.imageAuthor,
+    this.imageSource,
   });
 
+  bool get hasImage => imageUrl != null && imageUrl!.isNotEmpty;
   bool isCorrect(int selectedIndex) => selectedIndex == correctAnswer;
 
   @override
-  List<Object?> get props => [id, text, options, correctAnswer, explanation, type];
+  List<Object?> get props => [
+        id, text, options, correctAnswer, explanation, type,
+        imageUrl, imageAuthor, imageSource,
+      ];
 }

@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../progress/presentation/providers/progress_providers.dart';
 import '../providers/lesson_providers.dart';
 import '../../domain/entities/lesson.dart';
 
@@ -15,15 +16,21 @@ class LessonListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final asyncLessons = ref.watch(allLessonsProvider);
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final asyncProgress =
+        user == null ? null : ref.watch(userProgressProvider(user.id));
+    final currentPhase = asyncProgress?.valueOrNull?.currentPhase ?? 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1D2428), // fundo escuro igual ao original
+      backgroundColor: const Color(0xFF1D2428),
       body: SafeArea(
         child: Column(
           children: [
             // ── Header: avatar + level + moedas ──────────────────────
-            _TrailHeader(onLogout: () =>
-                ref.read(loginControllerProvider.notifier).signOut()),
+            _TrailHeader(
+              onLogout: () =>
+                  ref.read(loginControllerProvider.notifier).signOut(),
+            ),
             const SizedBox(height: 12),
 
             // ── Lista de fases ────────────────────────────────────────
@@ -35,7 +42,10 @@ class LessonListPage extends ConsumerWidget {
                 error: (err, _) => _EmptyTrail(),
                 data: (lessons) {
                   if (lessons.isEmpty) return _EmptyTrail();
-                  return _TrailList(lessons: lessons);
+                  return _TrailList(
+                    lessons: lessons,
+                    currentPhase: currentPhase,
+                  );
                 },
               ),
             ),
@@ -66,11 +76,14 @@ class _TrailHeader extends StatelessWidget {
           // Avatar + level (centro)
           Column(
             children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppColors.surfaceDark,
-                child: const Icon(Icons.person,
-                    color: Colors.white70, size: 28),
+              GestureDetector(
+                onTap: () => context.push(AppRoutes.profile),
+                child: CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppColors.surfaceDark,
+                  child:
+                      const Icon(Icons.person, color: Colors.white70, size: 28),
+                ),
               ),
               const SizedBox(height: 2),
               const Text(
@@ -111,8 +124,12 @@ class _TrailHeader extends StatelessWidget {
 
 // ── Lista em zigue-zague ────────────────────────────────────────────────────
 class _TrailList extends StatelessWidget {
-  const _TrailList({required this.lessons});
+  const _TrailList({
+    required this.lessons,
+    required this.currentPhase,
+  });
   final List<Lesson> lessons;
+  final int currentPhase;
 
   /// Mesma lógica do calcularPosicao original:
   /// índice % 3 → 0 = esquerda, 1 = centro, 2 = direita
@@ -120,7 +137,7 @@ class _TrailList extends StatelessWidget {
     final pos = index % 3;
     if (pos == 0) return 40.0;
     if (pos == 1) return 120.0;
-    return 40.0; // pos == 2, volta para direita espelhada abaixo
+    return 40.0;
   }
 
   CrossAxisAlignment _alignForIndex(int index) {
@@ -131,7 +148,6 @@ class _TrailList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Inverte a lista para mostrar da última para a primeira (como no original)
     final reversed = lessons.reversed.toList();
 
     return ListView.builder(
@@ -146,6 +162,7 @@ class _TrailList extends StatelessWidget {
           index: originalIndex,
           offset: _offsetForIndex(originalIndex),
           align: _alignForIndex(originalIndex),
+          currentPhase: currentPhase,
         );
       },
     );
@@ -159,12 +176,14 @@ class _PhaseNode extends StatelessWidget {
     required this.index,
     required this.offset,
     required this.align,
+    required this.currentPhase,
   });
 
   final Lesson lesson;
   final int index;
   final double offset;
   final CrossAxisAlignment align;
+  final int currentPhase;
 
   @override
   Widget build(BuildContext context) {
@@ -172,11 +191,13 @@ class _PhaseNode extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 20),
       child: Row(
         children: [
-          if (align == CrossAxisAlignment.start)
-            SizedBox(width: offset),
-          _PhaseButton(lesson: lesson, index: index),
-          if (align == CrossAxisAlignment.end)
-            SizedBox(width: offset),
+          if (align == CrossAxisAlignment.start) SizedBox(width: offset),
+          _PhaseButton(
+            lesson: lesson,
+            index: index,
+            currentPhase: currentPhase,
+          ),
+          if (align == CrossAxisAlignment.end) SizedBox(width: offset),
         ],
       ),
     );
@@ -185,12 +206,26 @@ class _PhaseNode extends StatelessWidget {
 
 // ── Botão da fase (oval marrom + cadeado) ──────────────────────────────────
 class _PhaseButton extends StatelessWidget {
-  const _PhaseButton({required this.lesson, required this.index});
+  const _PhaseButton({
+    required this.lesson,
+    required this.index,
+    required this.currentPhase,
+  });
   final Lesson lesson;
   final int index;
+  final int currentPhase;
 
-  // A fase 0 é sempre desbloqueada; as demais são bloqueadas até implementar lógica real
-  bool get _unlocked => index == 0;
+  /// A primeira fase (index 0) está SEMPRE desbloqueada — é o ponto de
+  /// entrada obrigatório, independente do valor de `order` no Firestore
+  /// e do `currentPhase` salvo. As demais seguem a regra:
+  /// `lesson.order <= currentPhase + 1`.
+  /// • novo usuário → apenas a primeira fase
+  /// • completou a primeira → primeira (✓) + segunda (▶)
+  /// • e assim por diante.
+  bool get _unlocked => index == 0 || lesson.order <= currentPhase + 1;
+
+  /// Fase já concluída pelo usuário (apenas para feedback visual).
+  bool get _completed => lesson.order <= currentPhase;
 
   @override
   Widget build(BuildContext context) {
@@ -202,23 +237,33 @@ class _PhaseButton extends StatelessWidget {
                 const SnackBar(
                   content: Text('Conclua a fase anterior'),
                   backgroundColor: Color(0xFF282932),
+                  duration: Duration(seconds: 2),
                 ),
               );
             },
-      child: _OvalPhase(unlocked: _unlocked, index: index),
+      child: _OvalPhase(
+        unlocked: _unlocked,
+        completed: _completed,
+        index: index,
+      ),
     );
   }
 }
 
-// ── Oval marrom com cadeado (substitui a imagem TipoFase_7_(marrom).png) ──
+// ── Oval marrom com cadeado / play / check ─────────────────────────────────
 class _OvalPhase extends StatelessWidget {
-  const _OvalPhase({required this.unlocked, required this.index});
+  const _OvalPhase({
+    required this.unlocked,
+    required this.completed,
+    required this.index,
+  });
   final bool unlocked;
+  final bool completed;
   final int index;
 
   // Cores que mudam por fase (simulando as imagens do original)
   static const _shades = [
-    Color(0xFF6F574A), // marrom mais escuro - fase mais avançada
+    Color(0xFF6F574A),
     Color(0xFF5C4438),
     Color(0xFF4A3328),
     Color(0xFF3D2A20),
@@ -228,6 +273,27 @@ class _OvalPhase extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _shades[index.clamp(0, _shades.length - 1)];
 
+    final Widget icon;
+    if (!unlocked) {
+      icon = Icon(
+        Icons.lock_outlined,
+        color: Colors.white.withValues(alpha: 0.5),
+        size: 28,
+      );
+    } else if (completed) {
+      icon = const Icon(
+        Icons.check_rounded,
+        color: Colors.white,
+        size: 36,
+      );
+    } else {
+      icon = const Icon(
+        Icons.play_arrow_rounded,
+        color: Colors.white,
+        size: 36,
+      );
+    }
+
     return Container(
       width: 98,
       height: 79,
@@ -236,22 +302,13 @@ class _OvalPhase extends StatelessWidget {
         borderRadius: BorderRadius.circular(50),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.4),
+            color: Colors.black.withValues(alpha: 0.4),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Center(
-        child: unlocked
-            ? const Icon(Icons.play_arrow_rounded,
-                color: Colors.white, size: 36)
-            : Icon(
-                Icons.lock_outlined,
-                color: Colors.white.withOpacity(0.5),
-                size: 28,
-              ),
-      ),
+      child: Center(child: icon),
     );
   }
 }
@@ -260,7 +317,6 @@ class _OvalPhase extends StatelessWidget {
 class _EmptyTrail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // Mostra 4 fases bloqueadas como placeholder (igual ao screenshot do original)
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -272,7 +328,7 @@ class _EmptyTrail extends StatelessWidget {
           child: Row(
             children: [
               SizedBox(width: offsets[i % 4]),
-              _OvalPhase(unlocked: false, index: i),
+              _OvalPhase(unlocked: false, completed: false, index: i),
             ],
           ),
         );

@@ -10,6 +10,9 @@ class QuestionModel extends Question {
     required super.correctAnswer,
     required super.explanation,
     required super.type,
+    super.imageUrl,
+    super.imageAuthor,
+    super.imageSource,
   });
 
   factory QuestionModel.fromSnapshot(DocumentSnapshot snap) {
@@ -21,6 +24,9 @@ class QuestionModel extends Question {
       correctAnswer: (data['correct_answer'] as num?)?.toInt() ?? 0,
       explanation: (data['explanation'] as String?) ?? '',
       type: QuestionType.fromInt((data['type'] as num?)?.toInt()),
+      imageUrl: data['image_url'] as String?,
+      imageAuthor: data['image_author'] as String?,
+      imageSource: data['image_source'] as String?,
     );
   }
 }

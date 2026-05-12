@@ -11,16 +11,18 @@ class QuizState {
   final Map<int, int> answers;
   final bool finished;
   final int correctCount;
-  final double xpEarned; // ← NOVO: expõe o XP para a view não recalcular
+  final double xpEarned;
   final bool xpSaved;
+  final bool confirmed;
 
   const QuizState({
     this.currentIndex = 0,
     this.answers = const {},
     this.finished = false,
     this.correctCount = 0,
-    this.xpEarned = 0,   // ← NOVO
+    this.xpEarned = 0,
     this.xpSaved = false,
+    this.confirmed = false,
   });
 
   QuizState copyWith({
@@ -28,16 +30,18 @@ class QuizState {
     Map<int, int>? answers,
     bool? finished,
     int? correctCount,
-    double? xpEarned,    // ← NOVO
+    double? xpEarned,
     bool? xpSaved,
+    bool? confirmed,
   }) {
     return QuizState(
       currentIndex: currentIndex ?? this.currentIndex,
       answers: answers ?? this.answers,
       finished: finished ?? this.finished,
       correctCount: correctCount ?? this.correctCount,
-      xpEarned: xpEarned ?? this.xpEarned, // ← NOVO
+      xpEarned: xpEarned ?? this.xpEarned,
       xpSaved: xpSaved ?? this.xpSaved,
+      confirmed: confirmed ?? this.confirmed,
     );
   }
 }
@@ -53,13 +57,22 @@ class QuizController extends _$QuizController {
   }
 
   void answer(int optionIndex) {
+    if (state.confirmed) return;
     final updated = {...state.answers, state.currentIndex: optionIndex};
     state = state.copyWith(answers: updated);
   }
 
+  void confirm() {
+    if (!state.answers.containsKey(state.currentIndex)) return;
+    state = state.copyWith(confirmed: true);
+  }
+
   Future<void> next() async {
     if (state.currentIndex < _questions.length - 1) {
-      state = state.copyWith(currentIndex: state.currentIndex + 1);
+      state = state.copyWith(
+        currentIndex: state.currentIndex + 1,
+        confirmed: false,
+      );
     } else {
       final correct = state.answers.entries
           .where((e) => _questions[e.key].isCorrect(e.value))

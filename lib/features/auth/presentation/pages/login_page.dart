@@ -5,6 +5,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../providers/login_controller.dart';
+import 'package:go_router/go_router.dart';
+import '../../../../core/router/app_router.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
@@ -124,9 +126,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
-                      onPressed: () {
-                        // TODO: navegar para EsqueceuSenhaPage
-                      },
+                      onPressed: () => context.push(AppRoutes.forgotPassword),
                       child: Text(
                         'Esqueci minha senha',
                         style: TextStyle(
@@ -167,30 +167,17 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       FontAwesomeIcons.google,
                       size: 20,
                     ),
-                    onPressed: () {
-                      // TODO: Google Sign-In
-                    },
+                    onPressed: state.isLoading
+                        ? () {}
+                        : () => ref
+                            .read(loginControllerProvider.notifier)
+                            .signInWithGoogle(),
                   ),
                   const SizedBox(height: 12),
 
-                  // ── Botão Facebook ────────────────────────────────────
-                  _SocialButton(
-                    label: 'Continuar com o Facebook',
-                    icon: const FaIcon(
-                      FontAwesomeIcons.facebook,
-                      size: 20,
-                    ),
-                    onPressed: () {
-                      // TODO: Facebook Sign-In
-                    },
-                  ),
-                  const SizedBox(height: 20),
-
                   // ── Link cadastro ─────────────────────────────────────
                   GestureDetector(
-                    onTap: () {
-                      // TODO: navegar para CadastroPage
-                    },
+                    onTap: () => context.push(AppRoutes.register),
                     child: RichText(
                       text: TextSpan(
                         text: 'Não possui uma conta? ',

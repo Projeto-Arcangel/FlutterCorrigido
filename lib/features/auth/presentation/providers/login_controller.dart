@@ -30,6 +30,15 @@ class LoginController extends _$LoginController {
     );
   }
 
+  Future<void> signInWithGoogle() async {
+    state = const AsyncLoading();
+    final result = await ref.read(signInWithGoogleProvider)();
+    state = result.fold(
+      (failure) => AsyncError<User?>(failure.message, StackTrace.current),
+      (user) => AsyncData<User?>(user),
+    );
+  }
+
   Future<void> signOut() async {
     final useCase = ref.read(signOutProvider);
     await useCase();

@@ -2,11 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
+import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
 import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -15,8 +18,12 @@ class AppRoutes {
   static const String subjects = '/subjects';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
+  static const String profile = '/profile';
+  
 
   static String lessonPath(String id) => '/lessons/$id';
+  static const String register = '/register';
+  static const String forgotPassword = '/forgot-password';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -28,10 +35,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
-      final isLoginRoute = state.matchedLocation == AppRoutes.login;
+      final location = state.matchedLocation;
 
-      if (!isLoggedIn && !isLoginRoute) return AppRoutes.login;
-      if (isLoggedIn && isLoginRoute) return AppRoutes.subjects;
+      final isPublic = location == AppRoutes.login || location == AppRoutes.register ||
+      location == AppRoutes.forgotPassword;
+
+      if (!isLoggedIn && !isPublic) return AppRoutes.login;
+      if (isLoggedIn && location == AppRoutes.login) return AppRoutes.subjects;
       return null;
     },
     routes: [
@@ -42,6 +52,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.subjects,
         builder: (_, __) => const SubjectChoicePage(),
+      ),
+        GoRoute(
+    path: AppRoutes.profile,
+    builder: (_, __) => const ProfilePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        builder: (_, __) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        builder: (_, __) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: AppRoutes.lessons,

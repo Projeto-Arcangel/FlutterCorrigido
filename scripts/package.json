@@ -1,0 +1,12 @@
+{
+  "name": "arcangel-seed",
+  "version": "1.0.0",
+  "description": "Script para popular o Firestore com dados de exemplo",
+  "main": "seed.js",
+  "scripts": {
+    "seed": "node seed.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.0.0"
+  }
+}
