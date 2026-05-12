@@ -148,20 +148,17 @@ class _TrailList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final reversed = lessons.reversed.toList();
-
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      itemCount: reversed.length,
+      itemCount: lessons.length,
       itemBuilder: (context, i) {
-        final lesson = reversed[i];
-        final originalIndex = reversed.length - 1 - i;
-        return _PhaseNode(
+       final lesson = lessons[i];
+      return _PhaseNode(
           lesson: lesson,
-          index: originalIndex,
-          offset: _offsetForIndex(originalIndex),
-          align: _alignForIndex(originalIndex),
+          index: i,
+          offset: _offsetForIndex(i),
+          align: _alignForIndex(i),
           currentPhase: currentPhase,
         );
       },
