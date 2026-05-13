@@ -177,7 +177,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
                   // ── Link cadastro ─────────────────────────────────────
                   GestureDetector(
-                    onTap: () => context.push(AppRoutes.register),
+                    onTap: () => context.go(AppRoutes.roleSelection),
                     child: RichText(
                       text: TextSpan(
                         text: 'Não possui uma conta? ',

@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-
+import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
@@ -19,6 +19,7 @@ class AppRoutes {
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
+  static const String roleSelection = '/';
   
 
   static String lessonPath(String id) => '/lessons/$id';
@@ -31,20 +32,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.onDispose(notifier.dispose);
 
   return GoRouter(
-    initialLocation: AppRoutes.login,
+    initialLocation: AppRoutes.roleSelection,
     refreshListenable: notifier,
     redirect: (context, state) {
       final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
-      final location = state.matchedLocation;
+      final publicRoutes = {AppRoutes.roleSelection, AppRoutes.login};
+      final isPublicRoute = publicRoutes.contains(state.matchedLocation);
 
-      final isPublic = location == AppRoutes.login || location == AppRoutes.register ||
-      location == AppRoutes.forgotPassword;
-
-      if (!isLoggedIn && !isPublic) return AppRoutes.login;
-      if (isLoggedIn && location == AppRoutes.login) return AppRoutes.subjects;
+      if (!isLoggedIn && !isPublicRoute) return AppRoutes.roleSelection;
+      if (isLoggedIn && isPublicRoute) return AppRoutes.subjects;
       return null;
     },
     routes: [
+      GoRoute(
+        path: AppRoutes.roleSelection,
+        builder: (_, __) => const RoleSelectionPage(),
+      ),
       GoRoute(
         path: AppRoutes.login,
         builder: (_, __) => const LoginPage(),
