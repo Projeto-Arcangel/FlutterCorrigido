@@ -37,7 +37,10 @@ final signInWithEmailProvider = Provider<SignInWithEmail>((ref) {
 });
 
 final signInWithGoogleProvider = Provider<SignInWithGoogle>((ref) {
-  return SignInWithGoogle(ref.watch(authRepositoryProvider));
+  return SignInWithGoogle(
+    ref.watch(authRepositoryProvider),
+    ref.watch(userRepositoryProvider),
+  );
 });
 
 final signOutProvider = Provider<SignOut>((ref) {
