@@ -1,10 +1,13 @@
+import 'package:arcangel_o_oficial/core/router/app_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/achievement.dart';
 import '../providers/profile_providers.dart';
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page – ponto de entrada da feature
@@ -101,15 +104,7 @@ class _ProfileAppBar extends ConsumerWidget {
             color: Colors.white54,
             size: 22,
           ),
-          onPressed: () {
-            // TODO: navegar para SettingsPage
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Configurações em breve'),
-                backgroundColor: AppColors.surfaceDark,
-              ),
-            );
-          },
+          onPressed: () => context.push(AppRoutes.settings),
         ),
       ],
     );
