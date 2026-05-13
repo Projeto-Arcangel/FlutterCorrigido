@@ -1,3 +1,4 @@
+import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +13,7 @@ import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 
+
 class AppRoutes {
   AppRoutes._();
 
@@ -21,6 +23,7 @@ class AppRoutes {
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
   static const String roleSelection = '/';
+  static const String settings = '/settings';
 
   static String lessonPath(String id) => '/lessons/$id';
   static const String register = '/register';
@@ -94,6 +97,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ProfilePage(),
       ),
       GoRoute(
+        path: AppRoutes.settings,
+        builder: (_, __) => const SettingsPage(),
+      ),
+      GoRoute(  
         path: AppRoutes.register,
         builder: (_, __) => const RegisterPage(),
       ),
