@@ -114,6 +114,8 @@ class _LessonContent extends ConsumerWidget {
         amount: 10,
       );
 
+      ref.read(quizControllerProvider(lesson.questions).notifier).setGoldEarned(10);
+
       ref.invalidate(userProgressProvider(user.id));
     }
   }
