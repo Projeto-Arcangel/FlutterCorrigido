@@ -122,6 +122,43 @@ class _TrailHeader extends StatelessWidget {
   }
 }
 
+// ── Zigue-zague responsivo: 3 colunas centralizadas na tela ─────────────────
+//
+// Em vez de espalhar os botões nas bordas da tela (`Alignment.centerLeft` /
+// `centerRight`), encerramos a trilha num container de largura fixa
+// `_kTrailMaxWidth` centralizado horizontalmente. Dentro dele há sempre 3
+// colunas de igual largura — a posição do botão é decidida por `index % 3`:
+//   • 0 → coluna esquerda
+//   • 1 → coluna do meio
+//   • 2 → coluna direita
+//
+// Vantagens vs. a abordagem anterior:
+//   1. Em qualquer tamanho de tela os botões mantêm a mesma distância
+//      entre si (≈ _kTrailMaxWidth / 3 − largura do botão).
+//   2. Tablet/desktop não esticam a trilha para o lado — fica visualmente
+//      consistente com o mobile.
+//   3. Estrutura semanticamente clara: "3 colunas com uma fase em uma
+//      delas por linha".
+const double _kTrailMaxWidth = 320;
+
+Widget _trailRow({required int index, required Widget cell}) {
+  final col = index % 3;
+  return Center(
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: _kTrailMaxWidth),
+      child: Row(
+        children: List.generate(3, (c) {
+          return Expanded(
+            child: Center(
+              child: c == col ? cell : const SizedBox.shrink(),
+            ),
+          );
+        }),
+      ),
+    ),
+  );
+}
+
 // ── Lista em zigue-zague ────────────────────────────────────────────────────
 class _TrailList extends StatelessWidget {
   const _TrailList({
@@ -131,37 +168,17 @@ class _TrailList extends StatelessWidget {
   final List<Lesson> lessons;
   final int currentPhase;
 
-  /// Mesma lógica do calcularPosicao original:
-  /// índice % 3 → 0 = esquerda, 1 = centro, 2 = direita
-  double _offsetForIndex(int index) {
-    final pos = index % 3;
-    if (pos == 0) return 40.0;
-    if (pos == 1) return 120.0;
-    return 40.0;
-  }
-
-  CrossAxisAlignment _alignForIndex(int index) {
-    final pos = index % 3;
-    if (pos == 1) return CrossAxisAlignment.end;
-    return CrossAxisAlignment.start;
-  }
-
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
       reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: lessons.length,
-      itemBuilder: (context, i) {
-       final lesson = lessons[i];
-      return _PhaseNode(
-          lesson: lesson,
-          index: i,
-          offset: _offsetForIndex(i),
-          align: _alignForIndex(i),
-          currentPhase: currentPhase,
-        );
-      },
+      itemBuilder: (context, i) => _PhaseNode(
+        lesson: lessons[i],
+        index: i,
+        currentPhase: currentPhase,
+      ),
     );
   }
 }
@@ -171,31 +188,24 @@ class _PhaseNode extends StatelessWidget {
   const _PhaseNode({
     required this.lesson,
     required this.index,
-    required this.offset,
-    required this.align,
     required this.currentPhase,
   });
 
   final Lesson lesson;
   final int index;
-  final double offset;
-  final CrossAxisAlignment align;
   final int currentPhase;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
-      child: Row(
-        children: [
-          if (align == CrossAxisAlignment.start) SizedBox(width: offset),
-          _PhaseButton(
-            lesson: lesson,
-            index: index,
-            currentPhase: currentPhase,
-          ),
-          if (align == CrossAxisAlignment.end) SizedBox(width: offset),
-        ],
+      child: _trailRow(
+        index: index,
+        cell: _PhaseButton(
+          lesson: lesson,
+          index: index,
+          currentPhase: currentPhase,
+        ),
       ),
     );
   }
@@ -319,14 +329,11 @@ class _EmptyTrail extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       itemCount: 4,
       itemBuilder: (context, i) {
-        const offsets = [40.0, 120.0, 40.0, 120.0];
         return Padding(
           padding: const EdgeInsets.only(bottom: 20),
-          child: Row(
-            children: [
-              SizedBox(width: offsets[i % 4]),
-              _OvalPhase(unlocked: false, completed: false, index: i),
-            ],
+          child: _trailRow(
+            index: i,
+            cell: _OvalPhase(unlocked: false, completed: false, index: i),
           ),
         );
       },
