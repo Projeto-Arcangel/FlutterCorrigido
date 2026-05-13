@@ -5,6 +5,7 @@ import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
 import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
@@ -20,7 +21,6 @@ class AppRoutes {
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
   static const String roleSelection = '/';
-  
 
   static String lessonPath(String id) => '/lessons/$id';
   static const String register = '/register';
@@ -31,16 +31,49 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthRefreshNotifier(ref);
   ref.onDispose(notifier.dispose);
 
+  // Rotas que NÃO exigem autenticação (telas de pré-login).
+  // A roleSelection é tratada à parte porque exige usuário logado.
+  const unauthRoutes = <String>{
+    AppRoutes.login,
+    AppRoutes.register,
+    AppRoutes.forgotPassword,
+  };
+
   return GoRouter(
-    initialLocation: AppRoutes.roleSelection,
+    initialLocation: AppRoutes.login,
     refreshListenable: notifier,
     redirect: (context, state) {
-      final isLoggedIn = ref.read(authStateProvider).valueOrNull != null;
-      final publicRoutes = {AppRoutes.roleSelection, AppRoutes.login};
-      final isPublicRoute = publicRoutes.contains(state.matchedLocation);
+      final user = ref.read(authStateProvider).valueOrNull;
+      final isLoggedIn = user != null;
+      final loc = state.matchedLocation;
+      final isUnauthRoute = unauthRoutes.contains(loc);
 
-      if (!isLoggedIn && !isPublicRoute) return AppRoutes.roleSelection;
-      if (isLoggedIn && isPublicRoute) return AppRoutes.subjects;
+      // 1. Não logado → manda para login (a menos que já esteja numa
+      //    rota pública como register/forgot-password).
+      if (!isLoggedIn) {
+        return isUnauthRoute ? null : AppRoutes.login;
+      }
+
+      // 2. Logado → verifica role.
+      final roleAsync = ref.read(currentUserRoleProvider);
+
+      // 2a. Role ainda carregando: NÃO redireciona — evita flicker.
+      //     O _AuthRefreshNotifier vai re-disparar quando o fetch terminar.
+      if (roleAsync.isLoading) return null;
+
+      final role = roleAsync.valueOrNull;
+
+      // 2b. Logado sem role → força roleSelection.
+      if (role == null) {
+        return loc == AppRoutes.roleSelection ? null : AppRoutes.roleSelection;
+      }
+
+      // 2c. Logado com role e ainda em tela de pré-login / roleSelection
+      //     → entra no app.
+      if (isUnauthRoute || loc == AppRoutes.roleSelection) {
+        return AppRoutes.subjects;
+      }
+
       return null;
     },
     routes: [
@@ -56,9 +89,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.subjects,
         builder: (_, __) => const SubjectChoicePage(),
       ),
-        GoRoute(
-    path: AppRoutes.profile,
-    builder: (_, __) => const ProfilePage(),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (_, __) => const ProfilePage(),
       ),
       GoRoute(
         path: AppRoutes.register,
@@ -83,19 +116,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   );
 });
 
+/// Bridge entre Riverpod e GoRouter.
+///
+/// Observa dois providers e dispara `notifyListeners` em qualquer mudança:
+/// 1. `authStateProvider` — login/logout/registro.
+///    Quando muda, INVALIDA `currentUserRoleProvider` para forçar o
+///    refetch do role do novo usuário (ou limpar o cache no logout).
+/// 2. `currentUserRoleProvider` — após o refetch terminar, dispara o
+///    redirect de novo (agora com o role conhecido, o gate decide).
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
-    _subscription = ref.listen(
-      authStateProvider,
-      (_, __) => notifyListeners(),
-    );
+    _authSub = ref.listen(authStateProvider, (_, __) {
+      ref.invalidate(currentUserRoleProvider);
+      notifyListeners();
+    });
+    _roleSub = ref.listen(currentUserRoleProvider, (_, __) {
+      notifyListeners();
+    });
   }
 
-  late final ProviderSubscription<dynamic> _subscription;
+  late final ProviderSubscription<dynamic> _authSub;
+  late final ProviderSubscription<dynamic> _roleSub;
 
   @override
   void dispose() {
-    _subscription.close();
+    _authSub.close();
+    _roleSub.close();
     super.dispose();
   }
 }

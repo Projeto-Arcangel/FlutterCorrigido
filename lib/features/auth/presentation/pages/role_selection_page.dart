@@ -1,24 +1,29 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../../../../core/router/app_router.dart';
+import '../../domain/entities/user.dart';
+import '../providers/auth_providers.dart';
 import '../widgets/role_card.dart';
 import '../widgets/role_selection_header.dart';
 
-class RoleSelectionPage extends StatefulWidget {
+class RoleSelectionPage extends ConsumerStatefulWidget {
   const RoleSelectionPage({super.key});
 
   @override
-  State<RoleSelectionPage> createState() => _RoleSelectionPageState();
+  ConsumerState<RoleSelectionPage> createState() => _RoleSelectionPageState();
 }
 
-class _RoleSelectionPageState extends State<RoleSelectionPage>
+class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctrl;
   late final Animation<double> _fadeTitle;
   late final Animation<double> _fadeCards;
   late final Animation<Offset>  _slideCards;
+
+  /// Marca quando uma das cards foi tocada e o `setRole` está em vôo.
+  /// Bloqueia toques duplos e ilustra loading.
+  bool _saving = false;
 
   @override
   void initState() {
@@ -56,9 +61,43 @@ class _RoleSelectionPageState extends State<RoleSelectionPage>
     super.dispose();
   }
 
-  void _onRoleSelected(String role) {
-    // Futuramente: ref.read(selectedRoleProvider.notifier).state = role;
-    context.go(AppRoutes.login);
+  Future<void> _onRoleSelected(UserRole role) async {
+    if (_saving) return;
+
+    final fbUser = ref.read(firebaseAuthProvider).currentUser;
+    if (fbUser == null) {
+      // Defesa em profundidade: o router não deveria deixar chegar aqui
+      // sem usuário logado, mas se acontecer (deep link, race condition),
+      // não tenta gravar e deixa o redirect resolver.
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    final result = await ref.read(userRepositoryProvider).setRole(
+          userId: fbUser.uid,
+          role: role,
+        );
+
+    if (!mounted) return;
+
+    result.fold(
+      (failure) {
+        setState(() => _saving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(failure.message),
+            backgroundColor: const Color(0xFF7D2E2E),
+          ),
+        );
+      },
+      (_) {
+        // Invalida o cache para forçar o refetch. O router observa este
+        // provider e, ao receber o novo valor, dispara o redirect para
+        // /subjects automaticamente.
+        ref.invalidate(currentUserRoleProvider);
+      },
+    );
   }
 
   @override
@@ -97,12 +136,15 @@ class _RoleSelectionPageState extends State<RoleSelectionPage>
                 position: _slideCards,
                 child: FadeTransition(
                   opacity: _fadeCards,
-                  child: RoleCard(
-                    emoji: '🎒',
-                    accentColor: const Color(0xFFEAD47F),
-                    title: 'Sou Aluno',
-                    subtitle: 'Estudar por conta própria ou via turma',
-                    onTap: () => _onRoleSelected('student'),
+                  child: AbsorbPointer(
+                    absorbing: _saving,
+                    child: RoleCard(
+                      emoji: '🎒',
+                      accentColor: const Color(0xFFEAD47F),
+                      title: 'Sou Aluno',
+                      subtitle: 'Estudar por conta própria ou via turma',
+                      onTap: () => _onRoleSelected(UserRole.student),
+                    ),
                   ),
                 ),
               ),
@@ -112,17 +154,27 @@ class _RoleSelectionPageState extends State<RoleSelectionPage>
                 position: _slideCards,
                 child: FadeTransition(
                   opacity: _fadeCards,
-                  child: RoleCard(
-                    emoji: '📋',
-                    accentColor: const Color(0xFF72D082),
-                    title: 'Sou Professor',
-                    subtitle: 'Gerenciar turmas, conteúdos e acompanhar alunos',
-                    onTap: () => _onRoleSelected('teacher'),
+                  child: AbsorbPointer(
+                    absorbing: _saving,
+                    child: RoleCard(
+                      emoji: '📋',
+                      accentColor: const Color(0xFF72D082),
+                      title: 'Sou Professor',
+                      subtitle:
+                          'Gerenciar turmas, conteúdos e acompanhar alunos',
+                      onTap: () => _onRoleSelected(UserRole.teacher),
+                    ),
                   ),
                 ),
               ),
 
               const Spacer(flex: 3),
+
+              if (_saving)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 16),
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
             ],
           ),
         ),

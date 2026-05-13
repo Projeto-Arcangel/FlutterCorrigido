@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/failure.dart';
-import '../../../../core/providers/firebase_providers.dart';
+import '../../../../core/infrastructure/firebase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
@@ -64,7 +64,7 @@ final sendPasswordResetProvider = Provider<ResetPasswordFn>(
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepositoryImpl(
-    ref.watch(firestoreProvider),   // já existe em lesson_providers.dart
+    ref.watch(firestoreProvider),
     ref.watch(loggerProvider),
   );
 });
@@ -74,4 +74,25 @@ final registerUserProvider = Provider<RegisterUser>((ref) {
     ref.watch(authRepositoryProvider),
     ref.watch(userRepositoryProvider),
   );
+});
+
+/// Role do usuário autenticado, lido de `Users/{uid}.role` no Firestore.
+///
+/// • `null`             = logado mas ainda não escolheu role
+///                        (router força a `RoleSelectionPage`).
+/// • `student`/`teacher` = role já definido.
+/// • `AsyncLoading`     = fetch em andamento — o router evita redirecionar
+///                        durante esse estado para não causar flicker.
+///
+/// Este provider NÃO observa o stream do Firebase Auth diretamente (para
+/// não acoplar a `login_controller.dart`, criando ciclo de imports).
+/// O `_AuthRefreshNotifier` em `app_router.dart` invalida este provider
+/// sempre que o `authStateProvider` muda — esse é o gatilho de refetch.
+/// Também invalidar manualmente após `setRole`.
+final currentUserRoleProvider = FutureProvider<UserRole?>((ref) async {
+  final fbUser = ref.read(firebaseAuthProvider).currentUser;
+  if (fbUser == null) return null;
+
+  final result = await ref.read(userRepositoryProvider).getRole(fbUser.uid);
+  return result.fold((_) => null, (role) => role);
 });

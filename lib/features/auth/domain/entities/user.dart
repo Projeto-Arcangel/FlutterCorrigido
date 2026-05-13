@@ -8,13 +8,18 @@ import 'package:equatable/equatable.dart';
 /// string ("student" | "teacher").
 enum UserRole { student, teacher }
 
-UserRole userRoleFromString(String? value) {
+/// Converte uma string vinda do Firestore em `UserRole`.
+/// Retorna `null` quando o valor é desconhecido ou ausente — usado pelo
+/// gate de role no router para decidir se o usuário precisa passar pela
+/// `RoleSelectionPage`.
+UserRole? userRoleFromString(String? value) {
   switch (value) {
     case 'teacher':
       return UserRole.teacher;
     case 'student':
-    default:
       return UserRole.student;
+    default:
+      return null;
   }
 }
 

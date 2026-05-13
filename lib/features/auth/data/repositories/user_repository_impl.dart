@@ -12,13 +12,19 @@ class UserRepositoryImpl implements UserRepository {
 
   UserRepositoryImpl(this._firestore, this._logger);
 
+  DocumentReference<Map<String, dynamic>> _userDoc(String userId) =>
+      _firestore.collection('Users').doc(userId);
+
   @override
   Future<Either<Failure, void>> createProfileIfAbsent(User user) async {
     try {
-      final doc = _firestore.collection('Users').doc(user.id);
+      final doc = _userDoc(user.id);
       final snap = await doc.get();
       if (snap.exists) return const Right(null);
 
+      // `role` propositalmente AUSENTE — o usuário ainda não escolheu.
+      // O router observa essa ausência via `currentUserRoleProvider` e
+      // força a passagem pela `RoleSelectionPage`.
       await doc.set({
         'display_name': user.displayName ?? '',
         'email': user.email,
@@ -33,6 +39,37 @@ class UserRepositoryImpl implements UserRepository {
     } catch (e, st) {
       _logger.e('createProfileIfAbsent failed', error: e, stackTrace: st);
       return const Left(NetworkFailure('Falha ao criar perfil do usuário.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, UserRole?>> getRole(String userId) async {
+    try {
+      final snap = await _userDoc(userId).get();
+      if (!snap.exists) return const Right(null);
+      final data = snap.data();
+      final raw = data?['role'] as String?;
+      return Right(userRoleFromString(raw));
+    } catch (e, st) {
+      _logger.e('getRole failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao carregar role do usuário.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> setRole({
+    required String userId,
+    required UserRole role,
+  }) async {
+    try {
+      await _userDoc(userId).set(
+        {'role': role.name},
+        SetOptions(merge: true),
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('setRole failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao salvar role do usuário.'));
     }
   }
 }
