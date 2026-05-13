@@ -32,6 +32,7 @@ class QuizView extends ConsumerWidget {
         total: questions.length,
         correct: state.correctCount,
         xpEarned: state.xpEarned,
+        goldEarned: state.goldEarned,
         onRestart: controller.reset,
       );
     }

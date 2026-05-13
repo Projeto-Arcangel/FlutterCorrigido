@@ -12,6 +12,7 @@ class QuizState {
   final bool finished;
   final int correctCount;
   final double xpEarned;
+  final int goldEarned;
   final bool xpSaved;
   final bool confirmed;
 
@@ -21,6 +22,7 @@ class QuizState {
     this.finished = false,
     this.correctCount = 0,
     this.xpEarned = 0,
+    this.goldEarned = 0,
     this.xpSaved = false,
     this.confirmed = false,
   });
@@ -31,6 +33,7 @@ class QuizState {
     bool? finished,
     int? correctCount,
     double? xpEarned,
+    int? goldEarned,
     bool? xpSaved,
     bool? confirmed,
   }) {
@@ -40,6 +43,7 @@ class QuizState {
       finished: finished ?? this.finished,
       correctCount: correctCount ?? this.correctCount,
       xpEarned: xpEarned ?? this.xpEarned,
+      goldEarned: goldEarned ?? this.goldEarned,
       xpSaved: xpSaved ?? this.xpSaved,
       confirmed: confirmed ?? this.confirmed,
     );
@@ -105,4 +109,8 @@ class QuizController extends _$QuizController {
   }
 
   void reset() => state = const QuizState();
+
+  void setGoldEarned(int amount){
+    state = state.copyWith(goldEarned: amount);
+  }
 }
