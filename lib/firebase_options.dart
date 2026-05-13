@@ -30,10 +30,7 @@ class DefaultFirebaseOptions {
           'you can reconfigure this by running the FlutterFire CLI again.',
         );
       case TargetPlatform.windows:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for windows - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return windows;
       case TargetPlatform.linux:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for linux - '
@@ -47,30 +44,39 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyCeBI1G4JyfCQxGxZ8JawKXePboUxDiIUg',
+    appId: '1:110350827168:web:605db3b3199bc2bda193c5',
+    messagingSenderId: '110350827168',
+    projectId: 'arcangel-4c066',
+    authDomain: 'arcangel-4c066.firebaseapp.com',
+    storageBucket: 'arcangel-4c066.firebasestorage.app',
+  );
+
+  static const FirebaseOptions android = FirebaseOptions(
+    apiKey: 'AIzaSyBxg_qwkc14_IfL_DVv2Xq_36vjVswPHaI',
+    appId: '1:110350827168:android:e7ae721586c82139a193c5',
+    messagingSenderId: '110350827168',
+    projectId: 'arcangel-4c066',
+    storageBucket: 'arcangel-4c066.firebasestorage.app',
+  );
+
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyAtocK_LaeE_HeEksGRDTJy0S6iFG5R6-c',
+    appId: '1:110350827168:ios:47ee5d73303c3a5ea193c5',
+    messagingSenderId: '110350827168',
+    projectId: 'arcangel-4c066',
+    storageBucket: 'arcangel-4c066.firebasestorage.app',
+    iosClientId: '110350827168-9n07lul5t3097f8iedre195vgs9g16s0.apps.googleusercontent.com',
+    iosBundleId: 'com.mycompany.arcangelooficial',
+  );
+
+  static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyCyHDQs-RTm3J2oYolELIXKOYFWQE5ZEHQ',
-    appId: '1:1004268647764:web:4253028bee32bacf6a84c1',
+    appId: '1:1004268647764:web:c076489468dab9296a84c1',
     messagingSenderId: '1004268647764',
     projectId: 'casoeuerre-8g1y00',
     authDomain: 'casoeuerre-8g1y00.firebaseapp.com',
     storageBucket: 'casoeuerre-8g1y00.firebasestorage.app',
   );
 
-  static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyAhRLHN2sLMWfuvIjbnq72_tcHh9pBLT0E',
-    appId: '1:1004268647764:android:a9d8c14596c133846a84c1',
-    messagingSenderId: '1004268647764',
-    projectId: 'casoeuerre-8g1y00',
-    storageBucket: 'casoeuerre-8g1y00.firebasestorage.app',
-  );
-
-  static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyBhAtr3oQMG8d5uSN3HHj1gBqcxwBsu0j0',
-    appId: '1:1004268647764:ios:951a636ef6b7c3676a84c1',
-    messagingSenderId: '1004268647764',
-    projectId: 'casoeuerre-8g1y00',
-    storageBucket: 'casoeuerre-8g1y00.firebasestorage.app',
-    androidClientId: '1004268647764-6eouss5sg9vvur7rho280137m9emaoad.apps.googleusercontent.com',
-    iosClientId: '1004268647764-kfsb3a007ksmtp3b8q5mn23mnv1gsvvl.apps.googleusercontent.com',
-    iosBundleId: 'com.mycompany.arcangelooficial',
-  );
 }

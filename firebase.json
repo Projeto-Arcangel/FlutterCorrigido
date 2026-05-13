@@ -3,18 +3,18 @@
     "platforms": {
       "android": {
         "default": {
-          "projectId": "casoeuerre-8g1y00",
-          "appId": "1:1004268647764:android:a9d8c14596c133846a84c1",
+          "projectId": "arcangel-4c066",
+          "appId": "1:110350827168:android:e7ae721586c82139a193c5",
           "fileOutput": "android/app/google-services.json"
         }
       },
       "dart": {
         "lib/firebase_options.dart": {
-          "projectId": "casoeuerre-8g1y00",
+          "projectId": "arcangel-4c066",
           "configurations": {
-            "android": "1:1004268647764:android:a9d8c14596c133846a84c1",
-            "ios": "1:1004268647764:ios:951a636ef6b7c3676a84c1",
-            "web": "1:1004268647764:web:4253028bee32bacf6a84c1"
+            "android": "1:110350827168:android:e7ae721586c82139a193c5",
+            "ios": "1:110350827168:ios:47ee5d73303c3a5ea193c5",
+            "web": "1:110350827168:web:605db3b3199bc2bda193c5"
           }
         }
       }
@@ -28,5 +28,11 @@
         "supportEmail": "migsos011205@gmail.com"
       }
     }
+  },
+  "firestore": {
+    "database": "(default)",
+    "location": "southamerica-east1",
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   }
 }
