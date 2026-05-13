@@ -21,7 +21,6 @@ class RegisterUser {
       password: password,
       displayName: displayName,
     );
-
     return result.fold(
       Left.new,
       (user) async {
