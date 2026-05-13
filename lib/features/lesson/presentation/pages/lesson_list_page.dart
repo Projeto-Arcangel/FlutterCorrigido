@@ -6,9 +6,10 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../progress/domain/entities/level_utils.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
-import '../providers/lesson_providers.dart';
 import '../../domain/entities/lesson.dart';
+import '../providers/lesson_providers.dart';
 
 class LessonListPage extends ConsumerWidget {
   const LessonListPage({super.key});
@@ -57,55 +58,115 @@ class LessonListPage extends ConsumerWidget {
 }
 
 // ── Header ─────────────────────────────────────────────────────────────────
-class _TrailHeader extends StatelessWidget {
+// Agora é ConsumerWidget para acessar userProgressProvider e exibir:
+//  • nível real do usuário
+//  • barra circular de XP em volta do avatar
+//  • quantidade real de moedas (gold)
+class _TrailHeader extends ConsumerWidget {
   const _TrailHeader({required this.onLogout});
   final VoidCallback onLogout;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authStateProvider).valueOrNull;
+    final asyncProgress =
+        user == null ? null : ref.watch(userProgressProvider(user.id));
+    final progress = asyncProgress?.valueOrNull;
+
+    // ── Dados derivados do progresso ──────────────────────────────
+    final int level = progress?.level ?? 1;
+    final int gold = progress?.gold ?? 0;
+
+    // Cálculo de progresso dentro do nível atual (mesma lógica do ProfileData)
+    final int xpForLevel = xpRequiredForLevel(level);
+    final double xpAtLevelStart = totalXpForLevel(level);
+    final double xpIntoLevel =
+        ((progress?.xp ?? 0) - xpAtLevelStart).clamp(0, xpForLevel.toDouble());
+    final double levelProgress =
+        xpForLevel > 0 ? (xpIntoLevel / xpForLevel).clamp(0.0, 1.0) : 0.0;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           // Ícone de configurações / chá (lado esquerdo)
-          const Icon(Icons.local_cafe_outlined,
-              color: Colors.white54, size: 28),
+          const Icon(
+            Icons.local_cafe_outlined,
+            color: Colors.white54,
+            size: 28,
+          ),
 
           const Spacer(),
 
-          // Avatar + level (centro)
+          // Avatar + progress ring + level (centro)
           Column(
             children: [
               GestureDetector(
                 onTap: () => context.push(AppRoutes.profile),
-                child: CircleAvatar(
-                  radius: 24,
-                  backgroundColor: AppColors.surfaceDark,
-                  child:
-                      const Icon(Icons.person, color: Colors.white70, size: 28),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Barra circular de XP em volta do avatar
+                      SizedBox(
+                        width: 56,
+                        height: 56,
+                        child: CircularProgressIndicator(
+                          value: levelProgress,
+                          strokeWidth: 3,
+                          backgroundColor: AppColors.surfaceDark,
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppColors.primary,
+                          ),
+                        ),
+                      ),
+                      // Avatar interno
+                      const CircleAvatar(
+                        radius: 22,
+                        backgroundColor: AppColors.surfaceDark,
+                        child: Icon(
+                          Icons.person,
+                          color: Colors.white70,
+                          size: 26,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              const Text(
-                '[level]',
-                style: TextStyle(color: Colors.white54, fontSize: 11),
+              const SizedBox(height: 4),
+              Text(
+                'Nv. $level',
+                style: const TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
 
           const Spacer(),
 
-          // Moedas (lado direito)
+          // Moedas (lado direito) — valor real do progresso
           Row(
-            children: const [
-              FaIcon(FontAwesomeIcons.coins,
-                  color: Color(0xFFEAD47F), size: 24),
-              SizedBox(width: 6),
-              Text('0000',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15)),
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.coins,
+                color: Color(0xFFEAD47F),
+                size: 24,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                gold.toString().padLeft(4, '0'),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
             ],
           ),
 
