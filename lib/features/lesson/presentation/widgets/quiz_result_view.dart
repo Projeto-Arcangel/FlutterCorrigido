@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/widgets/app_button.dart';
@@ -10,12 +11,14 @@ class QuizResultView extends StatelessWidget {
     required this.total,
     required this.correct,
     required this.xpEarned,
+    required this.goldEarned,
     required this.onRestart,
   });
 
   final int total;
   final int correct;
   final double xpEarned;
+  final int goldEarned;
   final VoidCallback onRestart;
 
   int get _percent => total == 0 ? 0 : ((correct / total) * 100).round();
@@ -38,7 +41,6 @@ class QuizResultView extends StatelessWidget {
               color: _passed ? const Color(0xFFFFD700) : cs.outline,
             ),
             const SizedBox(height: 16),
-
             Text(
               _passed ? 'Lição concluída!' : 'Quase lá!',
               textAlign: TextAlign.center,
@@ -47,7 +49,6 @@ class QuizResultView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-
             Text(
               _passed
                   ? 'Você acertou $correct de $total questões.'
@@ -58,7 +59,6 @@ class QuizResultView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
               child: LinearProgressIndicator(
@@ -79,7 +79,6 @@ class QuizResultView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-
             if (xpEarned > 0) ...[
               Container(
                 padding: const EdgeInsets.symmetric(
@@ -93,7 +92,8 @@ class QuizResultView extends StatelessWidget {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.bolt_rounded, color: cs.onPrimaryContainer, size: 28),
+                    Icon(Icons.bolt_rounded,
+                        color: cs.onPrimaryContainer, size: 28),
                     const SizedBox(width: 8),
                     Text(
                       '+${xpEarned.toInt()} XP ganhos!',
@@ -107,7 +107,37 @@ class QuizResultView extends StatelessWidget {
               ),
               const SizedBox(height: 32),
             ],
-
+            if (goldEarned > 0) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 16,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEAD47F).withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Icon(
+                      FontAwesomeIcons.coins,
+                      color: Color(0xFFEAD47F),
+                      size: 22,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+$goldEarned moedas ganhas!',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: const Color(0xFFEAD47F),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
             AppButton(
               onPressed: onRestart,
               label: 'Tentar novamente',

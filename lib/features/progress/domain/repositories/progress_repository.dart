@@ -15,4 +15,9 @@ abstract class ProgressRepository {
     required String userId,
     required int newPhase,
   });
+
+  Future<Either<Failure, void>> addGold({
+    required String userId,
+    required int amount,
+  });
 }

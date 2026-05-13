@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/utils/logger_provider.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../progress/domain/entities/level_utils.dart';
 import '../../../progress/domain/entities/user_progress.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/achievement.dart';
@@ -26,23 +27,22 @@ class ProfileData {
   final List<Achievement> achievements;
 
   // ── Lógica de nível ──────────────────────────────────────────────────────
-  // Cada nível exige (nível × 100) XP, escala linear e simples de entender.
-  // Exemplo: nível 1 → 100 XP | nível 5 → 500 XP | nível 10 → 1 000 XP.
+  // Usa a curva polinomial definida em level_utils.dart:
+  //   XP para avançar do nível N = floor(80 × N^1.5)
 
-  int get xpForCurrentLevel => progress.level * 100;
+  /// XP necessário para avançar do nível atual para o próximo.
+  int get xpForCurrentLevel => xpRequiredForLevel(progress.level);
 
+  /// Quanto XP o usuário já acumulou DENTRO do nível atual.
   double get xpIntoLevel {
-    final xpAtLevelStart = List.generate(
-      progress.level - 1,
-      (i) => (i + 1) * 100,
-    ).fold<double>(0, (acc, v) => acc + v);
-
+    final xpAtLevelStart = totalXpForLevel(progress.level);
     return (progress.xp - xpAtLevelStart).clamp(
       0,
       xpForCurrentLevel.toDouble(),
     );
   }
 
+  /// Progresso percentual dentro do nível atual (0.0 a 1.0).
   double get levelProgress =>
       (xpIntoLevel / xpForCurrentLevel).clamp(0.0, 1.0);
 
