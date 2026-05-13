@@ -36,7 +36,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final result = await ref.read(registerWithEmailProvider)(
+    final result = await ref.read(registerUserProvider).call(
       email: _emailCtrl.text.trim(),
       password: _passwordCtrl.text,
       displayName: _nameCtrl.text.trim(),

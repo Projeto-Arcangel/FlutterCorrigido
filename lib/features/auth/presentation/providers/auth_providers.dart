@@ -4,10 +4,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../../../core/providers/firebase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/repositories/auth_repository_impl.dart';
+import '../../data/repositories/user_repository_impl.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../domain/repositories/user_repository.dart';
+import '../../domain/usecases/register_user.dart';
 import '../../domain/usecases/sign_in_with_email.dart';
 import '../../domain/usecases/sign_in_with_google.dart';
 import '../../domain/usecases/sign_out.dart';
@@ -57,3 +61,17 @@ final registerWithEmailProvider = Provider<RegisterFn>(
 final sendPasswordResetProvider = Provider<ResetPasswordFn>(
   (ref) => ref.watch(authRepositoryProvider).sendPasswordReset,
 );
+
+final userRepositoryProvider = Provider<UserRepository>((ref) {
+  return UserRepositoryImpl(
+    ref.watch(firestoreProvider),   // já existe em lesson_providers.dart
+    ref.watch(loggerProvider),
+  );
+});
+
+final registerUserProvider = Provider<RegisterUser>((ref) {
+  return RegisterUser(
+    ref.watch(authRepositoryProvider),
+    ref.watch(userRepositoryProvider),
+  );
+});
