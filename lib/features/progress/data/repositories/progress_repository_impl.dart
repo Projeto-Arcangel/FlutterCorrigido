@@ -86,4 +86,19 @@ class ProgressRepositoryImpl implements ProgressRepository {
       return const Left(NetworkFailure('Falha ao avançar fase.'));
     }
   }
+  @override
+  Future<Either<Failure, void>> addGold({
+    required String userId,
+    required int amount,
+  }) async {
+    try {
+      await _userDoc(userId).update({
+        'gold': FieldValue.increment(amount),
+      });
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('addGold failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao adicionar gold.'));
+    }
+  }
 }
