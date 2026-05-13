@@ -20,8 +20,7 @@ class LessonPage extends ConsumerWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
-      backgroundColor:
-          isDark ? AppColors.backgroundDark : AppColors.background,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       appBar: AppBar(
         title: const Text(
           'Conteúdo',
@@ -30,8 +29,7 @@ class LessonPage extends ConsumerWidget {
         centerTitle: true,
         backgroundColor:
             isDark ? AppColors.backgroundDark : AppColors.background,
-        foregroundColor:
-            isDark ? AppColors.textOnDark : AppColors.textPrimary,
+        foregroundColor: isDark ? AppColors.textOnDark : AppColors.textPrimary,
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
@@ -109,6 +107,13 @@ class _LessonContent extends ConsumerWidget {
         userId: user.id,
         newPhase: lesson.order,
       );
+
+      // NOVO: concede gold apenas na primeira conclusão da fase
+      await repo.addGold(
+        userId: user.id,
+        amount: 10,
+      );
+
       ref.invalidate(userProgressProvider(user.id));
     }
   }
