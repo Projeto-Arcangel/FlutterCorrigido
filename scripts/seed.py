@@ -6,7 +6,7 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 key_path = os.path.join(script_dir, 'serviceAccountKey.json')
 
 cred = credentials.Certificate(key_path)
-firebase_admin.initialize_app(cred, {'projectId': 'casoeuerre-8g1y00'})
+firebase_admin.initialize_app(cred, {'projectId': 'arcangel-4c066'})
 db = firestore.client()
 
 phases = [
