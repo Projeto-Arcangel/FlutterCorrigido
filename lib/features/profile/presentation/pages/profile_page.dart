@@ -315,7 +315,7 @@ class _StatsRow extends StatelessWidget {
             _StatItem(
               icon: Icons.map_rounded,
               color: const Color(0xFF72D082),
-              value: progress.currentPhase.toString(),
+              value: (progress.currentPhase + 1).toString(),
               label: 'Fase Atual',
             ),
           ],
