@@ -33,6 +33,7 @@ class ClassroomFirestoreDatasource {
     required String name,
     required String description,
     required String teacherId,
+    required String teacherName,
   }) async {
     final code = await _generateUniqueCode();
     final now = DateTime.now();
@@ -42,6 +43,7 @@ class ClassroomFirestoreDatasource {
       'name': name,
       'description': description,
       'teacherId': teacherId,
+      'teacherName': teacherName,
       'studentIds': <String>[],
       'createdAt': Timestamp.fromDate(now),
       'isActive': true,
@@ -53,6 +55,7 @@ class ClassroomFirestoreDatasource {
       name: name,
       description: description,
       teacherId: teacherId,
+      teacherName: teacherName,
       studentIds: const <String>[],
       createdAt: now,
       isActive: true,

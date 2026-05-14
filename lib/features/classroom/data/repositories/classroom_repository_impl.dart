@@ -27,12 +27,14 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required String name,
     required String description,
     required String teacherId,
+    required String teacherName,
   }) async {
     try {
       final classroom = await _datasource.createClassroom(
         name: name,
         description: description,
         teacherId: teacherId,
+        teacherName: teacherName,
       );
       return Right(classroom);
     } catch (e, st) {

@@ -15,6 +15,7 @@ class Classroom extends Equatable {
   final String name;
   final String description;
   final String teacherId;
+  final String teacherName;
   final List<String> studentIds;
   final DateTime createdAt;
   final bool isActive;
@@ -28,6 +29,7 @@ class Classroom extends Equatable {
     required this.name,
     required this.description,
     required this.teacherId,
+    required this.teacherName,
     required this.studentIds,
     required this.createdAt,
     required this.isActive,
@@ -47,6 +49,7 @@ class Classroom extends Equatable {
         name,
         description,
         teacherId,
+        teacherName,
         studentIds,
         createdAt,
         isActive,

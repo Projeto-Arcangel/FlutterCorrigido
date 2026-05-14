@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/firebase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../../data/datasources/firebase/classroom_firestore_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
@@ -150,3 +151,59 @@ final classroomPhasesProvider = FutureProvider.autoDispose
   );
 });
 
+// É um AsyncNotifier para expor estado de loading e método .join().
+
+class JoinClassroomNotifier extends AsyncNotifier<void> {
+  @override
+  Future<void> build() async {}
+
+  /// Retorna mensagem de erro ou null em caso de sucesso.
+  Future<String?> join(String code) async {
+    final user = ref.read(firebaseAuthProvider).currentUser;
+    if (user == null) return 'Usuário não autenticado.';
+
+    state = const AsyncLoading();
+
+    final useCase = ref.read(joinClassroomProvider);
+    final result = await useCase(
+      code: code,
+      studentId: user.uid,
+    );
+
+    return result.fold(
+      (failure) {
+        state = const AsyncData(null);
+        return failure.message;
+      },
+      (_) {
+        // Invalida a lista de turmas para atualizar o _ClassroomList
+        ref.invalidate(userClassroomsProvider);
+        state = const AsyncData(null);
+        return null;
+      },
+    );
+  }
+}
+
+final joinClassroomNotifierProvider =
+    AsyncNotifierProvider<JoinClassroomNotifier, void>(
+  JoinClassroomNotifier.new,
+);
+
+// ─── Turmas do aluno logado (sem parâmetro) ─────────────────────
+// Lê o uid internamente via firebaseAuthProvider.
+// Usado pelo _ClassroomList no classroom_sheet.dart.
+
+final userClassroomsProvider =
+    FutureProvider.autoDispose<List<Classroom>>((ref) async {
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) return [];
+
+  final useCase = ref.watch(getStudentClassroomProvider);
+  final result = await useCase(user.uid);
+
+  return result.fold(
+    (_) => [],
+    (classroom) => classroom == null ? [] : [classroom],
+  );
+});

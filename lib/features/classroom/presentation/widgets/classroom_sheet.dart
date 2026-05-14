@@ -44,7 +44,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
     setState(() => _errorMsg = null);
 
     final error = await ref
-        .read(joinClassroomProvider.notifier)
+        .read(joinClassroomNotifierProvider.notifier)
         .join(_codeCtrl.text.trim());
 
     if (!mounted) return;
@@ -71,7 +71,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final isLoading = ref.watch(joinClassroomProvider).isLoading;
+    final isLoading = ref.watch(joinClassroomNotifierProvider).isLoading;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
@@ -389,30 +389,9 @@ class _ClassroomCard extends StatelessWidget {
   final Classroom classroom;
 
   // Mesma paleta usada nas matérias
-  static const _subjectColors = {
-    'history': Color(0xFF6F574A),
-    'philosophy': Color(0xFFD9D9D9),
-    'sociology': Color(0xFFEAD47F),
-    'geography': Color(0xFF72D082),
-  };
+  Color get _color => AppColors.primary;
 
-  Color get _color =>
-      _subjectColors[classroom.subject] ?? AppColors.primary;
-
-  IconData get _icon {
-    switch (classroom.subject) {
-      case 'history':
-        return Icons.auto_stories_rounded;
-      case 'philosophy':
-        return Icons.lightbulb_outline_rounded;
-      case 'sociology':
-        return Icons.people_outline_rounded;
-      case 'geography':
-        return Icons.public_rounded;
-      default:
-        return Icons.school_outlined;
-    }
-  }
+  IconData get _icon => Icons.school_outlined;
 
   @override
   Widget build(BuildContext context) {

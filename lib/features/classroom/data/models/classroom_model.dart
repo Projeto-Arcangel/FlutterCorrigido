@@ -13,11 +13,25 @@ class ClassroomModel extends Classroom {
     required super.name,
     required super.description,
     required super.teacherId,
+    required super.teacherName,
     required super.studentIds,
     required super.createdAt,
     required super.isActive,
     required super.questions,
   });
+
+  factory ClassroomModel.empty() => ClassroomModel(
+        id: '',
+        code: '',
+        name: '',
+        description: '',
+        teacherId: '',
+        teacherName: '',
+        studentIds: const [],
+        createdAt: DateTime(2024),
+        isActive: false,
+        questions: const [],
+      );
 
   /// Constrói a partir de um `DocumentSnapshot` do Firestore.
   ///
@@ -33,6 +47,7 @@ class ClassroomModel extends Classroom {
       name: (data['name'] as String?) ?? '',
       description: (data['description'] as String?) ?? '',
       teacherId: (data['teacherId'] as String?) ?? '',
+      teacherName: (data['teacherName'] as String?) ?? '',
       studentIds: List<String>.from(
         (data['studentIds'] as List<dynamic>?) ?? [],
       ),
