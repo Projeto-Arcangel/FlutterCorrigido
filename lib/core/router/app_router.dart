@@ -14,6 +14,7 @@ import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/create_quiz_page.dart';
+import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
 
@@ -25,6 +26,7 @@ class AppRoutes {
   static const String subjects = '/subjects';
   static const String teacher = '/teacher';
   static const String teacherCreateQuiz = '/teacher/create-quiz';
+  static const String teacherCustomizeQuiz = '/teacher/customize-quiz';
   static const String teacherIaQuiz = '/teacher/ia-quiz';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
@@ -108,6 +110,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'create-quiz',
             builder: (_, __) => const CreateQuizPage(),
+          ),
+          GoRoute(
+            path: 'customize-quiz',
+            builder: (_, state) {
+              final extra = state.extra! as Map<String, dynamic>;
+              return CustomizeQuizPage(
+                quantity: extra['quantity'] as int,
+                topic: extra['topic'] as String,
+                difficulty: extra['difficulty'] as String,
+              );
+            },
           ),
           GoRoute(
             path: 'ia-quiz',

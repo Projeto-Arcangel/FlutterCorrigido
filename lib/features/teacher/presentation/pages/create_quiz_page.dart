@@ -3,6 +3,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -37,8 +38,6 @@ enum _Difficulty {
   final String label;
 }
 
-enum _SaveStatus { idle, saving }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Page
 // Heurística #1: contagem dinâmica de questões visível o tempo todo.
@@ -60,10 +59,8 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
 
   _Difficulty _difficulty = _Difficulty.medium;
   double _quantity = 5;
-  _SaveStatus _status = _SaveStatus.idle;
 
-  bool get _canSave =>
-      _topicCtrl.text.trim().isNotEmpty && _status == _SaveStatus.idle;
+  bool get _canSave => _topicCtrl.text.trim().isNotEmpty;
 
   @override
   void dispose() {
@@ -72,44 +69,16 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
     super.dispose();
   }
 
-  Future<void> _onSave() async {
+  void _onSave() {
     if (!_canSave) return;
     _focusNode.unfocus();
-    setState(() => _status = _SaveStatus.saving);
-
-    // Placeholder — substituir pela lógica real de criação de questões
-    await Future<void>.delayed(const Duration(milliseconds: 1600));
-    if (!mounted) return;
-
-    setState(() => _status = _SaveStatus.idle);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const FaIcon(
-              FontAwesomeIcons.penToSquare,
-              size: 15,
-              color: _C.accent,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Editor de questões em breve!',
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        duration: const Duration(seconds: 3),
-      ),
+    context.push(
+      AppRoutes.teacherCustomizeQuiz,
+      extra: <String, dynamic>{
+        'quantity': _quantity.round(),
+        'topic': _topicCtrl.text.trim(),
+        'difficulty': _difficulty.label,
+      },
     );
   }
 
@@ -194,7 +163,7 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
                       // Botão principal
                       _SaveButton(
                         enabled: _canSave,
-                        saving: _status == _SaveStatus.saving,
+                        saving: false,
                         onTap: _onSave,
                       ),
                     ],
