@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/login_controller.dart';
+
 import '../../../progress/domain/entities/level_utils.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/lesson.dart';
@@ -28,10 +28,7 @@ class LessonListPage extends ConsumerWidget {
         child: Column(
           children: [
             // ── Header: avatar + level + moedas ──────────────────────
-            _TrailHeader(
-              onLogout: () =>
-                  ref.read(loginControllerProvider.notifier).signOut(),
-            ),
+            const _TrailHeader(),
             const SizedBox(height: 12),
 
             // ── Lista de fases ────────────────────────────────────────
@@ -63,8 +60,7 @@ class LessonListPage extends ConsumerWidget {
 //  • barra circular de XP em volta do avatar
 //  • quantidade real de moedas (gold)
 class _TrailHeader extends ConsumerWidget {
-  const _TrailHeader({required this.onLogout});
-  final VoidCallback onLogout;
+  const _TrailHeader();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -170,13 +166,7 @@ class _TrailHeader extends ConsumerWidget {
             ],
           ),
 
-          const SizedBox(width: 12),
 
-          // Logout
-          GestureDetector(
-            onTap: onLogout,
-            child: const Icon(Icons.logout, color: Colors.white38, size: 22),
-          ),
         ],
       ),
     );
