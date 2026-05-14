@@ -6,6 +6,7 @@ import '../../../lesson/domain/entities/question.dart';
 import '../../data/datasources/firebase/classroom_firestore_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
 import '../../domain/entities/classroom.dart';
+import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../../domain/usecases/add_question_to_classroom.dart';
@@ -16,9 +17,11 @@ import '../../domain/usecases/get_student_classroom.dart';
 import '../../domain/usecases/get_teacher_classrooms.dart';
 import '../../domain/usecases/join_classroom.dart';
 import '../../domain/usecases/leave_classroom.dart';
+import '../../domain/usecases/save_classroom_quiz.dart';
 import '../../domain/usecases/submit_classroom_result.dart';
 import '../../domain/usecases/update_classroom.dart';
 import '../../domain/usecases/update_question_in_classroom.dart';
+
 
 // ─── Infraestrutura ────────────────────────────────────────────
 
@@ -129,3 +132,21 @@ final classroomResultsProvider = FutureProvider.autoDispose
     (results) => results,
   );
 });
+
+// ─── Quiz → Fase ───────────────────────────────────────────────
+
+final saveClassroomQuizProvider = Provider<SaveClassroomQuiz>((ref) {
+  return SaveClassroomQuiz(ref.watch(classroomRepositoryProvider));
+});
+
+/// Fases (phases) de uma sala de aula (por classroomId).
+final classroomPhasesProvider = FutureProvider.autoDispose
+    .family<List<ClassroomPhase>, String>((ref, classroomId) async {
+  final repo = ref.watch(classroomRepositoryProvider);
+  final result = await repo.getClassroomPhases(classroomId);
+  return result.fold(
+    (failure) => throw Exception(failure.message),
+    (phases) => phases,
+  );
+});
+

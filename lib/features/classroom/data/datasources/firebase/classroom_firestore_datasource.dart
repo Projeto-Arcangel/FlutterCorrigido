@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
 import '../../models/classroom_model.dart';
+import '../../models/classroom_phase_model.dart';
 import '../../models/classroom_result_model.dart';
 
 /// Camada de acesso ao Firestore para a feature `classroom`.
@@ -261,5 +262,103 @@ class ClassroomFirestoreDatasource {
       case QuestionType.unknown:
         return -1;
     }
+  }
+
+  // ─── Fases de sala (subcoleção phases dentro de Classrooms) ────
+
+  /// Referência à subcoleção `phases` de uma sala.
+  CollectionReference<Map<String, dynamic>> _phasesRef(
+    String classroomId,
+  ) =>
+      _classrooms.doc(classroomId).collection('phases');
+
+  /// Referência à subcoleção `questions` de uma fase dentro de uma sala.
+  CollectionReference<Map<String, dynamic>> _phaseQuestionsRef(
+    String classroomId,
+    String phaseId,
+  ) =>
+      _phasesRef(classroomId).doc(phaseId).collection('questions');
+
+  /// Cria uma fase vinculada a uma sala de aula e salva todas as questões
+  /// como subcoleção da fase.
+  ///
+  /// Estrutura: `Classrooms/{classroomId}/phases/{phaseId}/questions/{qId}`
+  ///
+  /// Usa batch write para garantir atomicidade: ou tudo é criado,
+  /// ou nada.
+  Future<ClassroomPhaseModel> saveQuizAsPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+    required List<Question> questions,
+  }) async {
+    // Calcula a próxima ordem para fases desta sala.
+    final existingSnap = await _phasesRef(classroomId).get();
+    final nextOrder = existingSnap.docs.length + 1;
+
+    final now = DateTime.now();
+    final batch = _firestore.batch();
+
+    // 1. Cria o documento da fase na subcoleção.
+    final phaseRef = _phasesRef(classroomId).doc();
+    batch.set(phaseRef, {
+      'name': title,
+      'description': description,
+      'order': nextOrder,
+      'createdAt': Timestamp.fromDate(now),
+    });
+
+    // 2. Cria cada questão como subdocumento da fase.
+    for (var i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final questionRef = phaseRef.collection('questions').doc();
+      batch.set(questionRef, {
+        'text': q.text,
+        'options': q.options,
+        'correct_answer': q.correctAnswer,
+        'explanation': q.explanation,
+        'type': _questionTypeToInt(q.type),
+        'image_url': q.imageUrl,
+        'image_author': q.imageAuthor,
+        'image_source': q.imageSource,
+        'order': i + 1,
+      });
+    }
+
+    await batch.commit();
+
+    // Retorna o model com as questões incluídas.
+    return ClassroomPhaseModel(
+      id: phaseRef.id,
+      classroomId: classroomId,
+      title: title,
+      description: description,
+      order: nextOrder,
+      createdAt: now,
+      questions: questions,
+    );
+  }
+
+  /// Retorna todas as fases vinculadas a uma sala de aula,
+  /// ordenadas por `order`.
+  Future<List<ClassroomPhaseModel>> fetchClassroomPhases(
+    String classroomId,
+  ) async {
+    final snap = await _phasesRef(classroomId)
+        .orderBy('order')
+        .get();
+
+    final phases = <ClassroomPhaseModel>[];
+    for (final doc in snap.docs) {
+      // Busca as questões da subcoleção desta fase.
+      final questionsSnap = await doc.reference
+          .collection('questions')
+          .orderBy('order')
+          .get();
+      final questions =
+          questionsSnap.docs.map(QuestionModel.fromSnapshot).toList();
+      phases.add(ClassroomPhaseModel.fromSnapshot(doc, questions));
+    }
+    return phases;
   }
 }

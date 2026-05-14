@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../domain/entities/user.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../providers/auth_providers.dart';
 import '../widgets/role_card.dart';
 import '../widgets/role_selection_header.dart';
@@ -78,6 +79,16 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
           userId: fbUser.uid,
           role: role,
         );
+
+    if (role == UserRole.teacher && result.isRight()) {
+      // Cria uma turma padrão para o professor recém-cadastrado
+      final createClassroom = ref.read(createClassroomProvider);
+      await createClassroom(
+        name: 'Minha Primeira Turma',
+        teacherId: fbUser.uid,
+        description: 'Turma gerada automaticamente.',
+      );
+    }
 
     if (!mounted) return;
 

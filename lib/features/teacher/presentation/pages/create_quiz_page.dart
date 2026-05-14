@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local
@@ -37,8 +41,6 @@ enum _Difficulty {
   final String label;
 }
 
-enum _SaveStatus { idle, saving }
-
 // ─────────────────────────────────────────────────────────────────────────────
 // Page
 // Heurística #1: contagem dinâmica de questões visível o tempo todo.
@@ -47,23 +49,21 @@ enum _SaveStatus { idle, saving }
 // Heurística #8: hierarquia visual clara, sem elementos supérfluos.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class CreateQuizPage extends StatefulWidget {
+class CreateQuizPage extends ConsumerStatefulWidget {
   const CreateQuizPage({super.key});
 
   @override
-  State<CreateQuizPage> createState() => _CreateQuizPageState();
+  ConsumerState<CreateQuizPage> createState() => _CreateQuizPageState();
 }
 
-class _CreateQuizPageState extends State<CreateQuizPage> {
+class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
   final _topicCtrl = TextEditingController();
   final _focusNode = FocusNode();
 
   _Difficulty _difficulty = _Difficulty.medium;
   double _quantity = 5;
-  _SaveStatus _status = _SaveStatus.idle;
 
-  bool get _canSave =>
-      _topicCtrl.text.trim().isNotEmpty && _status == _SaveStatus.idle;
+  bool get _canSave => _topicCtrl.text.trim().isNotEmpty;
 
   @override
   void dispose() {
@@ -75,41 +75,40 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
   Future<void> _onSave() async {
     if (!_canSave) return;
     _focusNode.unfocus();
-    setState(() => _status = _SaveStatus.saving);
 
-    // Placeholder — substituir pela lógica real de criação de questões
-    await Future<void>.delayed(const Duration(milliseconds: 1600));
+    // Obtém o ID da primeira sala do professor.
+    // É necessário aguardar a resolução do provider para garantir
+    // que o classroomId esteja disponível antes de navegar.
+    final user = ref.read(authStateProvider).valueOrNull;
+    String? classroomId;
+
+    if (user != null) {
+      // Tenta obter do cache primeiro (síncrono)
+      final cached = ref.read(teacherClassroomsProvider(user.id));
+      classroomId = cached.valueOrNull?.firstOrNull?.id;
+
+      // Se não resolveu ainda, busca de forma assíncrona
+      if (classroomId == null) {
+        try {
+          final classrooms =
+              await ref.read(teacherClassroomsProvider(user.id).future);
+          classroomId = classrooms.firstOrNull?.id;
+        } catch (_) {
+          // Continua sem classroomId — o fluxo trata isso
+        }
+      }
+    }
+
     if (!mounted) return;
 
-    setState(() => _status = _SaveStatus.idle);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const FaIcon(
-              FontAwesomeIcons.penToSquare,
-              size: 15,
-              color: _C.accent,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Editor de questões em breve!',
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        duration: const Duration(seconds: 3),
-      ),
+    await context.push(
+      AppRoutes.teacherCustomizeQuiz,
+      extra: <String, dynamic>{
+        'quantity': _quantity.round(),
+        'topic': _topicCtrl.text.trim(),
+        'difficulty': _difficulty.label,
+        'classroomId': classroomId,
+      },
     );
   }
 
@@ -194,7 +193,7 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
                       // Botão principal
                       _SaveButton(
                         enabled: _canSave,
-                        saving: _status == _SaveStatus.saving,
+                        saving: false,
                         onTap: _onSave,
                       ),
                     ],
