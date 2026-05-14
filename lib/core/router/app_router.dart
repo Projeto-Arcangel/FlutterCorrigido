@@ -2,16 +2,18 @@ import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import '../../features/auth/presentation/pages/role_selection_page.dart';
+import '../../features/auth/domain/entities/user.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
 import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
-import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/subject/presentation/pages/subject_choice_page.dart';
+import '../../features/teacher/presentation/pages/teacher_page.dart';
 
 
 class AppRoutes {
@@ -19,6 +21,7 @@ class AppRoutes {
 
   static const String login = '/login';
   static const String subjects = '/subjects';
+  static const String teacher = '/teacher';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
@@ -72,9 +75,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       }
 
       // 2c. Logado com role e ainda em tela de pré-login / roleSelection
-      //     → entra no app.
+      //     → entra no app, separando professores de alunos.
       if (isUnauthRoute || loc == AppRoutes.roleSelection) {
-        return AppRoutes.subjects;
+        return role == UserRole.teacher
+            ? AppRoutes.teacher
+            : AppRoutes.subjects;
       }
 
       return null;
@@ -91,6 +96,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.subjects,
         builder: (_, __) => const SubjectChoicePage(),
+      ),
+      GoRoute(
+        path: AppRoutes.teacher,
+        builder: (_, __) => const TeacherPage(),
       ),
       GoRoute(
         path: AppRoutes.profile,
