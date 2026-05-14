@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-
+import '../../../auth/presentation/providers/login_controller.dart';
 import '../../../progress/domain/entities/level_utils.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/lesson.dart';
