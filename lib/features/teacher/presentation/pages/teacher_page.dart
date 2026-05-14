@@ -85,6 +85,14 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           onTap: () => _showComingSoon('Minha Turma'),
         ),
         TeacherQuickAction(
+          icon: FontAwesomeIcons.penToSquare,
+          title: 'Criar Questões',
+          subtitle: 'Escreva suas próprias questões manualmente',
+          iconColor: const Color(0xFF72D09C),
+          iconBg: const Color(0x1A72D09C),
+          onTap: () => context.push(AppRoutes.teacherCreateQuiz),
+        ),
+        TeacherQuickAction(
           icon: FontAwesomeIcons.wandMagicSparkles,
           title: 'Criar Questões com IA',
           subtitle: 'Personalizar questões por tema e dificuldade',
