@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
 import '../widgets/teacher_content.dart';
@@ -88,7 +90,7 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           subtitle: 'Personalizar questões por tema e dificuldade',
           iconColor: const Color(0xFF7296D0),
           iconBg: const Color(0x1A7296D0),
-          onTap: () => _showComingSoon('Criar Questões com IA'),
+          onTap: () => context.push(AppRoutes.teacherIaQuiz),
         ),
         TeacherQuickAction(
           icon: FontAwesomeIcons.chartLine,

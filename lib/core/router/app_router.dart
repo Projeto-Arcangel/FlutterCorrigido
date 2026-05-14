@@ -13,6 +13,7 @@ import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
+import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
 
 
@@ -22,6 +23,7 @@ class AppRoutes {
   static const String login = '/login';
   static const String subjects = '/subjects';
   static const String teacher = '/teacher';
+  static const String teacherIaQuiz = '/teacher/ia-quiz';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
@@ -100,6 +102,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.teacher,
         builder: (_, __) => const TeacherPage(),
+        routes: [
+          GoRoute(
+            path: 'ia-quiz',
+            builder: (_, __) => const IaQuizPage(),
+          ),
+        ],
       ),
       GoRoute(
         path: AppRoutes.profile,
