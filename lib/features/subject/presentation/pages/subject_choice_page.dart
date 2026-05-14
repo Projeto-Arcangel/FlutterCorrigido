@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../classroom/presentation/widgets/classroom_sheet.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
@@ -34,11 +35,11 @@ class SubjectChoicePage extends ConsumerWidget {
           // Carregando
           loading: () => const Center(child: CircularProgressIndicator()),
 
-          // Erro (não bloqueia — usa catálogo como fallback) 
+          // Erro (não bloqueia — usa catálogo como fallback)
           error: (err, _) => _SubjectList(
-            subjects: Subject.catalog.map((s) => s.copyWith(
-              unlocked: s.id == SubjectId.history,
-            )).toList(),
+            subjects: Subject.catalog
+                .map((s) => s.copyWith(unlocked: s.id == SubjectId.history))
+                .toList(),
             ref: ref,
           ),
 
@@ -69,9 +70,9 @@ class _SubjectList extends StatelessWidget {
               'Qual caminho você\ndeseja trilhar?',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 32),
             for (final subject in subjects) ...[
@@ -83,8 +84,46 @@ class _SubjectList extends StatelessWidget {
                 },
               ),
               const SizedBox(height: 16),
+              const SizedBox(height: 8),
+              _EnterClassroomButton(),
+              const SizedBox(height: 24),
             ],
           ],
+        ),
+      ),
+    );
+  }
+}
+class _EnterClassroomButton extends StatelessWidget {
+  const _EnterClassroomButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      height: 52,
+      child: OutlinedButton.icon(
+        onPressed: () => showClassroomSheet(context),
+        icon: const Icon(
+          Icons.group_add_rounded,
+          size: 20,
+        ),
+        label: const Text(
+          'Entrar em Turma',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: const Color(0xFF72ACD0),
+          side: const BorderSide(
+            color: Color(0xFF72ACD0),
+            width: 1.8,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
         ),
       ),
     );
