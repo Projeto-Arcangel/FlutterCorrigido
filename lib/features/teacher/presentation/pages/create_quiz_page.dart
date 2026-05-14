@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local
@@ -46,14 +49,14 @@ enum _Difficulty {
 // Heurística #8: hierarquia visual clara, sem elementos supérfluos.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class CreateQuizPage extends StatefulWidget {
+class CreateQuizPage extends ConsumerStatefulWidget {
   const CreateQuizPage({super.key});
 
   @override
-  State<CreateQuizPage> createState() => _CreateQuizPageState();
+  ConsumerState<CreateQuizPage> createState() => _CreateQuizPageState();
 }
 
-class _CreateQuizPageState extends State<CreateQuizPage> {
+class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
   final _topicCtrl = TextEditingController();
   final _focusNode = FocusNode();
 
@@ -69,15 +72,42 @@ class _CreateQuizPageState extends State<CreateQuizPage> {
     super.dispose();
   }
 
-  void _onSave() {
+  Future<void> _onSave() async {
     if (!_canSave) return;
     _focusNode.unfocus();
-    context.push(
+
+    // Obtém o ID da primeira sala do professor.
+    // É necessário aguardar a resolução do provider para garantir
+    // que o classroomId esteja disponível antes de navegar.
+    final user = ref.read(authStateProvider).valueOrNull;
+    String? classroomId;
+
+    if (user != null) {
+      // Tenta obter do cache primeiro (síncrono)
+      final cached = ref.read(teacherClassroomsProvider(user.id));
+      classroomId = cached.valueOrNull?.firstOrNull?.id;
+
+      // Se não resolveu ainda, busca de forma assíncrona
+      if (classroomId == null) {
+        try {
+          final classrooms =
+              await ref.read(teacherClassroomsProvider(user.id).future);
+          classroomId = classrooms.firstOrNull?.id;
+        } catch (_) {
+          // Continua sem classroomId — o fluxo trata isso
+        }
+      }
+    }
+
+    if (!mounted) return;
+
+    await context.push(
       AppRoutes.teacherCustomizeQuiz,
       extra: <String, dynamic>{
         'quantity': _quantity.round(),
         'topic': _topicCtrl.text.trim(),
         'difficulty': _difficulty.label,
+        'classroomId': classroomId,
       },
     );
   }

@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
+import '../../../lesson/domain/entities/question.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — mesmo verde-teal de create_quiz_page (mesmo fluxo).
@@ -56,23 +59,28 @@ class _QuestionData {
 // Heurística #8: cards compactos, sem elementos supérfluos.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class CustomizeQuizPage extends StatefulWidget {
+class CustomizeQuizPage extends ConsumerStatefulWidget {
   const CustomizeQuizPage({
     super.key,
     required this.quantity,
     required this.topic,
     required this.difficulty,
+    this.classroomId,
   });
 
   final int quantity;
   final String topic;
   final String difficulty;
 
+  /// ID da sala de aula do professor. Se preenchido, o quiz será salvo
+  /// como uma fase (Phase) vinculada a essa sala no Firestore.
+  final String? classroomId;
+
   @override
-  State<CustomizeQuizPage> createState() => _CustomizeQuizPageState();
+  ConsumerState<CustomizeQuizPage> createState() => _CustomizeQuizPageState();
 }
 
-class _CustomizeQuizPageState extends State<CustomizeQuizPage> {
+class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
   late final List<_QuestionData> _questions;
   bool _saving = false;
 
@@ -93,45 +101,149 @@ class _CustomizeQuizPageState extends State<CustomizeQuizPage> {
   int get _completedCount => _questions.where((q) => q.isComplete).length;
   bool get _canSave => _completedCount == widget.quantity && !_saving;
 
+  /// Converte os dados locais em entidades [Question] prontas para persistir.
+  List<Question> _buildQuestionEntities() {
+    return _questions.map((q) {
+      return Question(
+        id: '', // gerado pelo Firestore
+        text: q.textCtrl.text.trim(),
+        options: q.altCtrls.map((c) => c.text.trim()).toList(),
+        correctAnswer: q.correctIndex!,
+        explanation: '',
+        type: QuestionType.multipleChoice,
+      );
+    }).toList();
+  }
+
   Future<void> _onSave() async {
     if (!_canSave) return;
     FocusScope.of(context).unfocus();
     setState(() => _saving = true);
 
-    // Placeholder — substituir pela persistência real (Firestore / local)
-    await Future<void>.delayed(const Duration(milliseconds: 1400));
-    if (!mounted) return;
+    final classroomId = widget.classroomId;
 
-    setState(() => _saving = false);
+    if (classroomId != null && classroomId.isNotEmpty) {
+      // ─── Salvar como fase vinculada à sala de aula ───────────────
+      final useCase = ref.read(saveClassroomQuizProvider);
+      final questions = _buildQuestionEntities();
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const FaIcon(
-              FontAwesomeIcons.solidCircleCheck,
-              size: 15,
-              color: _C.accent,
+      final result = await useCase(
+        classroomId: classroomId,
+        title: widget.topic,
+        description:
+            '${widget.quantity} questões · ${widget.difficulty}',
+        questions: questions,
+      );
+
+      if (!mounted) return;
+      setState(() => _saving = false);
+
+      result.fold(
+        (failure) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.circleExclamation,
+                    size: 15,
+                    color: Color(0xFFFF6B6B),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      failure.message,
+                      style: GoogleFonts.nunito(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.surfaceDark,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              duration: const Duration(seconds: 4),
             ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                'Questionário salvo com sucesso!',
-                style: GoogleFonts.nunito(
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+          );
+        },
+        (_) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const FaIcon(
+                    FontAwesomeIcons.solidCircleCheck,
+                    size: 15,
+                    color: _C.accent,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Fase criada na sua turma com sucesso!',
+                      style: GoogleFonts.nunito(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              backgroundColor: AppColors.surfaceDark,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          // Volta para a tela do professor.
+          context.pop();
+          context.pop();
+        },
+      );
+    } else {
+      // ─── Sem sala vinculada — não é possível salvar ───────────────
+      if (!mounted) return;
+      setState(() => _saving = false);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const FaIcon(
+                FontAwesomeIcons.circleExclamation,
+                size: 15,
+                color: Color(0xFFFF6B6B),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Você não possui uma turma ativa. '
+                  'Crie ou entre em uma turma para salvar questionários.',
+                  style: GoogleFonts.nunito(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
+          backgroundColor: AppColors.surfaceDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+          duration: const Duration(seconds: 4),
         ),
-        backgroundColor: AppColors.surfaceDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        duration: const Duration(seconds: 3),
-      ),
-    );
+      );
+    }
   }
 
   @override

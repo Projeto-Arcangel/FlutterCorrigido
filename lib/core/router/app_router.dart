@@ -119,6 +119,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 quantity: extra['quantity'] as int,
                 topic: extra['topic'] as String,
                 difficulty: extra['difficulty'] as String,
+                classroomId: extra['classroomId'] as String?,
               );
             },
           ),

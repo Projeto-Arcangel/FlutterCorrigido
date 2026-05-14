@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../entities/classroom.dart';
+import '../entities/classroom_phase.dart';
 import '../entities/classroom_result.dart';
 
 /// Contrato do repositório de salas de aula.
@@ -86,6 +87,25 @@ abstract class ClassroomRepository {
 
   /// Retorna os resultados de todos os alunos de uma sala (para o professor).
   Future<Either<Failure, List<ClassroomResult>>> getResults(
+    String classroomId,
+  );
+
+  // ─── Fases (quiz → fase no Firestore) ─────────────────────────
+
+  /// Cria uma fase (Phase) no Firestore vinculada a uma sala de aula.
+  ///
+  /// A fase fica acessível somente para os alunos daquela sala.
+  /// As questões são criadas na coleção `Questions` com `phase_ref`
+  /// apontando para o documento da fase criada.
+  Future<Either<Failure, ClassroomPhase>> saveQuizAsPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+    required List<Question> questions,
+  });
+
+  /// Lista as fases (phases) de uma sala de aula.
+  Future<Either<Failure, List<ClassroomPhase>>> getClassroomPhases(
     String classroomId,
   );
 }

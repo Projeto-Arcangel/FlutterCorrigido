@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../../domain/entities/classroom.dart';
+import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../datasources/firebase/classroom_firestore_datasource.dart';
@@ -238,6 +239,44 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     } catch (e, st) {
       _logger.e('getResults failed', error: e, stackTrace: st);
       return const Left(NetworkFailure('Falha ao carregar resultados'));
+    }
+  }
+
+  // ─── Fases (quiz → fase no Firestore) ─────────────────────────
+
+  @override
+  Future<Either<Failure, ClassroomPhase>> saveQuizAsPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+    required List<Question> questions,
+  }) async {
+    try {
+      final phase = await _datasource.saveQuizAsPhase(
+        classroomId: classroomId,
+        title: title,
+        description: description,
+        questions: questions,
+      );
+      return Right(phase);
+    } catch (e, st) {
+      _logger.e('saveQuizAsPhase failed', error: e, stackTrace: st);
+      return const Left(
+        NetworkFailure('Falha ao salvar questionário como fase'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ClassroomPhase>>> getClassroomPhases(
+    String classroomId,
+  ) async {
+    try {
+      final phases = await _datasource.fetchClassroomPhases(classroomId);
+      return Right(phases);
+    } catch (e, st) {
+      _logger.e('getClassroomPhases failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao carregar fases da sala'));
     }
   }
 }

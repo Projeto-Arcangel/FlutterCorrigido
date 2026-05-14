@@ -2,34 +2,139 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    match /Phase/{document} {
-      allow read: if request.auth != null;
+    // ─── Helpers ──────────────────────────────────────────────
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuth() && request.auth.uid == userId;
+    }
+
+    function userRole() {
+      return get(/databases/$(database)/documents/Users/$(request.auth.uid)).data.role;
+    }
+
+    function isTeacher() {
+      return isAuth() && userRole() == 'teacher';
+    }
+
+    function classroomDoc(classroomId) {
+      return get(/databases/$(database)/documents/Classrooms/$(classroomId));
+    }
+
+    function isClassroomTeacher(classroomId) {
+      return isAuth() && classroomDoc(classroomId).data.teacherId == request.auth.uid;
+    }
+
+    function isClassroomMember(classroomId) {
+      return isAuth()
+        && (classroomDoc(classroomId).data.teacherId == request.auth.uid
+            || request.auth.uid in classroomDoc(classroomId).data.studentIds);
+    }
+
+    // ─── Users ────────────────────────────────────────────────
+    // Cada usuário só acessa/modifica seu próprio doc.
+    // setRole, createProfileIfAbsent, addXp, addGold, advancePhase
+    match /Users/{userId} {
+      allow create: if isOwner(userId);
+      allow read:   if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if isOwner(userId);
+    }
+
+    // ─── Phase (top-level, lições pré-seed + fases de classroom) ──
+    match /Phase/{phaseId} {
+      allow read: if isAuth();
+      // Somente leitura — conteúdo pré-seed.
+      // Fases do professor vão para Classrooms/{id}/phases.
       allow write: if false;
     }
 
-    match /Questions/{document} {
-      allow read: if request.auth != null;
+    // ─── Questions (top-level) ────────────────────────────────
+    match /Questions/{questionId} {
+      allow read: if isAuth();
+      // Somente leitura — conteúdo pré-seed.
+      // Questões do professor vão para Classrooms/{id}/phases/{phaseId}/questions.
       allow write: if false;
     }
 
+    // Subcoleção legacy de multiple_choice
     match /Questions/{parent}/multiple_choice/{document} {
-      allow read: if request.auth != null;
+      allow read: if isAuth();
       allow write: if false;
     }
 
-    match /{path=**}/multiple_choice/{document} {
-      allow read: if request.auth != null;
-    }
+    // ─── Classrooms ──────────────────────────────────────────
+    match /Classrooms/{classroomId} {
 
-    match /Users/{document} {
-      allow create: if request.auth.uid == document;
-      allow read:   if request.auth.uid == document;
-      allow write:  if request.auth.uid == document;
-      allow delete: if request.auth.uid == document;
-    }
+      // CREATE: só professores criam salas
+      allow create: if isTeacher()
+                    && request.resource.data.teacherId == request.auth.uid;
 
-    match /{document=**} {
-      allow read, write: if request.auth.token.email.matches("firebase@flutterflow.io");
+      // READ: qualquer usuário autenticado pode ler
+      // (necessário para fetchByCode no flow de join
+      //  E para fetchStudentClassroom / fetchTeacherClassrooms)
+      allow read: if isAuth();
+
+      // UPDATE pelo professor dono: pode alterar qualquer campo
+      allow update: if isAuth()
+                    && resource.data.teacherId == request.auth.uid;
+
+      // UPDATE por aluno: só pode modificar studentIds
+      // (join via arrayUnion / leave via arrayRemove)
+      allow update: if isAuth()
+                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentIds']);
+
+      // DELETE: só professor dono
+      allow delete: if isAuth()
+                    && resource.data.teacherId == request.auth.uid;
+
+      // ─── Subcoleção questions (legacy, diretas da sala) ────
+      match /questions/{questionId} {
+        // Professor dono da sala: CRUD completo
+        allow create, update, delete:
+          if isClassroomTeacher(classroomId);
+
+        // Membros da sala (professor + alunos): leitura
+        allow read:
+          if isClassroomMember(classroomId);
+      }
+
+      // ─── Subcoleção results ──────────────────────────────
+      match /results/{resultId} {
+        // Aluno pode submeter SEU PRÓPRIO resultado (doc ID = studentId)
+        allow create, update:
+          if isAuth()
+          && resultId == request.auth.uid
+          && request.auth.uid in classroomDoc(classroomId).data.studentIds;
+
+        // Membros da sala podem ler resultados
+        allow read:
+          if isClassroomMember(classroomId);
+      }
+
+      // ─── Subcoleção phases (fases do professor) ──────────
+      match /phases/{phaseId} {
+        // Professor dono cria/edita/deleta fases
+        allow create, update, delete:
+          if isClassroomTeacher(classroomId);
+
+        // Membros da sala podem ler fases
+        allow read:
+          if isClassroomMember(classroomId);
+
+        // ─── Questões de cada fase ──────────────────────
+        match /questions/{questionId} {
+          // Professor dono: CRUD completo
+          allow create, update, delete:
+            if isClassroomTeacher(classroomId);
+
+          // Membros da sala: leitura
+          allow read:
+            if isClassroomMember(classroomId);
+        }
+      }
     }
   }
 }
