@@ -11,6 +11,10 @@ import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
+import '../../features/classroom/domain/entities/classroom.dart';
+import '../../features/classroom/domain/entities/classroom_phase.dart';
+import '../../features/classroom/presentation/pages/classroom_lesson_page.dart';
+import '../../features/classroom/presentation/pages/classroom_trail_page.dart';
 import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -34,11 +38,16 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String roleSelection = '/';
   static const String settings = '/settings';
+  static const String classroomTrail = '/classroom/:classroomId';
+  static const String classroomLesson = '/classroom/:classroomId/phase/:phaseId';
   static const String preferencesRelative = 'preferences';
   static const String preferences = '$settings/$preferencesRelative';
   static const String account = '/account';
 
   static String lessonPath(String id) => '/lessons/$id';
+  static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
+  static String classroomLessonPath(String classroomId, String phaseId) =>
+      '/classroom/$classroomId/phase/$phaseId';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
 }
@@ -167,6 +176,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             path: ':id',
             builder: (_, state) =>
                 LessonPage(lessonId: state.pathParameters['id']!),
+          ),
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.classroomTrail,
+        builder: (_, state) {
+          final classroom = state.extra! as Classroom;
+          return ClassroomTrailPage(classroom: classroom);
+        },
+        routes: [
+          GoRoute(
+            path: 'phase/:phaseId',
+            builder: (_, state) {
+              final extra = state.extra! as Map<String, dynamic>;
+              return ClassroomLessonPage(
+                classroom: extra['classroom'] as Classroom,
+                phase: extra['phase'] as ClassroomPhase,
+              );
+            },
           ),
         ],
       ),

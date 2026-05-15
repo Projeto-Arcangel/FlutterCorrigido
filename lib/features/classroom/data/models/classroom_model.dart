@@ -51,10 +51,16 @@ class ClassroomModel extends Classroom {
       studentIds: List<String>.from(
         (data['studentIds'] as List<dynamic>?) ?? [],
       ),
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: _parseDate(data['createdAt']),
       isActive: (data['isActive'] as bool?) ?? true,
       questions: questions,
     );
+  }
+
+  static DateTime _parseDate(dynamic value) {
+    if (value is Timestamp) return value.toDate();
+    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
+    return DateTime.now();
   }
 
   /// Converte para Map para gravar no Firestore.

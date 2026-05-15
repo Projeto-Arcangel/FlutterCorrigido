@@ -85,7 +85,10 @@ class ClassroomFirestoreDatasource {
     if (snap.docs.isEmpty) return null;
 
     final doc = snap.docs.first;
-    final questions = await _fetchQuestions(doc.id);
+    List<QuestionModel> questions = [];
+    try {
+      questions = await _fetchQuestions(doc.id);
+    } catch (_) {}
     return ClassroomModel.fromSnapshot(doc, questions);
   }
 
@@ -114,7 +117,10 @@ class ClassroomFirestoreDatasource {
     if (snap.docs.isEmpty) return null;
 
     final doc = snap.docs.first;
-    final questions = await _fetchQuestions(doc.id);
+    List<QuestionModel> questions = [];
+    try {
+      questions = await _fetchQuestions(doc.id);
+    } catch (_) {}
     return ClassroomModel.fromSnapshot(doc, questions);
   }
 

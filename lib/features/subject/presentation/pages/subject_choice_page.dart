@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../classroom/presentation/widgets/classroom_sheet.dart';
 
 import '../../../../core/router/app_router.dart';
@@ -85,33 +86,54 @@ class _SubjectList extends StatelessWidget {
               ),
               const SizedBox(height: 16),
             ],
-              _EnterClassroomButton(),
+            const _EnterClassroomButton(),
           ],
         ),
       ),
     );
   }
 }
-class _EnterClassroomButton extends StatelessWidget {
+
+/// Botão "Entrar em Turma" inteligente:
+/// - Se o aluno já está em uma turma → navega direto para a trilha da sala.
+/// - Se não está → abre o bottom sheet para digitar o código.
+class _EnterClassroomButton extends ConsumerWidget {
   const _EnterClassroomButton();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final asyncClassrooms = ref.watch(userClassroomsProvider);
+    final existingClassroom = asyncClassrooms.valueOrNull?.firstOrNull;
+
     return SizedBox(
       width: 320,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () => showClassroomSheet(context),
+        onPressed: () {
+          if (existingClassroom != null) {
+            // Já está matriculado → vai direto para a trilha
+            context.push(
+              AppRoutes.classroomTrailPath(existingClassroom.id),
+              extra: existingClassroom,
+            );
+          } else {
+            // Ainda não tem turma → abre o sheet para digitar código
+            showClassroomSheet(context);
+          }
+        },
         icon: const Icon(
-          Icons.group_add_rounded,
+          Icons.school_rounded,
           size: 20,
         ),
-        label: const Text(
-          'Entrar em Turma',
-          style: TextStyle(
+        label: Text(
+          existingClassroom != null
+              ? existingClassroom.name
+              : 'Entrar em Turma',
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
+          overflow: TextOverflow.ellipsis,
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF72ACD0),
@@ -126,4 +148,4 @@ class _EnterClassroomButton extends StatelessWidget {
       ),
     );
   }
-}
+}

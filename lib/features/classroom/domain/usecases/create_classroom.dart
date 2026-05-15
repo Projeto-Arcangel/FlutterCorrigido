@@ -15,6 +15,7 @@ class CreateClassroom {
   Future<Either<Failure, Classroom>> call({
     required String name,
     required String teacherId,
+    required String teacherName,
     String description = '',
   }) {
     if (name.trim().isEmpty) {
@@ -26,6 +27,7 @@ class CreateClassroom {
       name: name.trim(),
       description: description.trim(),
       teacherId: teacherId,
+      teacherName: teacherName,
     );
   }
 }

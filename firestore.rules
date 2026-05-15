@@ -35,7 +35,6 @@ service cloud.firestore {
 
     // ─── Users ────────────────────────────────────────────────
     // Cada usuário só acessa/modifica seu próprio doc.
-    // setRole, createProfileIfAbsent, addXp, addGold, advancePhase
     match /Users/{userId} {
       allow create: if isOwner(userId);
       allow read:   if isOwner(userId);
@@ -43,19 +42,15 @@ service cloud.firestore {
       allow delete: if isOwner(userId);
     }
 
-    // ─── Phase (top-level, lições pré-seed + fases de classroom) ──
+    // ─── Phase (top-level, lições pré-seed) ───────────────────
     match /Phase/{phaseId} {
       allow read: if isAuth();
-      // Somente leitura — conteúdo pré-seed.
-      // Fases do professor vão para Classrooms/{id}/phases.
       allow write: if false;
     }
 
     // ─── Questions (top-level) ────────────────────────────────
     match /Questions/{questionId} {
       allow read: if isAuth();
-      // Somente leitura — conteúdo pré-seed.
-      // Questões do professor vão para Classrooms/{id}/phases/{phaseId}/questions.
       allow write: if false;
     }
 
@@ -65,25 +60,66 @@ service cloud.firestore {
       allow write: if false;
     }
 
-    match /Classrooms/{document} {
-    allow read: if request.auth != null;
-    allow create: if request.auth != null
-    && request.resource.data.teacherId == request.auth.uid;
-    allow update, delete: if request.auth != null
-    && resource.data.teacherId == request.auth.uid;
-}
+    // ─── Classrooms ──────────────────────────────────────────
+    match /Classrooms/{classroomId} {
+      // Qualquer autenticado pode ler (necessário para buscar por código)
+      allow read: if isAuth();
 
+      // Somente o professor pode criar (teacherId deve ser o próprio uid)
+      allow create: if isAuth()
+        && request.resource.data.teacherId == request.auth.uid;
+
+      // Professor pode atualizar/deletar qualquer campo.
+      // Aluno autenticado pode atualizar SOMENTE o campo studentIds
+      // (para entrar/sair da sala via arrayUnion/arrayRemove).
+      allow update: if isAuth()
+        && (
+          // Professor — pode tudo
+          resource.data.teacherId == request.auth.uid
+          // Aluno — só pode alterar studentIds, nada mais
+          || (
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['studentIds'])
+          )
+        );
+
+      allow delete: if isAuth()
+        && resource.data.teacherId == request.auth.uid;
+
+      // ── Subcoleção: questions (questões diretas da sala) ────
+      match /questions/{questionId} {
+        allow read: if isAuth();
+        allow write: if isClassroomTeacher(classroomId);
+      }
+
+      // ── Subcoleção: results (resultados dos alunos) ────────
+      match /results/{resultId} {
+        // Professor e membros podem ler resultados
+        allow read: if isClassroomMember(classroomId);
+        // Aluno pode criar/atualizar apenas o próprio resultado
+        allow create, update: if isAuth()
+          && resultId == request.auth.uid;
+        allow delete: if isClassroomTeacher(classroomId);
+      }
+
+      // ── Subcoleção: phases (fases/quizzes criados pelo professor) ─
+      match /phases/{phaseId} {
+        allow read: if isClassroomMember(classroomId);
+        allow write: if isClassroomTeacher(classroomId);
+
+        // Questões dentro de uma fase
+        match /questions/{questionId} {
+          allow read: if isClassroomMember(classroomId);
+          allow write: if isClassroomTeacher(classroomId);
+        }
+      }
+    }
+
+    // ─── Wildcard para multiple_choice (collection group queries) ─
     match /{path=**}/multiple_choice/{document} {
       allow read: if request.auth != null;
     }
 
-    match /Users/{document} {
-      allow create: if request.auth.uid == document;
-      allow read:   if request.auth.uid == document;
-      allow write:  if request.auth.uid == document;
-      allow delete: if request.auth.uid == document;
-    }
-
+    // ─── FlutterFlow admin ─────────────────────────────────────
     match /{document=**} {
       allow read, write: if request.auth.token.email.matches("firebase@flutterflow.io");
     }

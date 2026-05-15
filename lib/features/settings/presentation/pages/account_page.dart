@@ -468,7 +468,7 @@ class _SectionLabel extends StatelessWidget {
             fontSize: 11,
             fontWeight: FontWeight.w700,
             color: danger
-                ? _Colors.danger.withValues(alpha:0.85)
+                ? _Colors.danger.withValues(alpha: 0.85)
                 : _Colors.textMuted,
             letterSpacing: 2.2,
           ),
@@ -543,7 +543,7 @@ class _InfoTile extends StatelessWidget {
             readOnly ? Colors.transparent : _Colors.primarySubtle,
         highlightColor: readOnly
             ? Colors.transparent
-            : _Colors.primarySubtle.withValues(alpha:0.4),
+            : _Colors.primarySubtle.withValues(alpha: 0.4),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
@@ -601,13 +601,13 @@ class _InfoTile extends StatelessWidget {
               else if (!readOnly)
                 Icon(
                   Icons.chevron_right_rounded,
-                  color: AppColors.primary.withValues(alpha:0.6),
+                  color: AppColors.primary.withValues(alpha: 0.6),
                   size: 22,
                 )
               else
                 Icon(
                   Icons.lock_rounded,
-                  color: _Colors.textMuted.withValues(alpha:0.4),
+                  color: _Colors.textMuted.withValues(alpha: 0.4),
                   size: 16,
                 ),
             ],
@@ -628,9 +628,9 @@ class _Badge extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color: color.withValues(alpha:0.15),
+          color: color.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: color.withValues(alpha:0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Text(
           text,
@@ -670,11 +670,11 @@ class _DangerTile extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         splashColor: _Colors.dangerSubtle,
-        highlightColor: _Colors.dangerSubtle.withValues(alpha:0.4),
+        highlightColor: _Colors.dangerSubtle.withValues(alpha: 0.4),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
-            border: Border.all(color: _Colors.danger.withValues(alpha:0.3)),
+            border: Border.all(color: _Colors.danger.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -717,7 +717,7 @@ class _DangerTile extends StatelessWidget {
               const SizedBox(width: 8),
               Icon(
                 Icons.chevron_right_rounded,
-                color: _Colors.danger.withValues(alpha:0.6),
+                color: _Colors.danger.withValues(alpha: 0.6),
                 size: 22,
               ),
             ],
@@ -845,7 +845,7 @@ Widget _primaryButton({
         backgroundColor: backgroundColor ?? AppColors.primary,
         foregroundColor: Colors.white,
         disabledBackgroundColor:
-            (backgroundColor ?? AppColors.primary).withValues(alpha:0.5),
+            (backgroundColor ?? AppColors.primary).withValues(alpha: 0.5),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
         elevation: 0,
       ),
