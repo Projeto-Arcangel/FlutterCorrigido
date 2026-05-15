@@ -35,7 +35,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String roleSelection = '/';
   static const String settings = '/settings';
-  static const String preferences = '/preferences';
+  static const String preferences = '/settings/preferences';
   static const String account = '/account';
 
   static String lessonPath(String id) => '/lessons/$id';
@@ -142,7 +142,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const SettingsPage(),
         routes: [
           GoRoute(
-            path: AppRoutes.preferences,
+            path: 'preferences',
             builder: (_, __) => const PreferencesPage(),
           ),
         ],
