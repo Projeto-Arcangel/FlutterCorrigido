@@ -184,7 +184,7 @@ class _CodeForm extends StatelessWidget {
                     FilteringTextInputFormatter.allow(
                       RegExp(r'[A-Za-z0-9]'),
                     ),
-                    LengthLimitingTextInputFormatter(8),
+                    LengthLimitingTextInputFormatter(6),
                     _UpperCaseFormatter(),
                   ],
                   style: GoogleFonts.nunito(
