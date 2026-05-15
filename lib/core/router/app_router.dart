@@ -17,7 +17,7 @@ import '../../features/teacher/presentation/pages/create_quiz_page.dart';
 import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
-
+import '../../features/settings/presentation/pages/preferences_page.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -33,6 +33,7 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String roleSelection = '/';
   static const String settings = '/settings';
+  static const String preferences = '/preferences';
 
   static String lessonPath(String id) => '/lessons/$id';
   static const String register = '/register';
@@ -136,6 +137,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.settings,
         builder: (_, __) => const SettingsPage(),
+        routes: [
+          GoRoute(
+            path: AppRoutes.preferences,
+            builder: (_, __) => const PreferencesPage(),
+          ),
+        ]
       ),
       GoRoute(  
         path: AppRoutes.register,
