@@ -86,6 +86,7 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
       await createClassroom(
         name: 'Minha Primeira Turma',
         teacherId: fbUser.uid,
+        teacherName: fbUser.displayName ?? fbUser.email ?? 'Professor',
         description: 'Turma gerada automaticamente.',
       );
     }

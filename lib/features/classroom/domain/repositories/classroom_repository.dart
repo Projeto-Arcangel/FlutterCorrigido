@@ -20,6 +20,7 @@ abstract class ClassroomRepository {
     required String name,
     required String description,
     required String teacherId,
+    required String teacherName,
   });
 
   /// Atualiza nome e/ou descrição da sala.
