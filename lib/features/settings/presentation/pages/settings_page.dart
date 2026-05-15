@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -119,10 +120,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   }
 
   void _onPreferencesTap() {
-    // TODO: context.push(AppRoutes.preferences)
-    ScaffoldMessenger.of(context).showSnackBar(
-      _snack('Preferências em breve.'),
-    );
+    context.push(AppRoutes.preferences);
   }
 
   /// Heurística #5 – Prevenção de erros: confirma antes de uma ação

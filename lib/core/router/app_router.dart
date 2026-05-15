@@ -20,7 +20,6 @@ import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
 
-
 class AppRoutes {
   AppRoutes._();
 
