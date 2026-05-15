@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/classroom.dart';
 import '../providers/classroom_providers.dart';
@@ -43,7 +44,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
 
     setState(() => _errorMsg = null);
 
-    final error = await ref
+    final (error, classroom) = await ref
         .read(joinClassroomNotifierProvider.notifier)
         .join(_codeCtrl.text.trim());
 
@@ -51,20 +52,11 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
 
     if (error != null) {
       setState(() => _errorMsg = error);
-    } else {
-      _codeCtrl.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Você entrou na turma!',
-            style: GoogleFonts.nunito(fontWeight: FontWeight.w700),
-          ),
-          backgroundColor: const Color(0xFF4CAF50),
-          behavior: SnackBarBehavior.floating,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        ),
+    } else if (classroom != null) {
+      Navigator.of(context).pop();
+      context.push(
+        AppRoutes.classroomTrailPath(classroom.id),
+        extra: classroom,
       );
     }
   }
@@ -411,21 +403,10 @@ class _ClassroomCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           splashColor: _color.withOpacity(0.08),
           onTap: () {
-            // Futuramente: navegar para a trilha específica da turma
             Navigator.of(context).pop();
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(
-                  'Trilha de "${classroom.name}" em breve!',
-                  style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
-                ),
-                backgroundColor: AppColors.surfaceDark,
-                behavior: SnackBarBehavior.floating,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              ),
+            context.push(
+              AppRoutes.classroomTrailPath(classroom.id),
+              extra: classroom,
             );
           },
           child: Padding(

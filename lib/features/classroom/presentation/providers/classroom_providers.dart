@@ -157,10 +157,10 @@ class JoinClassroomNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {}
 
-  /// Retorna mensagem de erro ou null em caso de sucesso.
-  Future<String?> join(String code) async {
+  /// Retorna (mensagem de erro, sala) — erro é null no sucesso, sala é null no erro.
+  Future<(String?, Classroom?)> join(String code) async {
     final user = ref.read(firebaseAuthProvider).currentUser;
-    if (user == null) return 'Usuário não autenticado.';
+    if (user == null) return ('Usuário não autenticado.', null);
 
     state = const AsyncLoading();
 
@@ -173,13 +173,12 @@ class JoinClassroomNotifier extends AsyncNotifier<void> {
     return result.fold(
       (failure) {
         state = const AsyncData(null);
-        return failure.message;
+        return (failure.message, null);
       },
-      (_) {
-        // Invalida a lista de turmas para atualizar o _ClassroomList
+      (classroom) {
         ref.invalidate(userClassroomsProvider);
         state = const AsyncData(null);
-        return null;
+        return (null, classroom);
       },
     );
   }
