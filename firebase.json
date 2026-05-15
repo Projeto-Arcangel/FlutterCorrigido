@@ -14,7 +14,8 @@
           "configurations": {
             "android": "1:110350827168:android:e7ae721586c82139a193c5",
             "ios": "1:110350827168:ios:47ee5d73303c3a5ea193c5",
-            "web": "1:110350827168:web:605db3b3199bc2bda193c5"
+            "web": "1:110350827168:web:605db3b3199bc2bda193c5",
+            "windows": "1:110350827168:web:0f908e38de206148a193c5"
           }
         }
       }
@@ -34,5 +35,18 @@
     "location": "southamerica-east1",
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
-  }
+  },
+  "functions": [
+    {
+      "source": "firebase/functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ]
 }

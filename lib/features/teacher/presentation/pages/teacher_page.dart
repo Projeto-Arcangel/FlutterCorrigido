@@ -62,7 +62,7 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
   List<TeacherQuickAction> _buildActions(String? classroomId) => [
         TeacherQuickAction(
           icon: FontAwesomeIcons.school,
-          title: 'Minha Turma',
+          title: 'Minhas Turmas',
           subtitle: classroomId != null
               ? 'Ver alunos e resultados'
               : 'Nenhuma turma ainda',
@@ -84,7 +84,10 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           subtitle: 'Personalizar questões por tema e dificuldade',
           iconColor: const Color(0xFF7296D0),
           iconBg: const Color(0x1A7296D0),
-          onTap: () => context.push(AppRoutes.teacherIaQuiz),
+          onTap: () => context.push(
+            AppRoutes.teacherIaQuiz,
+            extra: <String, dynamic>{'classroomId': classroomId},
+          ),
         ),
         TeacherQuickAction(
           icon: FontAwesomeIcons.chartLine,

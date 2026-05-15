@@ -22,7 +22,9 @@ import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/classroom_list_page.dart';
 import '../../features/teacher/presentation/pages/create_quiz_page.dart';
 import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
+import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
+import '../../features/teacher/presentation/pages/ia_quiz_review_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
 
 class AppRoutes {
@@ -34,6 +36,7 @@ class AppRoutes {
   static const String teacherCreateQuiz = '/teacher/create-quiz';
   static const String teacherCustomizeQuiz = '/teacher/customize-quiz';
   static const String teacherIaQuiz = '/teacher/ia-quiz';
+  static const String teacherIaQuizReview = '/teacher/ia-quiz/review';
   static const String teacherClassroom = '/teacher/classroom';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
@@ -140,7 +143,26 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: 'ia-quiz',
-            builder: (_, __) => const IaQuizPage(),
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return IaQuizPage(
+                classroomId: extra?['classroomId'] as String?,
+              );
+            },
+            routes: [
+              GoRoute(
+                path: 'review',
+                builder: (_, state) {
+                  final extra = state.extra! as Map<String, dynamic>;
+                  return IaQuizReviewPage(
+                    result: extra['result'] as IaGenerationResult,
+                    topic: extra['topic'] as String,
+                    difficulty: extra['difficulty'] as String,
+                    classroomId: extra['classroomId'] as String?,
+                  );
+                },
+              ),
+            ],
           ),
           GoRoute(
             path: 'classroom',

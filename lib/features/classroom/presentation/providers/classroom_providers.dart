@@ -12,6 +12,7 @@ import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../../domain/usecases/add_question_to_classroom.dart';
 import '../../domain/usecases/create_classroom.dart';
+import '../../domain/usecases/delete_classroom.dart';
 import '../../domain/usecases/delete_question_from_classroom.dart';
 import '../../domain/usecases/get_classroom_results.dart';
 import '../../domain/usecases/get_student_classroom.dart';
@@ -46,6 +47,10 @@ final createClassroomProvider = Provider<CreateClassroom>((ref) {
 
 final updateClassroomProvider = Provider<UpdateClassroom>((ref) {
   return UpdateClassroom(ref.watch(classroomRepositoryProvider));
+});
+
+final deleteClassroomProvider = Provider<DeleteClassroom>((ref) {
+  return DeleteClassroom(ref.watch(classroomRepositoryProvider));
 });
 
 final joinClassroomProvider = Provider<JoinClassroom>((ref) {

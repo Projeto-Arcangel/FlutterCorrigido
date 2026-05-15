@@ -63,6 +63,17 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
+  Future<Either<Failure, void>> deleteClassroom(String classroomId) async {
+    try {
+      await _datasource.deleteClassroom(classroomId);
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('deleteClassroom failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao excluir sala'));
+    }
+  }
+
+  @override
   Future<Either<Failure, Classroom>> getClassroomByCode(String code) async {
     try {
       final classroom = await _datasource.fetchByCode(code);

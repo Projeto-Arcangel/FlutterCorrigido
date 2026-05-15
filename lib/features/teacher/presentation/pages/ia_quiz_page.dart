@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/errors/failure.dart';
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../ia_quiz/domain/entities/ia_generation_result.dart';
+import '../../../ia_quiz/domain/entities/ia_model_option.dart';
+import '../../../ia_quiz/presentation/providers/ia_quiz_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — exclusiva da tela de IA
@@ -28,17 +34,17 @@ abstract class _C {
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum _Difficulty {
-  easy(1, 'Fácil'),
-  medium(2, 'Médio'),
-  hard(3, 'Difícil'),
-  expert(4, 'Expert');
+  easy(1, 'Fácil', 'easy'),
+  medium(2, 'Médio', 'medium'),
+  hard(3, 'Difícil', 'hard'),
+  expert(4, 'Expert', 'expert');
 
-  const _Difficulty(this.stars, this.label);
+  const _Difficulty(this.stars, this.label, this.key);
   final int stars;
   final String label;
+  // [key] casa com `DIFFICULTY_LABELS` em firebase/functions/openrouter.js.
+  final String key;
 }
-
-enum _GenStatus { idle, loading }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page
@@ -48,55 +54,67 @@ enum _GenStatus { idle, loading }
 // Heurística #8: densidade visual controlada, hierarquia clara.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class IaQuizPage extends StatefulWidget {
-  const IaQuizPage({super.key});
+class IaQuizPage extends ConsumerStatefulWidget {
+  const IaQuizPage({super.key, this.classroomId});
+
+  /// ID da sala de aula em que a fase gerada será salva.
+  /// Passado via `extra` do router. Se nulo, o salvamento na review
+  /// page exibe erro pedindo para o professor entrar em uma turma.
+  final String? classroomId;
 
   @override
-  State<IaQuizPage> createState() => _IaQuizPageState();
+  ConsumerState<IaQuizPage> createState() => _IaQuizPageState();
 }
 
-class _IaQuizPageState extends State<IaQuizPage> {
+class _IaQuizPageState extends ConsumerState<IaQuizPage> {
   final _topicCtrl = TextEditingController();
-  final _focusNode = FocusNode();
+  final _descCtrl = TextEditingController();
+  final _topicFocus = FocusNode();
 
   _Difficulty _difficulty = _Difficulty.medium;
   double _quantity = 5;
-  _GenStatus _status = _GenStatus.idle;
+  IaModelOption _selectedModel = IaModelOption.defaultOption;
 
-  bool get _canGenerate =>
-      _topicCtrl.text.trim().isNotEmpty && _status == _GenStatus.idle;
+  bool get _canGenerate {
+    final isLoading = ref.read(iaGenerationNotifierProvider).isLoading;
+    return _topicCtrl.text.trim().isNotEmpty && !isLoading;
+  }
 
   @override
   void dispose() {
     _topicCtrl.dispose();
-    _focusNode.dispose();
+    _descCtrl.dispose();
+    _topicFocus.dispose();
     super.dispose();
   }
 
   Future<void> _generate() async {
     if (!_canGenerate) return;
-    _focusNode.unfocus();
-    setState(() => _status = _GenStatus.loading);
+    FocusScope.of(context).unfocus();
 
-    // Placeholder — substituir pela chamada real à API de IA
-    await Future<void>.delayed(const Duration(milliseconds: 1800));
-    if (!mounted) return;
+    await ref.read(iaGenerationNotifierProvider.notifier).generate(
+          topic: _topicCtrl.text,
+          difficulty: _difficulty.key,
+          quantity: _quantity.round(),
+          description: _descCtrl.text,
+          model: _selectedModel,
+        );
+  }
 
-    setState(() => _status = _GenStatus.idle);
-
+  void _showErrorSnack(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
           children: [
             const FaIcon(
-              FontAwesomeIcons.wandMagicSparkles,
+              FontAwesomeIcons.circleExclamation,
               size: 15,
-              color: _C.accent,
+              color: Color(0xFFFF6B6B),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
-                'Integração com IA em breve!',
+                message,
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w600,
                   color: Colors.white,
@@ -109,13 +127,49 @@ class _IaQuizPageState extends State<IaQuizPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 4),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Observa o estado da geração e reage: sucesso navega, erro exibe snack.
+    ref.listen<AsyncValue<IaGenerationResult?>>(
+      iaGenerationNotifierProvider,
+      (prev, next) {
+        next.when(
+          data: (result) {
+            if (result == null) return;
+            // Reseta antes de navegar para evitar re-trigger se a página
+            // for revisitada com o mesmo state.
+            ref.read(iaGenerationNotifierProvider.notifier).reset();
+            context.push(
+              AppRoutes.teacherIaQuizReview,
+              extra: <String, Object?>{
+                'result': result,
+                'topic': _topicCtrl.text.trim(),
+                'difficulty': _difficulty.label,
+                'classroomId': widget.classroomId,
+              },
+            );
+          },
+          error: (err, _) {
+            final msg = err is Failure
+                ? err.message
+                : 'Falha ao gerar questões. Tente novamente.';
+            _showErrorSnack(msg);
+            ref.read(iaGenerationNotifierProvider.notifier).reset();
+          },
+          loading: () {},
+        );
+      },
+    );
+
+    final isLoading = ref.watch(
+      iaGenerationNotifierProvider.select((s) => s.isLoading),
+    );
+
     return GestureDetector(
       // Heurística #3: toque fora do campo fecha o teclado
       onTap: () => FocusScope.of(context).unfocus(),
@@ -147,7 +201,29 @@ class _IaQuizPageState extends State<IaQuizPage> {
                       const SizedBox(height: 10),
                       _TopicField(
                         controller: _topicCtrl,
-                        focusNode: _focusNode,
+                        focusNode: _topicFocus,
+                        onChanged: (_) => setState(() {}),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Descrição opcional para afunilar o estilo
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _sectionLabel('DESCRIÇÃO (OPCIONAL)'),
+                          Text(
+                            '${_descCtrl.text.length}/500',
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: _C.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      _DescriptionField(
+                        controller: _descCtrl,
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: 28),
@@ -181,12 +257,21 @@ class _IaQuizPageState extends State<IaQuizPage> {
                         value: _quantity,
                         onChanged: (v) => setState(() => _quantity = v),
                       ),
+                      const SizedBox(height: 28),
+
+                      // Modelo de IA
+                      _sectionLabel('MODELO DE IA'),
+                      const SizedBox(height: 10),
+                      _ModelSelector(
+                        selected: _selectedModel,
+                        onSelect: (m) => setState(() => _selectedModel = m),
+                      ),
                       const SizedBox(height: 40),
 
                       // Botão principal
                       _GenerateButton(
                         enabled: _canGenerate,
-                        loading: _status == _GenStatus.loading,
+                        loading: isLoading,
                         onTap: _generate,
                       ),
                     ],
@@ -421,6 +506,66 @@ class _TopicField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Description Field — campo livre para afunilar o estilo das questões.
+// Heurística #6: hint com exemplos guia o uso.
+// Heurística #5: limite de caracteres exibido na label.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DescriptionField extends StatelessWidget {
+  const _DescriptionField({
+    required this.controller,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      controller: controller,
+      onChanged: onChanged,
+      maxLength: 500,
+      maxLines: 4,
+      minLines: 3,
+      style: GoogleFonts.nunito(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: Colors.white,
+      ),
+      cursorColor: _C.accent,
+      decoration: InputDecoration(
+        hintText:
+            'Ex: foco em causas e consequências, evite questões só de datas, '
+            'use linguagem acessível para o 8º ano...',
+        hintStyle: GoogleFonts.nunito(
+          fontSize: 13,
+          fontWeight: FontWeight.w400,
+          color: _C.textMuted,
+          height: 1.4,
+        ),
+        filled: true,
+        fillColor: AppColors.surfaceDark,
+        contentPadding: const EdgeInsets.all(14),
+        counterText: '', // contador é renderizado na label (controle manual)
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _C.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _C.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: _C.accent, width: 1.5),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Difficulty Selector
 // Heurística #6 (reconhecimento): estrelas + rótulo tornam cada nível claro.
 // Heurística #4 (consistência): estilo de seleção igual ao restante do app.
@@ -552,6 +697,131 @@ class _QuantitySlider extends StatelessWidget {
         max: 20,
         divisions: 19,
         onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Model Selector — chips para escolher qual IA gera as questões.
+// Heurística #4: mesmo padrão visual do _DifficultySelector.
+// Heurística #6: nome + descrição curta tornam a escolha clara.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ModelSelector extends StatelessWidget {
+  const _ModelSelector({
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final IaModelOption selected;
+  final ValueChanged<IaModelOption> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: IaModelOption.values.asMap().entries.map((entry) {
+        final isLast = entry.key == IaModelOption.values.length - 1;
+        return Padding(
+          padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+          child: _ModelOption(
+            model: entry.value,
+            isSelected: selected == entry.value,
+            onTap: () => onSelect(entry.value),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _ModelOption extends StatelessWidget {
+  const _ModelOption({
+    required this.model,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final IaModelOption model;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? _C.accentSubtle : AppColors.surfaceDark,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? _C.accent.withValues(alpha: 0.55)
+                : _C.border,
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Row(
+          children: [
+            // Ícone — varia conforme o modelo, mas mantém estilo
+            FaIcon(
+              FontAwesomeIcons.microchip,
+              size: 14,
+              color: isSelected ? _C.accent : _C.textMuted,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    model.label,
+                    style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: isSelected ? Colors.white : _C.textMuted,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    model.description,
+                    style: GoogleFonts.nunito(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                      color: _C.textMuted.withValues(alpha: 0.85),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Radio visual à direita
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              width: 18,
+              height: 18,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: isSelected ? _C.accent : Colors.transparent,
+                border: Border.all(
+                  color: isSelected
+                      ? _C.accent
+                      : _C.textMuted.withValues(alpha: 0.4),
+                  width: 1.5,
+                ),
+              ),
+              child: isSelected
+                  ? const Icon(
+                      Icons.check_rounded,
+                      size: 12,
+                      color: Colors.white,
+                    )
+                  : null,
+            ),
+          ],
+        ),
       ),
     );
   }

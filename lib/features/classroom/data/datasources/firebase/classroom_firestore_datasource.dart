@@ -75,6 +75,50 @@ class ClassroomFirestoreDatasource {
     });
   }
 
+  /// Apaga a sala e todas as suas subcoleções (questions, results,
+  /// phases e as questões aninhadas em cada phase).
+  ///
+  /// O Firestore não cascateia delete automaticamente — sem essa
+  /// limpeza manual, os documentos ficariam órfãos consumindo storage
+  /// e poderiam ser lidos por queries cross-collection.
+  ///
+  /// Estratégia: coleta todos os refs, particiona em batches de até
+  /// 500 operações (limite do Firestore) e commita em sequência.
+  Future<void> deleteClassroom(String classroomId) async {
+    final classroomRef = _classrooms.doc(classroomId);
+    final refs = <DocumentReference<Map<String, dynamic>>>[];
+
+    // Subcoleções planas: questions, results
+    final flatSubcollections = ['questions', 'results'];
+    for (final name in flatSubcollections) {
+      final snap = await classroomRef.collection(name).get();
+      refs.addAll(snap.docs.map((d) => d.reference));
+    }
+
+    // Subcoleção phases (cada uma com sua subcoleção questions)
+    final phasesSnap = await classroomRef.collection('phases').get();
+    for (final phaseDoc in phasesSnap.docs) {
+      final phaseQuestionsSnap =
+          await phaseDoc.reference.collection('questions').get();
+      refs.addAll(phaseQuestionsSnap.docs.map((d) => d.reference));
+      refs.add(phaseDoc.reference);
+    }
+
+    // Documento da própria sala — por último.
+    refs.add(classroomRef);
+
+    // Commita em chunks de 500 (limite do WriteBatch).
+    const chunkSize = 500;
+    for (var i = 0; i < refs.length; i += chunkSize) {
+      final end = (i + chunkSize) > refs.length ? refs.length : i + chunkSize;
+      final batch = _firestore.batch();
+      for (final ref in refs.sublist(i, end)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+  }
+
   /// Busca uma sala pelo código de 6 caracteres.
   Future<ClassroomModel?> fetchByCode(String code) async {
     final snap = await _classrooms

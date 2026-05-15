@@ -30,6 +30,10 @@ abstract class ClassroomRepository {
     required String description,
   });
 
+  /// Apaga a sala e todas as suas subcoleções (questions, results,
+  /// phases). Operação irreversível.
+  Future<Either<Failure, void>> deleteClassroom(String classroomId);
+
   /// Busca uma sala pelo código de 6 caracteres.
   Future<Either<Failure, Classroom>> getClassroomByCode(String code);
 
