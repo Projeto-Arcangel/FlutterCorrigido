@@ -18,12 +18,16 @@ abstract class _C {
   static const Color gold        = Color(0xFFE8A020);
   static const Color goldDim     = Color(0x80E8A020);
   static const Color goldSubtle  = Color(0x1AE8A020);
-  static const Color divider     = Color(0x1AFFFFFF);
   static const Color textMuted   = Color(0xFF8FA3AE);
-  static const Color cardBorder  = Color(0x1AFFFFFF);
   static const Color danger      = Color(0xFFFF5963);
   static const Color dangerSubtle= Color(0x26FF5963);
   static const Color success     = Color(0xFF72D09C);
+
+  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark : Colors.white;
+  static Color border(bool dark)     => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color divider(bool dark)    => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color primaryText(bool dark)=> dark ? Colors.white : AppColors.textPrimary;
+  static Color fieldFill(bool dark)  => dark ? AppColors.backgroundDark : AppColors.background;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -97,7 +101,6 @@ class _ClassroomListPageState extends ConsumerState<ClassroomListPage>
         ref.watch(teacherClassroomsProvider(user.uid));
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
       appBar: _buildAppBar(),
       body: SafeArea(
         child: asyncClassrooms.when(
@@ -124,26 +127,28 @@ class _ClassroomListPageState extends ConsumerState<ClassroomListPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar() => AppBar(
-        backgroundColor: AppColors.backgroundDark,
-        surfaceTintColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Minha Turma',
-          style: GoogleFonts.nunito(
-            fontSize: 17,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
-          ),
+  PreferredSizeWidget _buildAppBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final textColor = isDark ? Colors.white : AppColors.textPrimary;
+    return AppBar(
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      centerTitle: true,
+      title: Text(
+        'Minha Turma',
+        style: GoogleFonts.nunito(
+          fontSize: 17,
+          fontWeight: FontWeight.w800,
+          color: textColor,
         ),
-        leading: IconButton(
-          tooltip: 'Voltar',
-          icon:
-              const Icon(Icons.chevron_left, color: Colors.white, size: 28),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
-      );
+      ),
+      leading: IconButton(
+        tooltip: 'Voltar',
+        icon: Icon(Icons.chevron_left, color: textColor, size: 28),
+        onPressed: () => Navigator.of(context).maybePop(),
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -228,19 +233,20 @@ class _DarkTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       textCapitalization: textCapitalization,
       validator: validator,
-      style: GoogleFonts.nunito(fontSize: 15, color: Colors.white),
+      style: GoogleFonts.nunito(fontSize: 15, color: _C.primaryText(isDark)),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         labelStyle: GoogleFonts.nunito(fontSize: 14, color: _C.textMuted),
         hintStyle: GoogleFonts.nunito(fontSize: 14, color: _C.textMuted),
         filled: true,
-        fillColor: AppColors.backgroundDark,
+        fillColor: _C.fieldFill(isDark),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
@@ -249,7 +255,7 @@ class _DarkTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _C.cardBorder),
+          borderSide: BorderSide(color: _C.border(isDark)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -365,7 +371,7 @@ class _CreateViewState extends ConsumerState<_CreateView> {
               style: GoogleFonts.nunito(
                 fontSize: 22,
                 fontWeight: FontWeight.w800,
-                color: Colors.white,
+                color: _C.primaryText(Theme.of(context).brightness == Brightness.dark),
               ),
             ),
             const SizedBox(height: 8),
@@ -536,12 +542,13 @@ class _ClassroomHeaderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _C.cardBg(isDark),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _C.cardBorder),
+        border: Border.all(color: _C.border(isDark)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,7 +580,7 @@ class _ClassroomHeaderCard extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 17,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: _C.primaryText(isDark),
                         height: 1.2,
                       ),
                     ),
@@ -677,7 +684,7 @@ class _CodeCard extends StatelessWidget {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
         decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
+          color: _C.cardBg(Theme.of(context).brightness == Brightness.dark),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Column(
@@ -838,6 +845,7 @@ class _StudentsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final count = classroom.studentCount;
     const max = Classroom.maxStudents;
 
@@ -852,9 +860,9 @@ class _StudentsSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
+            color: _C.cardBg(isDark),
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _C.cardBorder),
+            border: Border.all(color: _C.border(isDark)),
           ),
           child: count == 0
               ? const _EmptyHint(
@@ -876,9 +884,9 @@ class _CapacityBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final ratio = current / max;
-    final barColor =
-        ratio > 0.85 ? _C.danger : AppColors.primary;
+    final barColor = ratio > 0.85 ? _C.danger : AppColors.primary;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -891,7 +899,7 @@ class _CapacityBar extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                color: _C.primaryText(isDark),
               ),
             ),
             Text(
@@ -909,7 +917,9 @@ class _CapacityBar extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           child: LinearProgressIndicator(
             value: ratio,
-            backgroundColor: Colors.white.withValues(alpha: 0.08),
+            backgroundColor: isDark
+                ? Colors.white.withValues(alpha: 0.08)
+                : Colors.black.withValues(alpha: 0.08),
             valueColor: AlwaysStoppedAnimation<Color>(barColor),
             minHeight: 7,
           ),
@@ -929,6 +939,7 @@ class _ResultsSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final asyncResults =
         ref.watch(classroomResultsProvider(classroomId));
 
@@ -941,21 +952,20 @@ class _ResultsSection extends ConsumerWidget {
           loading: () => Container(
             height: 80,
             decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
+              color: _C.cardBg(isDark),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _C.cardBorder),
+              border: Border.all(color: _C.border(isDark)),
             ),
             child: const Center(
-              child:
-                  CircularProgressIndicator(color: AppColors.primary),
+              child: CircularProgressIndicator(color: AppColors.primary),
             ),
           ),
           error: (_, __) => Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: AppColors.surfaceDark,
+              color: _C.cardBg(isDark),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _C.cardBorder),
+              border: Border.all(color: _C.border(isDark)),
             ),
             child: const _EmptyHint(
               icon: Icons.cloud_off_outlined,
@@ -967,9 +977,9 @@ class _ResultsSection extends ConsumerWidget {
               return Container(
                 padding: const EdgeInsets.all(20),
                 decoration: BoxDecoration(
-                  color: AppColors.surfaceDark,
+                  color: _C.cardBg(isDark),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: _C.cardBorder),
+                  border: Border.all(color: _C.border(isDark)),
                 ),
                 child: const _EmptyHint(
                   icon: Icons.bar_chart_outlined,
@@ -986,9 +996,9 @@ class _ResultsSection extends ConsumerWidget {
 
             return Container(
               decoration: BoxDecoration(
-                color: AppColors.surfaceDark,
+                color: _C.cardBg(isDark),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: _C.cardBorder),
+                border: Border.all(color: _C.border(isDark)),
               ),
               clipBehavior: Clip.antiAlias,
               child: Column(
@@ -996,9 +1006,9 @@ class _ResultsSection extends ConsumerWidget {
                   for (int i = 0; i < sorted.length; i++) ...[
                     _ResultTile(result: sorted[i]),
                     if (i < sorted.length - 1)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Divider(color: _C.divider, height: 1,),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        child: Divider(color: _C.divider(isDark), height: 1),
                       ),
                   ],
                 ],
@@ -1070,7 +1080,7 @@ class _ResultTile extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: _C.primaryText(Theme.of(context).brightness == Brightness.dark),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -1177,7 +1187,7 @@ class _ErrorView extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: _C.primaryText(Theme.of(context).brightness == Brightness.dark),
                   height: 1.4,
                 ),
               ),

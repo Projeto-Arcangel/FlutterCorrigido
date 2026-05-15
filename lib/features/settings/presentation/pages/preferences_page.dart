@@ -6,7 +6,6 @@ import '../../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Estado das preferências (Riverpod)
-// Segue o padrão do projeto: Provider simples com StateNotifier
 // ─────────────────────────────────────────────────────────────────────────────
 
 class PreferencesState {
@@ -54,17 +53,24 @@ final preferencesProvider =
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Paleta local
+// Paleta de apoio — valores neutros que funcionam em ambos os modos
 // ─────────────────────────────────────────────────────────────────────────────
 
-abstract class _PrefsColors {
-  static const Color cardBorder = Color(0x1AFFFFFF);
-  static const Color divider = Color(0x1AFFFFFF);
+abstract class _P {
   static const Color textMuted = Color(0xFF8FA3AE);
-  static const Color trackInactive = Color(0xFF2E373E);
-  static const Color toggleInactive = Color(0xFF3D4A54);
-  static const Color warningSubtle = Color(0x1AFFD166);
   static const Color warning = Color(0xFFFFD166);
+
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
+  static Color cardBorder(bool dark) =>
+      dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color trackInactive(bool dark) =>
+      dark ? const Color(0xFF2E373E) : const Color(0xFFCFD8DC);
+  static Color iconBgOn(bool dark) =>
+      AppColors.primary.withValues(alpha: dark ? 0.15 : 0.12);
+  static Color iconBgOff(bool dark) =>
+      dark ? Colors.white.withValues(alpha: 0.05) : Colors.black.withValues(alpha: 0.04);
+  static Color textPrimary(bool dark) =>
+      dark ? Colors.white : AppColors.textPrimary;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,7 +97,6 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
   late final List<Animation<double>> _fadeAnims;
   late final List<Animation<Offset>> _slideAnims;
 
-  // 3 blocos animados: áudio, notificações, aparência
   static const int _animCount = 3;
   static const Duration _totalDuration = Duration(milliseconds: 650);
   static const Duration _stagger = Duration(milliseconds: 90);
@@ -138,33 +143,39 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
   Widget build(BuildContext context) {
     final prefs = ref.watch(preferencesProvider);
     final notifier = ref.read(preferencesProvider.notifier);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor =
+        isDark ? AppColors.backgroundDark : AppColors.background;
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      appBar: _buildAppBar(context),
+      backgroundColor: bgColor,
+      appBar: _buildAppBar(context, isDark),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
           children: [
-            // ── Bloco 1: Áudio ────────────────────────────────────────
+            // ── Bloco 1: Áudio ─────────────────────────────────────────
             _animated(
               0,
               _SectionCard(
                 icon: Icons.music_note_rounded,
                 iconColor: AppColors.primary,
                 title: 'Áudio',
+                isDark: isDark,
                 children: [
                   _VolumeRow(
                     label: 'Música',
                     icon: Icons.library_music_outlined,
                     value: prefs.musicVolume,
+                    isDark: isDark,
                     onChanged: notifier.setMusicVolume,
                   ),
-                  const _Separator(),
+                  _Separator(isDark: isDark),
                   _VolumeRow(
                     label: 'Efeitos sonoros',
                     icon: Icons.spatial_audio_off_outlined,
                     value: prefs.sfxVolume,
+                    isDark: isDark,
                     onChanged: notifier.setSfxVolume,
                   ),
                 ],
@@ -172,19 +183,21 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
             ),
             const SizedBox(height: 20),
 
-            // ── Bloco 2: Notificações ─────────────────────────────────
+            // ── Bloco 2: Notificações ──────────────────────────────────
             _animated(
               1,
               _SectionCard(
                 icon: Icons.notifications_outlined,
-                iconColor: _PrefsColors.warning,
+                iconColor: _P.warning,
                 title: 'Notificações',
+                isDark: isDark,
                 children: [
                   _ToggleRow(
                     label: 'Lembretes e alertas',
                     subtitle: 'Receba dicas e avisos de sequência',
                     icon: Icons.campaign_outlined,
                     value: prefs.notificationsEnabled,
+                    isDark: isDark,
                     onChanged: (_) => notifier.toggleNotifications(),
                   ),
                 ],
@@ -192,23 +205,22 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
             ),
             const SizedBox(height: 20),
 
-            // ── Bloco 3: Aparência ────────────────────────────────────
+            // ── Bloco 3: Aparência ─────────────────────────────────────
             _animated(
               2,
               _SectionCard(
                 icon: Icons.palette_outlined,
                 iconColor: const Color(0xFF72D09C),
                 title: 'Aparência',
+                isDark: isDark,
                 children: [
                   _ToggleRow(
                     label: 'Modo claro',
                     subtitle: 'Altera o tema visual do aplicativo',
                     icon: Icons.light_mode_outlined,
                     value: prefs.lightMode,
+                    isDark: isDark,
                     onChanged: (_) => notifier.toggleLightMode(),
-                    // Heurística #5: aviso sobre recurso ainda não funcional
-                    badge: 'Em breve',
-                    disabled: true,
                   ),
                 ],
               ),
@@ -219,8 +231,10 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) => AppBar(
-        backgroundColor: AppColors.backgroundDark,
+  PreferredSizeWidget _buildAppBar(BuildContext context, bool isDark) =>
+      AppBar(
+        backgroundColor:
+            isDark ? AppColors.backgroundDark : AppColors.background,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -229,14 +243,14 @@ class _PreferencesPageState extends ConsumerState<PreferencesPage>
           style: GoogleFonts.nunito(
             fontSize: 17,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: isDark ? Colors.white : AppColors.textPrimary,
           ),
         ),
         leading: IconButton(
           tooltip: 'Voltar',
-          icon: const Icon(
+          icon: Icon(
             Icons.chevron_left,
-            color: Colors.white,
+            color: isDark ? Colors.white : AppColors.textPrimary,
             size: 28,
           ),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -254,19 +268,20 @@ class _SectionCard extends StatelessWidget {
     required this.iconColor,
     required this.title,
     required this.children,
+    required this.isDark,
   });
 
   final IconData icon;
   final Color iconColor;
   final String title;
   final List<Widget> children;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Label de seção com ícone decorativo
         Padding(
           padding: const EdgeInsets.only(left: 2, bottom: 10),
           child: Row(
@@ -286,20 +301,18 @@ class _SectionCard extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: _PrefsColors.textMuted,
+                  color: _P.textMuted,
                   letterSpacing: 2.0,
                 ),
               ),
             ],
           ),
         ),
-
-        // Container do card
         Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
+            color: _P.cardBg(isDark),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _PrefsColors.cardBorder),
+            border: Border.all(color: _P.cardBorder(isDark)),
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(20),
@@ -316,10 +329,6 @@ class _SectionCard extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Linha de volume com slider
-//
-// Heurística #1: valor percentual exibido ao lado do label para feedback
-//               imediato — o usuário sabe exatamente em que nível está.
-// Heurística #6: ícone + rótulo tornam a função reconhecível sem instrução.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _VolumeRow extends StatelessWidget {
@@ -328,12 +337,14 @@ class _VolumeRow extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.onChanged,
+    required this.isDark,
   });
 
   final String label;
   final IconData icon;
   final double value;
   final ValueChanged<double> onChanged;
+  final bool isDark;
 
   String get _percent => '${(value * 100).round()}%';
 
@@ -344,7 +355,6 @@ class _VolumeRow extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Label + ícone + valor percentual
           Row(
             children: [
               Icon(icon, size: 16, color: AppColors.primary),
@@ -354,11 +364,10 @@ class _VolumeRow extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: _P.textPrimary(isDark),
                 ),
               ),
               const Spacer(),
-              // Heurística #1 – visibilidade do estado
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 150),
                 child: Text(
@@ -367,27 +376,16 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: value == 0
-                        ? _PrefsColors.textMuted
-                        : AppColors.primary,
+                    color: value == 0 ? _P.textMuted : AppColors.primary,
                   ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 10),
-
-          // Slider customizado
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              trackHeight: 4,
-              activeTrackColor: AppColors.primary,
-              inactiveTrackColor: _PrefsColors.trackInactive,
-              thumbColor: Colors.white,
-              thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 9),
-              overlayColor: AppColors.primary.withOpacity(0.15),
-              overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
-              trackShape: const RoundedRectSliderTrackShape(),
+              inactiveTrackColor: _P.trackInactive(isDark),
             ),
             child: Slider(
               value: value,
@@ -396,8 +394,6 @@ class _VolumeRow extends StatelessWidget {
               onChanged: onChanged,
             ),
           ),
-
-          // Rótulos min/max – Heurística #6 (reconhecimento sem memorização)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Row(
@@ -408,7 +404,7 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: _PrefsColors.textMuted,
+                    color: _P.textMuted,
                   ),
                 ),
                 Text(
@@ -416,7 +412,7 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: _PrefsColors.textMuted,
+                    color: _P.textMuted,
                   ),
                 ),
               ],
@@ -430,10 +426,6 @@ class _VolumeRow extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Linha de toggle (Switch)
-//
-// Heurística #1: cor do switch muda com o estado — on=azul, off=cinza.
-// Heurística #4: padrão visual de toggle consistente com o restante do app.
-// Heurística #5: badge "Em breve" previne frustração com opção desabilitada.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ToggleRow extends StatelessWidget {
@@ -443,8 +435,7 @@ class _ToggleRow extends StatelessWidget {
     required this.icon,
     required this.value,
     required this.onChanged,
-    this.badge,
-    this.disabled = false,
+    required this.isDark,
   });
 
   final String label;
@@ -452,136 +443,61 @@ class _ToggleRow extends StatelessWidget {
   final IconData icon;
   final bool value;
   final ValueChanged<bool> onChanged;
-  final String? badge;
-  final bool disabled;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
-    return Opacity(
-      opacity: disabled ? 0.55 : 1.0,
-      child: AbsorbPointer(
-        absorbing: disabled,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Row(
-            children: [
-              // Ícone com fundo sutil
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: value
-                      ? AppColors.primary.withOpacity(0.15)
-                      : Colors.white.withOpacity(0.05),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  icon,
-                  size: 20,
-                  color: value ? AppColors.primary : _PrefsColors.textMuted,
-                ),
-              ),
-              const SizedBox(width: 14),
-
-              // Textos
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          label,
-                          style: GoogleFonts.nunito(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            height: 1.2,
-                          ),
-                        ),
-                        if (badge != null) ...[
-                          const SizedBox(width: 8),
-                          _Badge(label: badge!),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      subtitle,
-                      style: GoogleFonts.nunito(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                        color: _PrefsColors.textMuted,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Switch customizado
-              _AppSwitch(value: value, onChanged: onChanged),
-            ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: value ? _P.iconBgOn(isDark) : _P.iconBgOff(isDark),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: value ? AppColors.primary : _P.textMuted,
+            ),
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Switch no estilo do app
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _AppSwitch extends StatelessWidget {
-  const _AppSwitch({required this.value, required this.onChanged});
-
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Switch(
-      value: value,
-      onChanged: onChanged,
-      activeColor: Colors.white,
-      activeTrackColor: AppColors.primary,
-      inactiveThumbColor: Colors.white,
-      inactiveTrackColor: _PrefsColors.toggleInactive,
-      trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
-      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Badge informativo (ex: "Em breve")
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: _PrefsColors.warningSubtle,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _PrefsColors.warning.withOpacity(0.35),
-          width: 1,
-        ),
-      ),
-      child: Text(
-        label,
-        style: GoogleFonts.nunito(
-          fontSize: 9,
-          fontWeight: FontWeight.w700,
-          color: _PrefsColors.warning,
-          letterSpacing: 0.5,
-        ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: GoogleFonts.nunito(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                    color: _P.textPrimary(isDark),
+                    height: 1.2,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  subtitle,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: _P.textMuted,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Switch(
+            value: value,
+            onChanged: onChanged,
+            trackOutlineColor: WidgetStateProperty.all(Colors.transparent),
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+        ],
       ),
     );
   }
@@ -592,11 +508,15 @@ class _Badge extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Separator extends StatelessWidget {
-  const _Separator();
+  const _Separator({required this.isDark});
+  final bool isDark;
 
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 18),
-        child: Divider(height: 1, color: _PrefsColors.divider),
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        child: Divider(
+          height: 1,
+          color: _P.cardBorder(isDark),
+        ),
       );
 }

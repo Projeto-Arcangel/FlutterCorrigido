@@ -23,7 +23,6 @@ class LessonListPage extends ConsumerWidget {
     final currentPhase = asyncProgress?.valueOrNull?.currentPhase ?? 0;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1D2428),
       body: SafeArea(
         child: Column(
           children: [
@@ -64,6 +63,7 @@ class _TrailHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authStateProvider).valueOrNull;
     final asyncProgress =
         user == null ? null : ref.watch(userProgressProvider(user.id));
@@ -81,14 +81,18 @@ class _TrailHeader extends ConsumerWidget {
     final double levelProgress =
         xpForLevel > 0 ? (xpIntoLevel / xpForLevel).clamp(0.0, 1.0) : 0.0;
 
+    final Color mutedColor = isDark ? Colors.white54 : AppColors.textSecondary;
+    final Color primaryText = isDark ? Colors.white : AppColors.textPrimary;
+    final Color avatarBg = isDark ? AppColors.surfaceDark : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Row(
         children: [
           // Ícone de configurações / chá (lado esquerdo)
-          const Icon(
+          Icon(
             Icons.local_cafe_outlined,
-            color: Colors.white54,
+            color: mutedColor,
             size: 28,
           ),
 
@@ -112,19 +116,19 @@ class _TrailHeader extends ConsumerWidget {
                         child: CircularProgressIndicator(
                           value: levelProgress,
                           strokeWidth: 3,
-                          backgroundColor: AppColors.surfaceDark,
+                          backgroundColor: avatarBg,
                           valueColor: const AlwaysStoppedAnimation<Color>(
                             AppColors.primary,
                           ),
                         ),
                       ),
                       // Avatar interno
-                      const CircleAvatar(
+                      CircleAvatar(
                         radius: 22,
-                        backgroundColor: AppColors.surfaceDark,
+                        backgroundColor: avatarBg,
                         child: Icon(
                           Icons.person,
-                          color: Colors.white70,
+                          color: mutedColor,
                           size: 26,
                         ),
                       ),
@@ -135,8 +139,8 @@ class _TrailHeader extends ConsumerWidget {
               const SizedBox(height: 4),
               Text(
                 'Nv. $level',
-                style: const TextStyle(
-                  color: Colors.white54,
+                style: TextStyle(
+                  color: mutedColor,
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
                 ),
@@ -157,8 +161,8 @@ class _TrailHeader extends ConsumerWidget {
               const SizedBox(width: 6),
               Text(
                 gold.toString().padLeft(4, '0'),
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: primaryText,
                   fontWeight: FontWeight.bold,
                   fontSize: 15,
                 ),

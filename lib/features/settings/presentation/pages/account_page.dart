@@ -14,10 +14,18 @@ abstract class _Colors {
   static const Color danger        = Color(0xFFFF5963);
   static const Color dangerSubtle  = Color(0x26FF5963);
   static const Color primarySubtle = Color(0x1F72ACD0);
-  static const Color divider       = Color(0x1AFFFFFF);
   static const Color textMuted     = Color(0xFF8FA3AE);
-  static const Color cardBorder    = Color(0x1AFFFFFF);
   static const Color googleBlue    = Color(0xFF4285F4);
+
+  // Adaptativos ao modo
+  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark  : Colors.white;
+  static Color cardBorder(bool dark)  => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color divider(bool dark)     => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color bgPage(bool dark)      => dark ? AppColors.backgroundDark : AppColors.background;
+  static Color textPrimary(bool dark) => dark ? Colors.white : AppColors.textPrimary;
+  static Color fieldFill(bool dark)   => dark ? AppColors.backgroundDark : AppColors.background;
+  static Color sheetBg(bool dark)     => dark ? AppColors.surfaceDark : Colors.white;
+  static Color handleColor(bool dark) => dark ? Colors.white24 : Colors.black12;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -169,6 +177,7 @@ class _AccountPageState extends ConsumerState<AccountPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authStateProvider).valueOrNull;
     final email = user?.email ?? '';
     final displayName = user?.displayName ??
@@ -176,9 +185,9 @@ class _AccountPageState extends ConsumerState<AccountPage>
     final photoUrl = user?.photoUrl;
 
     if (_deletingAccount) {
-      return const Scaffold(
-        backgroundColor: AppColors.backgroundDark,
-        body: Center(
+      return Scaffold(
+        backgroundColor: _Colors.bgPage(isDark),
+        body: const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
       );
@@ -187,8 +196,8 @@ class _AccountPageState extends ConsumerState<AccountPage>
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
-        appBar: _buildAppBar(),
+        backgroundColor: _Colors.bgPage(isDark),
+        appBar: _buildAppBar(isDark),
         body: SafeArea(
           child: ListView(
             padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
@@ -291,8 +300,8 @@ class _AccountPageState extends ConsumerState<AccountPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar() => AppBar(
-        backgroundColor: AppColors.backgroundDark,
+  PreferredSizeWidget _buildAppBar(bool isDark) => AppBar(
+        backgroundColor: _Colors.bgPage(isDark),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
@@ -301,12 +310,12 @@ class _AccountPageState extends ConsumerState<AccountPage>
           style: GoogleFonts.nunito(
             fontSize: 17,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: _Colors.textPrimary(isDark),
           ),
         ),
         leading: IconButton(
           tooltip: 'Voltar',
-          icon: const Icon(Icons.chevron_left, color: Colors.white, size: 28),
+          icon: Icon(Icons.chevron_left, color: _Colors.textPrimary(isDark), size: 28),
           onPressed: () => Navigator.of(context).maybePop(),
         ),
       );
@@ -351,12 +360,13 @@ class _UserCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _Colors.cardBg(isDark),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _Colors.cardBorder),
+        border: Border.all(color: _Colors.cardBorder(isDark)),
       ),
       child: Row(
         children: [
@@ -373,7 +383,7 @@ class _UserCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: _Colors.textPrimary(isDark),
                     height: 1.2,
                   ),
                 ),
@@ -411,13 +421,14 @@ class _Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: 52,
       height: 52,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.primary, width: 2),
-        color: AppColors.backgroundDark,
+        color: _Colors.bgPage(isDark),
       ),
       child: photoUrl != null
           ? ClipOval(
@@ -486,11 +497,12 @@ class _TileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _Colors.cardBg(isDark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _Colors.cardBorder),
+        border: Border.all(color: _Colors.cardBorder(isDark)),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(children: children),
@@ -502,10 +514,13 @@ class _TileDivider extends StatelessWidget {
   const _TileDivider();
 
   @override
-  Widget build(BuildContext context) => const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20),
-        child: Divider(color: _Colors.divider, height: 1),
-      );
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Divider(color: _Colors.divider(isDark), height: 1),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -535,8 +550,9 @@ class _InfoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: AppColors.surfaceDark,
+      color: _Colors.cardBg(isDark),
       child: InkWell(
         onTap: readOnly ? null : onTap,
         splashColor:
@@ -548,7 +564,6 @@ class _InfoTile extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
           child: Row(
             children: [
-              // Ícone
               Container(
                 width: 40,
                 height: 40,
@@ -560,7 +575,6 @@ class _InfoTile extends StatelessWidget {
               ),
               const SizedBox(width: 16),
 
-              // Label + valor
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -583,7 +597,7 @@ class _InfoTile extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: _Colors.textPrimary(isDark),
                         height: 1.2,
                       ),
                     ),
@@ -663,8 +677,9 @@ class _DangerTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
-      color: AppColors.surfaceDark,
+      color: _Colors.cardBg(isDark),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -736,16 +751,19 @@ class _SheetHandle extends StatelessWidget {
   const _SheetHandle();
 
   @override
-  Widget build(BuildContext context) => Center(
-        child: Container(
-          width: 40,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.white24,
-            borderRadius: BorderRadius.circular(2),
-          ),
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Container(
+        width: 40,
+        height: 4,
+        decoration: BoxDecoration(
+          color: _Colors.handleColor(isDark),
+          borderRadius: BorderRadius.circular(2),
         ),
-      );
+      ),
+    );
+  }
 }
 
 class _DarkTextField extends StatelessWidget {
@@ -769,19 +787,20 @@ class _DarkTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       textCapitalization: textCapitalization,
       validator: validator,
       autofocus: autofocus,
-      style: GoogleFonts.nunito(fontSize: 15, color: Colors.white),
+      style: GoogleFonts.nunito(fontSize: 15, color: _Colors.textPrimary(isDark)),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: GoogleFonts.nunito(fontSize: 14, color: _Colors.textMuted),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: AppColors.backgroundDark,
+        fillColor: _Colors.fieldFill(isDark),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
@@ -790,7 +809,7 @@ class _DarkTextField extends StatelessWidget {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _Colors.cardBorder),
+          borderSide: BorderSide(color: _Colors.cardBorder(isDark)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -929,14 +948,15 @@ class _EditNameSheetState extends State<_EditNameSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-        decoration: const BoxDecoration(
-          color: AppColors.surfaceDark,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        decoration: BoxDecoration(
+          color: _Colors.sheetBg(isDark),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Form(
           key: _formKey,
@@ -951,7 +971,7 @@ class _EditNameSheetState extends State<_EditNameSheet> {
                 style: GoogleFonts.nunito(
                   fontSize: 18,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: _Colors.textPrimary(isDark),
                 ),
               ),
               const SizedBox(height: 20),
@@ -1047,15 +1067,16 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
     return Padding(
       padding: EdgeInsets.only(bottom: bottom),
       child: SingleChildScrollView(
         child: Container(
           padding: const EdgeInsets.fromLTRB(24, 12, 24, 32),
-          decoration: const BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: _Colors.sheetBg(isDark),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Form(
             key: _formKey,
@@ -1070,7 +1091,7 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                   style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: _Colors.textPrimary(isDark),
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -1165,8 +1186,9 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
-      backgroundColor: AppColors.surfaceDark,
+      backgroundColor: _Colors.cardBg(isDark),
       surfaceTintColor: Colors.transparent,
       shape:
           RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1191,7 +1213,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
             style: GoogleFonts.nunito(
               fontSize: 18,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: _Colors.textPrimary(isDark),
             ),
           ),
         ],
@@ -1216,7 +1238,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
               style: GoogleFonts.nunito(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.white70,
+                color: _Colors.textPrimary(isDark),
               ),
             ),
             const SizedBox(height: 10),
@@ -1225,12 +1247,12 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
                 controller: _ctrl,
                 obscureText: _obscure,
                 style:
-                    GoogleFonts.nunito(fontSize: 15, color: Colors.white),
+                    GoogleFonts.nunito(fontSize: 15, color: _Colors.textPrimary(isDark)),
                 decoration: InputDecoration(
                   hintText: 'Senha atual',
                   hintStyle: GoogleFonts.nunito(color: _Colors.textMuted),
                   filled: true,
-                  fillColor: AppColors.backgroundDark,
+                  fillColor: _Colors.fieldFill(isDark),
                   contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 14,
@@ -1242,7 +1264,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide:
-                        const BorderSide(color: _Colors.cardBorder),
+                        BorderSide(color: _Colors.cardBorder(isDark)),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -1272,8 +1294,8 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(null),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: _Colors.divider),
+              foregroundColor: _Colors.textPrimary(isDark),
+              side: BorderSide(color: _Colors.divider(isDark)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),

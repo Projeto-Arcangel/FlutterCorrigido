@@ -125,7 +125,6 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     final asyncDashboard = ref.watch(teacherDashboardProvider);
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
         child: asyncDashboard.when(
           loading: () => const Center(

@@ -8,20 +8,24 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Paleta local (complementa AppColors para a tela de settings)
+// Paleta local de apoio — valores invariantes ao modo
 // ─────────────────────────────────────────────────────────────────────────────
 
-abstract class _SettingsColors {
-  static const Color danger = Color(0xFFFF5963);
-  static const Color dangerSubtle = Color(0x26FF5963);
+abstract class _C {
+  static const Color danger        = Color(0xFFFF5963);
   static const Color primarySubtle = Color(0x1F72ACD0);
-  static const Color divider = Color(0x1AFFFFFF);
-  static const Color textMuted = Color(0xFF8FA3AE);
-  static const Color cardBorder = Color(0x1AFFFFFF);
+  static const Color textMuted     = Color(0xFF8FA3AE);
+
+  // Dependem do modo
+  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark  : Colors.white;
+  static Color cardBorder(bool dark) => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color divider(bool dark)    => dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color textPrimary(bool dark) => dark ? Colors.white : AppColors.textPrimary;
+  static Color bgPage(bool dark)     => dark ? AppColors.backgroundDark : AppColors.background;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Entidade local: metadado de cada tile de configuração
+// Entidade local
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SettingsTile {
@@ -30,37 +34,17 @@ class _SettingsTile {
     required this.label,
     required this.subtitle,
     required this.onTap,
-    this.danger = false,
   });
-
   final IconData icon;
   final String label;
   final String subtitle;
   final VoidCallback onTap;
-  final bool danger;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Heurística #1 – Visibilidade: o título "Configurações" e o back-button
-/// deixam claro onde o usuário está e como sair.
-///
-/// Heurística #3 – Controle e liberdade: botão de voltar sempre visível;
-/// logout exige confirmação para evitar saídas acidentais.
-///
-/// Heurística #4 – Consistência: tipografia Nunito, cores AppColors e
-/// estrutura de AppBar idêntica ao resto do app.
-///
-/// Heurística #5 – Prevenção de erros: dialog de confirmação antes de
-/// ações destrutivas (Sair da conta).
-///
-/// Heurística #6 – Reconhecimento: ícones descritivos ao lado de cada
-/// item, sem exigir memorização de posição.
-///
-/// Heurística #8 – Design estético e minimalista: layout limpo, sem
-/// informação irrelevante, hierarquia visual clara.
 class SettingsPage extends ConsumerStatefulWidget {
   const SettingsPage({super.key});
 
@@ -74,8 +58,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   late final List<Animation<double>> _fadeAnims;
   late final List<Animation<Offset>> _slideAnims;
 
-  // 4 elementos animados: header-info, seção Conta, seção Preferências,
-  // botão Sair — cada um com delay incremental de 80 ms.
   static const int _animCount = 4;
   static const Duration _totalDuration = Duration(milliseconds: 700);
   static const Duration _stagger = Duration(milliseconds: 80);
@@ -112,18 +94,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     super.dispose();
   }
 
-  // ── Helpers de navegação / ação ──────────────────────────────────────────
+  void _onContaTap() => context.push(AppRoutes.account);
+  void _onPreferencesTap() => context.push(AppRoutes.preferences);
 
-  void _onContaTap() {
-    context.push(AppRoutes.account);
-  }
-
-  void _onPreferencesTap() {
-    context.push(AppRoutes.preferences);
-  }
-
-  /// Heurística #5 – Prevenção de erros: confirma antes de uma ação
-  /// irreversível (logout) com linguagem clara e ação cancelável.
   Future<void> _onSignOutTap() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -133,18 +106,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     await ref.read(loginControllerProvider.notifier).signOut();
   }
 
-  SnackBar _snack(String msg) => SnackBar(
-        content: Text(msg, style: _bodyStyle()),
-        backgroundColor: AppColors.surfaceDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      );
-
-  // ── Build ────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authStateProvider).valueOrNull;
 
     final tiles = <_SettingsTile>[
@@ -163,8 +127,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     ];
 
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
-      appBar: _buildAppBar(),
+      backgroundColor: _C.bgPage(isDark),
+      appBar: _buildAppBar(isDark),
       body: SafeArea(
         child: Column(
           children: [
@@ -172,35 +136,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
                 children: [
-                  // ── Bloco: avatar + nome + e-mail ───────────────────
                   _AnimatedSlot(
                     fade: _fadeAnims[0],
                     slide: _slideAnims[0],
                     child: _UserInfoCard(
-                      displayName: user?.displayName ?? user?.email?.split('@').first ?? 'Usuário',
+                      displayName: user?.displayName ??
+                          user?.email.split('@').first ??
+                          'Usuário',
                       email: user?.email ?? '',
                       photoUrl: user?.photoUrl,
+                      isDark: isDark,
                     ),
                   ),
                   const SizedBox(height: 32),
-
-                  // ── Label de seção ──────────────────────────────────
-                  _SectionLabel(label: 'GERAL'),
+                  _SectionLabel(label: 'GERAL', isDark: isDark),
                   const SizedBox(height: 10),
-
-                  // ── Tiles: Conta e Preferências ─────────────────────
                   ...List.generate(tiles.length, (i) {
                     return _AnimatedSlot(
                       fade: _fadeAnims[i + 1],
                       slide: _slideAnims[i + 1],
                       child: Column(
                         children: [
-                          _SettingsTileWidget(tile: tiles[i]),
+                          _SettingsTileWidget(tile: tiles[i], isDark: isDark),
                           if (i < tiles.length - 1)
-                            const Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 12),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
                               child: Divider(
-                                color: _SettingsColors.divider,
+                                color: _C.divider(isDark),
                                 height: 1,
                               ),
                             ),
@@ -212,12 +174,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
                 ],
               ),
             ),
-
-            // ── Botão fixo no rodapé: Sair da conta ────────────────
             _AnimatedSlot(
               fade: _fadeAnims[3],
               slide: _slideAnims[3],
-              child: _SignOutButton(onTap: _onSignOutTap),
+              child: _SignOutButton(onTap: _onSignOutTap, isDark: isDark),
             ),
           ],
         ),
@@ -225,20 +185,24 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
     );
   }
 
-  PreferredSizeWidget _buildAppBar() => AppBar(
-        backgroundColor: AppColors.backgroundDark,
+  PreferredSizeWidget _buildAppBar(bool isDark) => AppBar(
+        backgroundColor: _C.bgPage(isDark),
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         centerTitle: true,
         title: Text(
           'Configurações',
-          style: _titleStyle(),
+          style: GoogleFonts.nunito(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: _C.textPrimary(isDark),
+          ),
         ),
         leading: IconButton(
-          tooltip: 'Voltar',            // Heurística #1
-          icon: const Icon(
+          tooltip: 'Voltar',
+          icon: Icon(
             Icons.chevron_left,
-            color: Colors.white,
+            color: _C.textPrimary(isDark),
             size: 28,
           ),
           onPressed: () => Navigator.of(context).maybePop(),
@@ -247,7 +211,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Slot animado reutilizável (fade + slide)
+// Slot animado reutilizável
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AnimatedSlot extends StatelessWidget {
@@ -256,7 +220,6 @@ class _AnimatedSlot extends StatelessWidget {
     required this.slide,
     required this.child,
   });
-
   final Animation<double> fade;
   final Animation<Offset> slide;
   final Widget child;
@@ -270,36 +233,33 @@ class _AnimatedSlot extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Bloco de informações do usuário
-// Heurística #1 – Visibilidade: o usuário vê quem está logado de imediato.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _UserInfoCard extends StatelessWidget {
   const _UserInfoCard({
     required this.displayName,
     required this.email,
+    required this.isDark,
     this.photoUrl,
   });
-
   final String displayName;
   final String email;
   final String? photoUrl;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _C.cardBg(isDark),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _SettingsColors.cardBorder),
+        border: Border.all(color: _C.cardBorder(isDark)),
       ),
       child: Row(
         children: [
-          // Avatar
-          _Avatar(photoUrl: photoUrl, displayName: displayName),
+          _Avatar(photoUrl: photoUrl, displayName: displayName, isDark: isDark),
           const SizedBox(width: 16),
-
-          // Nome + e-mail
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +271,7 @@ class _UserInfoCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: _C.textPrimary(isDark),
                     height: 1.2,
                   ),
                 ),
@@ -323,7 +283,7 @@ class _UserInfoCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: _SettingsColors.textMuted,
+                    color: _C.textMuted,
                   ),
                 ),
               ],
@@ -336,9 +296,10 @@ class _UserInfoCard extends StatelessWidget {
 }
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({this.photoUrl, required this.displayName});
+  const _Avatar({this.photoUrl, required this.displayName, required this.isDark});
   final String? photoUrl;
   final String displayName;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
@@ -348,14 +309,15 @@ class _Avatar extends StatelessWidget {
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: AppColors.primary, width: 2),
-        color: AppColors.backgroundDark,
+        color: _C.bgPage(isDark),
       ),
       child: photoUrl != null
           ? ClipOval(
               child: Image.network(
                 photoUrl!,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => _InitialsAvatar(name: displayName),
+                errorBuilder: (_, __, ___) =>
+                    _InitialsAvatar(name: displayName),
               ),
             )
           : _InitialsAvatar(name: displayName),
@@ -363,8 +325,6 @@ class _Avatar extends StatelessWidget {
   }
 }
 
-/// Exibe as iniciais do nome como fallback — mais elegante do que um ícone
-/// genérico e garante personalização mesmo sem foto.
 class _InitialsAvatar extends StatelessWidget {
   const _InitialsAvatar({required this.name});
   final String name;
@@ -389,12 +349,13 @@ class _InitialsAvatar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Label de seção (rótulo agrupador)
+// Label de seção
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SectionLabel extends StatelessWidget {
-  const _SectionLabel({required this.label});
+  const _SectionLabel({required this.label, required this.isDark});
   final String label;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) => Padding(
@@ -404,7 +365,7 @@ class _SectionLabel extends StatelessWidget {
           style: GoogleFonts.nunito(
             fontSize: 11,
             fontWeight: FontWeight.w700,
-            color: _SettingsColors.textMuted,
+            color: _C.textMuted,
             letterSpacing: 2.2,
           ),
         ),
@@ -413,37 +374,33 @@ class _SectionLabel extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Tile de configuração
-// Heurística #6 – Reconhecimento: ícone + label + subtítulo tornam a função
-// imediatamente reconhecível sem que o usuário precise decorar posições.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SettingsTileWidget extends StatelessWidget {
-  const _SettingsTileWidget({required this.tile});
+  const _SettingsTileWidget({required this.tile, required this.isDark});
   final _SettingsTile tile;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.surfaceDark,
+      color: _C.cardBg(isDark),
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: tile.onTap,
         borderRadius: BorderRadius.circular(16),
-        splashColor: _SettingsColors.primarySubtle,
-        highlightColor: _SettingsColors.primarySubtle.withOpacity(0.5),
+        splashColor: _C.primarySubtle,
+        highlightColor: _C.primarySubtle.withValues(alpha: 0.5),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
-            border: Border.all(color: _SettingsColors.cardBorder),
+            border: Border.all(color: _C.cardBorder(isDark)),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
-              // Ícone com fundo sutil
-              _TileIcon(icon: tile.icon, danger: tile.danger),
+              _TileIcon(icon: tile.icon),
               const SizedBox(width: 16),
-
-              // Textos
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -453,9 +410,7 @@ class _SettingsTileWidget extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: tile.danger
-                            ? _SettingsColors.danger
-                            : Colors.white,
+                        color: _C.textPrimary(isDark),
                         height: 1.2,
                       ),
                     ),
@@ -465,19 +420,15 @@ class _SettingsTileWidget extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: _SettingsColors.textMuted,
+                        color: _C.textMuted,
                       ),
                     ),
                   ],
                 ),
               ),
-
-              // Chevron direito — Heurística #4 (padrão reconhecível de navegação)
               Icon(
                 Icons.chevron_right_rounded,
-                color: tile.danger
-                    ? _SettingsColors.danger.withOpacity(0.6)
-                    : AppColors.primary.withOpacity(0.6),
+                color: AppColors.primary.withValues(alpha: 0.6),
                 size: 22,
               ),
             ],
@@ -489,40 +440,40 @@ class _SettingsTileWidget extends StatelessWidget {
 }
 
 class _TileIcon extends StatelessWidget {
-  const _TileIcon({required this.icon, required this.danger});
+  const _TileIcon({required this.icon});
   final IconData icon;
-  final bool danger;
 
   @override
   Widget build(BuildContext context) {
-    final bg = danger ? _SettingsColors.dangerSubtle : _SettingsColors.primarySubtle;
-    final fg = danger ? _SettingsColors.danger : AppColors.primary;
-
     return Container(
       width: 42,
       height: 42,
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Icon(icon, color: fg, size: 22),
+      decoration: BoxDecoration(
+        color: _C.primarySubtle,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Icon(icon, color: AppColors.primary, size: 22),
     );
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Botão de logout fixo no rodapé
-// Heurística #4 – Consistência: posição fixa e cor vermelha sinalizam
-// que esta é uma ação destrutiva — diferente dos tiles de navegação.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SignOutButton extends StatelessWidget {
-  const _SignOutButton({required this.onTap});
+  const _SignOutButton({required this.onTap, required this.isDark});
   final VoidCallback onTap;
+  final bool isDark;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: _SettingsColors.divider)),
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: _C.divider(isDark)),
+        ),
       ),
       child: SizedBox(
         width: double.infinity,
@@ -538,7 +489,7 @@ class _SignOutButton extends StatelessWidget {
             ),
           ),
           style: FilledButton.styleFrom(
-            backgroundColor: _SettingsColors.danger,
+            backgroundColor: _C.danger,
             foregroundColor: Colors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(50),
@@ -553,10 +504,6 @@ class _SignOutButton extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Dialog de confirmação de logout
-// Heurística #5 – Prevenção de erros: nunca executa uma ação irreversível
-// sem confirmação explícita do usuário; linguagem clara e cancelável.
-// Heurística #9 – Ajuda a recuperar de erros: o botão "Cancelar" devolve
-// o controle sem consequências.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SignOutDialog extends StatelessWidget {
@@ -564,8 +511,9 @@ class _SignOutDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AlertDialog(
-      backgroundColor: AppColors.surfaceDark,
+      backgroundColor: _C.cardBg(isDark),
       surfaceTintColor: Colors.transparent,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Text(
@@ -573,7 +521,7 @@ class _SignOutDialog extends StatelessWidget {
         style: GoogleFonts.nunito(
           fontSize: 18,
           fontWeight: FontWeight.w800,
-          color: Colors.white,
+          color: _C.textPrimary(isDark),
         ),
       ),
       content: Text(
@@ -581,20 +529,19 @@ class _SignOutDialog extends StatelessWidget {
         style: GoogleFonts.nunito(
           fontSize: 14,
           fontWeight: FontWeight.w500,
-          color: _SettingsColors.textMuted,
+          color: _C.textMuted,
           height: 1.5,
         ),
       ),
       actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       actions: [
-        // Cancelar — Heurística #3
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
             onPressed: () => Navigator.of(context).pop(false),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white,
-              side: const BorderSide(color: _SettingsColors.divider),
+              foregroundColor: _C.textPrimary(isDark),
+              side: BorderSide(color: _C.cardBorder(isDark)),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -602,22 +549,17 @@ class _SignOutDialog extends StatelessWidget {
             ),
             child: Text(
               'Cancelar',
-              style: GoogleFonts.nunito(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
         ),
         const SizedBox(height: 8),
-
-        // Confirmar
         SizedBox(
           width: double.infinity,
           child: FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: FilledButton.styleFrom(
-              backgroundColor: _SettingsColors.danger,
+              backgroundColor: _C.danger,
               foregroundColor: Colors.white,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -626,10 +568,7 @@ class _SignOutDialog extends StatelessWidget {
             ),
             child: Text(
               'Sair',
-              style: GoogleFonts.nunito(
-                fontWeight: FontWeight.w700,
-                fontSize: 15,
-              ),
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
         ),
@@ -637,19 +576,3 @@ class _SignOutDialog extends StatelessWidget {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Helpers de tipografia — centraliza estilos para facilitar manutenção
-// ─────────────────────────────────────────────────────────────────────────────
-
-TextStyle _titleStyle() => GoogleFonts.nunito(
-      fontSize: 17,
-      fontWeight: FontWeight.w800,
-      color: Colors.white,
-    );
-
-TextStyle _bodyStyle() => GoogleFonts.nunito(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: Colors.white,
-    );

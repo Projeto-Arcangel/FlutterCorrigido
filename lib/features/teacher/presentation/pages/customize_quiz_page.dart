@@ -21,6 +21,11 @@ abstract class _C {
   static const Color divider = Color(0x1AFFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
 
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
+  static Color adaptiveBorder(bool dark) => dark ? const Color(0x14FFFFFF) : Colors.black12;
+  static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
+  static Color fieldFill(bool dark) => dark ? AppColors.backgroundDark : AppColors.background;
+  static Color disabledBg(bool dark) => dark ? AppColors.surfaceDark : const Color(0xFFE0E0E0);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -255,7 +260,6 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -400,12 +404,13 @@ class _InfoStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final allDone = completedCount == totalCount;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceDark,
+      decoration: BoxDecoration(
+        color: _C.cardBg(isDark),
         border: Border(
-          bottom: BorderSide(color: _C.divider),
+          bottom: BorderSide(color: _C.adaptiveBorder(isDark)),
         ),
       ),
       child: Column(
@@ -526,16 +531,17 @@ class _QuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final complete = data.isComplete;
 
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
       curve: Curves.easeOut,
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _C.cardBg(isDark),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: complete
               ? _C.accent.withValues(alpha: 0.35)
-              : _C.border,
+              : _C.adaptiveBorder(isDark),
           width: complete ? 1.5 : 1.0,
         ),
       ),
@@ -602,7 +608,7 @@ class _QuestionCard extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 15,
                 fontWeight: FontWeight.w500,
-                color: Colors.white,
+                color: _C.primaryText(isDark),
               ),
               cursorColor: _C.accent,
               maxLines: 3,
@@ -614,7 +620,7 @@ class _QuestionCard extends StatelessWidget {
                   color: _C.textMuted,
                 ),
                 filled: true,
-                fillColor: AppColors.backgroundDark,
+                fillColor: _C.fieldFill(isDark),
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                 border: OutlineInputBorder(
@@ -849,7 +855,7 @@ class _SaveButton extends StatelessWidget {
                     end: Alignment.centerRight,
                   )
                 : null,
-            color: enabled ? null : AppColors.surfaceDark,
+            color: enabled ? null : _C.disabledBg(Theme.of(context).brightness == Brightness.dark),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(

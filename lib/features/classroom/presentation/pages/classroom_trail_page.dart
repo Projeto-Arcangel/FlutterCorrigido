@@ -25,7 +25,6 @@ class ClassroomTrailPage extends ConsumerWidget {
     final asyncPhases = ref.watch(classroomPhasesProvider(classroom.id));
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1D2428),
       body: SafeArea(
         child: Column(
           children: [
@@ -64,6 +63,7 @@ class _ClassroomTrailHeader extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final user = ref.watch(authStateProvider).valueOrNull;
     final asyncProgress =
         user == null ? null : ref.watch(userProgressProvider(user.id));
@@ -78,6 +78,10 @@ class _ClassroomTrailHeader extends ConsumerWidget {
     final double levelProgress =
         xpForLevel > 0 ? (xpIntoLevel / xpForLevel).clamp(0.0, 1.0) : 0.0;
 
+    final Color mutedColor = isDark ? Colors.white54 : AppColors.textSecondary;
+    final Color primaryText = isDark ? Colors.white : AppColors.textPrimary;
+    final Color avatarBg = isDark ? AppColors.surfaceDark : Colors.white;
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       child: Column(
@@ -86,9 +90,9 @@ class _ClassroomTrailHeader extends ConsumerWidget {
             children: [
               // Botão voltar
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.arrow_back_rounded,
-                  color: Colors.white70,
+                  color: mutedColor,
                 ),
                 onPressed: () => context.pop(),
               ),
@@ -111,19 +115,19 @@ class _ClassroomTrailHeader extends ConsumerWidget {
                             child: CircularProgressIndicator(
                               value: levelProgress,
                               strokeWidth: 2.5,
-                              backgroundColor: AppColors.surfaceDark,
+                              backgroundColor: avatarBg,
                               valueColor:
                                   const AlwaysStoppedAnimation<Color>(
                                 AppColors.primary,
                               ),
                             ),
                           ),
-                          const CircleAvatar(
+                          CircleAvatar(
                             radius: 18,
-                            backgroundColor: AppColors.surfaceDark,
+                            backgroundColor: avatarBg,
                             child: Icon(
                               Icons.person,
-                              color: Colors.white70,
+                              color: mutedColor,
                               size: 22,
                             ),
                           ),
@@ -134,8 +138,8 @@ class _ClassroomTrailHeader extends ConsumerWidget {
                   const SizedBox(height: 3),
                   Text(
                     'Nv. $level',
-                    style: const TextStyle(
-                      color: Colors.white54,
+                    style: TextStyle(
+                      color: mutedColor,
                       fontSize: 10,
                       fontWeight: FontWeight.bold,
                     ),
@@ -156,8 +160,8 @@ class _ClassroomTrailHeader extends ConsumerWidget {
                   const SizedBox(width: 5),
                   Text(
                     gold.toString().padLeft(4, '0'),
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: primaryText,
                       fontWeight: FontWeight.bold,
                       fontSize: 14,
                     ),
@@ -318,7 +322,9 @@ class _PhaseButton extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Colors.white70,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white70
+                  : AppColors.textSecondary,
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -349,7 +355,7 @@ class _OvalPhase extends StatelessWidget {
     final Widget icon = unlocked
         ? const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 36)
         : Icon(Icons.lock_outlined,
-            color: Colors.white.withOpacity(0.5), size: 28);
+            color: Colors.white.withValues(alpha: 0.5), size: 28,);
 
     return Container(
       width: 98,

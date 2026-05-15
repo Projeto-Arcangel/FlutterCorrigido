@@ -120,7 +120,6 @@ class _IaQuizPageState extends State<IaQuizPage> {
       // Heurística #3: toque fora do campo fecha o teclado
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
-        backgroundColor: AppColors.backgroundDark,
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,

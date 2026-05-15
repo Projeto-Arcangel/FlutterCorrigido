@@ -18,7 +18,6 @@ class SubjectChoicePage extends ConsumerWidget {
     final asyncSubjects = ref.watch(subjectsProvider);
 
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.surface,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
