@@ -85,6 +85,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  // Usa userChanges para refletir atualizações no perfil (ex.: displayName)
+  // imediatamente na UI, sem depender de um novo login.
   Stream<User?> get authStateChanges => _firebaseAuth.userChanges().map(
         (user) => user == null ? null : _mapToEntity(user),
       );
