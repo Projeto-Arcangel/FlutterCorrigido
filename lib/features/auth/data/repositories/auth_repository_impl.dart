@@ -85,7 +85,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges().map(
+  Stream<User?> get authStateChanges => _firebaseAuth.userChanges().map(
         (user) => user == null ? null : _mapToEntity(user),
       );
 
@@ -126,6 +126,72 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(AuthFailure.fromFirebase(e));
     } catch (e, st) {
       _logger.e('Unknown password reset error', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateDisplayName({required String name}) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) return const Left(AuthFailure('Usuário não autenticado'));
+      await user.updateDisplayName(name);
+      await user.reload();
+      return const Right(null);
+    } on fb.FirebaseAuthException catch (e, st) {
+      _logger.e('updateDisplayName error', error: e, stackTrace: st);
+      return Left(AuthFailure.fromFirebase(e));
+    } catch (e, st) {
+      _logger.e('Unknown updateDisplayName error', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null || user.email == null) {
+        return const Left(AuthFailure('Usuário não autenticado'));
+      }
+      final credential = fb.EmailAuthProvider.credential(
+        email: user.email!,
+        password: currentPassword,
+      );
+      await user.reauthenticateWithCredential(credential);
+      await user.updatePassword(newPassword);
+      return const Right(null);
+    } on fb.FirebaseAuthException catch (e, st) {
+      _logger.e('changePassword error', error: e, stackTrace: st);
+      return Left(AuthFailure.fromFirebase(e));
+    } catch (e, st) {
+      _logger.e('Unknown changePassword error', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteAccount({String? password}) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) return const Left(AuthFailure('Usuário não autenticado'));
+      if (password != null && user.email != null) {
+        final credential = fb.EmailAuthProvider.credential(
+          email: user.email!,
+          password: password,
+        );
+        await user.reauthenticateWithCredential(credential);
+      }
+      await user.delete();
+      return const Right(null);
+    } on fb.FirebaseAuthException catch (e, st) {
+      _logger.e('deleteAccount error', error: e, stackTrace: st);
+      return Left(AuthFailure.fromFirebase(e));
+    } catch (e, st) {
+      _logger.e('Unknown deleteAccount error', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }
