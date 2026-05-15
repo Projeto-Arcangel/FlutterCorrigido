@@ -20,7 +20,7 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
   late final AnimationController _ctrl;
   late final Animation<double> _fadeTitle;
   late final Animation<double> _fadeCards;
-  late final Animation<Offset>  _slideCards;
+  late final Animation<Offset> _slideCards;
 
   /// Marca quando uma das cards foi tocada e o `setRole` está em vôo.
   /// Bloqueia toques duplos e ilustra loading.
@@ -83,10 +83,12 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
     if (role == UserRole.teacher && result.isRight()) {
       // Cria uma turma padrão para o professor recém-cadastrado
       final createClassroom = ref.read(createClassroomProvider);
+      final displayName =
+          fbUser.displayName ?? fbUser.email?.split('@').first ?? 'Professor';
       await createClassroom(
         name: 'Minha Primeira Turma',
         teacherId: fbUser.uid,
-        teacherName: fbUser.displayName ?? fbUser.email ?? 'Professor',
+        teacherName: displayName,
         description: 'Turma gerada automaticamente.',
       );
     }
@@ -122,14 +124,11 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
           child: Column(
             children: [
               const Spacer(flex: 3),
-
               FadeTransition(
                 opacity: _fadeTitle,
                 child: const RoleSelectionHeader(),
               ),
-
               const Spacer(flex: 4),
-
               FadeTransition(
                 opacity: _fadeCards,
                 child: Text(
@@ -143,7 +142,6 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
                 ),
               ),
               const SizedBox(height: 20),
-
               SlideTransition(
                 position: _slideCards,
                 child: FadeTransition(
@@ -161,7 +159,6 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
                 ),
               ),
               const SizedBox(height: 14),
-
               SlideTransition(
                 position: _slideCards,
                 child: FadeTransition(
@@ -179,9 +176,7 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
                   ),
                 ),
               ),
-
               const Spacer(flex: 3),
-
               if (_saving)
                 const Padding(
                   padding: EdgeInsets.only(bottom: 16),

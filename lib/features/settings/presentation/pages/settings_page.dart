@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
 
@@ -113,17 +115,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage>
   // ── Helpers de navegação / ação ──────────────────────────────────────────
 
   void _onContaTap() {
-    // TODO: context.push(AppRoutes.accountSettings)
-    ScaffoldMessenger.of(context).showSnackBar(
-      _snack('Configurações de conta em breve.'),
-    );
+    context.push(AppRoutes.account);
   }
 
   void _onPreferencesTap() {
-    // TODO: context.push(AppRoutes.preferences)
-    ScaffoldMessenger.of(context).showSnackBar(
-      _snack('Preferências em breve.'),
-    );
+    context.push(AppRoutes.preferences);
   }
 
   /// Heurística #5 – Prevenção de erros: confirma antes de uma ação
