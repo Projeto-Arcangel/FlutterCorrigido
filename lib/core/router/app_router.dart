@@ -1,4 +1,4 @@
-import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
+﻿import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/preferences_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings_page.dart';
 import 'package:flutter/foundation.dart';
@@ -19,6 +19,7 @@ import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
+import '../../features/teacher/presentation/pages/classroom_list_page.dart';
 import '../../features/teacher/presentation/pages/create_quiz_page.dart';
 import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
@@ -33,6 +34,7 @@ class AppRoutes {
   static const String teacherCreateQuiz = '/teacher/create-quiz';
   static const String teacherCustomizeQuiz = '/teacher/customize-quiz';
   static const String teacherIaQuiz = '/teacher/ia-quiz';
+  static const String teacherClassroom = '/teacher/classroom';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
@@ -139,6 +141,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'ia-quiz',
             builder: (_, __) => const IaQuizPage(),
+          ),
+          GoRoute(
+            path: 'classroom',
+            builder: (_, __) => const ClassroomListPage(),
           ),
         ],
       ),

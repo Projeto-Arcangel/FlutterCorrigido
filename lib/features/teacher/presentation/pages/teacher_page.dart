@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -68,7 +68,7 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
               : 'Nenhuma turma ainda',
           iconColor: const Color(0xFF8B72D0),
           iconBg: const Color(0x1A8B72D0),
-          onTap: () => _showComingSoon('Minha Turma'),
+          onTap: () => context.push(AppRoutes.teacherClassroom),
         ),
         TeacherQuickAction(
           icon: FontAwesomeIcons.penToSquare,
@@ -204,17 +204,17 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
   }
 
   List<TeacherStatItem> _fallbackStats() => [
-        TeacherStatItem(
+        const TeacherStatItem(
           value: '—',
           label: 'Alunos\nna Turma',
           icon: FontAwesomeIcons.userGroup,
         ),
-        TeacherStatItem(
+        const TeacherStatItem(
           value: '—',
           label: 'Questões\nCriadas',
           icon: FontAwesomeIcons.fileLines,
         ),
-        TeacherStatItem(
+        const TeacherStatItem(
           value: '—',
           label: 'Média\nda Turma',
           icon: FontAwesomeIcons.chartSimple,
