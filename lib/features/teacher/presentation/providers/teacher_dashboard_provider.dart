@@ -1,6 +1,9 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../classroom/domain/entities/classroom.dart';
+import '../../../classroom/domain/entities/classroom_phase.dart';
+import '../../../classroom/domain/entities/classroom_result.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../domain/entities/teacher_dashboard_data.dart';
 
@@ -15,7 +18,10 @@ final teacherDashboardProvider =
     user.uid,
   );
 
-  final classrooms = classroomsResult.fold((_) => [], (list) => list);
+  final classrooms = classroomsResult.fold<List<Classroom>>(
+    (_) => [],
+    (list) => list,
+  );
   if (classrooms.isEmpty) {
     return TeacherDashboardData(
       totalStudents: 0,
@@ -34,14 +40,20 @@ final teacherDashboardProvider =
     classroom.id,
   );
 
-  final phases = phasesResult.fold((_) => [], (list) => list);
+  final phases = phasesResult.fold<List<ClassroomPhase>>(
+    (_) => [],
+    (list) => list,
+  );
   final totalQuestions =
       phases.fold<int>(0, (sum, p) => sum + p.totalQuestions);
 
   // 3. Calcula média dos resultados dos alunos
   final resultsResult = await classroomRepository.getResults(classroom.id);
 
-  final results = resultsResult.fold((_) => [], (list) => list);
+  final results = resultsResult.fold<List<ClassroomResult>>(
+    (_) => [],
+    (list) => list,
+  );
   double averageScore = 0;
   if (results.isNotEmpty) {
     final total = results.fold<double>(
