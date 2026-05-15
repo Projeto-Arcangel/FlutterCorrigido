@@ -24,4 +24,13 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> sendPasswordReset({
     required String email,
   });
+
+  Future<Either<Failure, void>> updateDisplayName({required String name});
+
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
+  Future<Either<Failure, void>> deleteAccount({String? password});
 }

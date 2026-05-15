@@ -18,6 +18,10 @@ class AuthFailure extends Failure {
         return const AuthFailure('Senha muito fraca.');
       case 'network-request-failed':
         return const AuthFailure('Sem conexão com a internet.');
+      case 'requires-recent-login':
+        return const AuthFailure('Por segurança, faça login novamente antes de realizar esta ação.');
+      case 'invalid-credential':
+        return const AuthFailure('Credenciais inválidas. Verifique sua senha.');
       default:
         return AuthFailure(e.message ?? 'Erro de autenticação.');
     }

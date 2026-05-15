@@ -57,6 +57,19 @@ typedef ResetPasswordFn = Future<Either<Failure, void>> Function({
   required String email,
 });
 
+typedef UpdateDisplayNameFn = Future<Either<Failure, void>> Function({
+  required String name,
+});
+
+typedef ChangePasswordFn = Future<Either<Failure, void>> Function({
+  required String currentPassword,
+  required String newPassword,
+});
+
+typedef DeleteAccountFn = Future<Either<Failure, void>> Function({
+  String? password,
+});
+
 final registerWithEmailProvider = Provider<RegisterFn>(
   (ref) => ref.watch(authRepositoryProvider).registerWithEmail,
 );
@@ -78,6 +91,18 @@ final registerUserProvider = Provider<RegisterUser>((ref) {
     ref.watch(userRepositoryProvider),
   );
 });
+
+final updateDisplayNameProvider = Provider<UpdateDisplayNameFn>(
+  (ref) => ref.watch(authRepositoryProvider).updateDisplayName,
+);
+
+final changePasswordProvider = Provider<ChangePasswordFn>(
+  (ref) => ref.watch(authRepositoryProvider).changePassword,
+);
+
+final deleteAccountProvider = Provider<DeleteAccountFn>(
+  (ref) => ref.watch(authRepositoryProvider).deleteAccount,
+);
 
 /// Role do usuário autenticado, lido de `Users/{uid}.role` no Firestore.
 ///

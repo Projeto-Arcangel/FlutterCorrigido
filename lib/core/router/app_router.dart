@@ -1,3 +1,5 @@
+import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
+import 'package:arcangel_o_oficial/features/settings/presentation/pages/preferences_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -17,7 +19,6 @@ import '../../features/teacher/presentation/pages/create_quiz_page.dart';
 import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
-import '../../features/settings/presentation/pages/preferences_page.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -33,7 +34,9 @@ class AppRoutes {
   static const String profile = '/profile';
   static const String roleSelection = '/';
   static const String settings = '/settings';
-  static const String preferences = '/preferences';
+  static const String preferencesRelative = 'preferences';
+  static const String preferences = '$settings/$preferencesRelative';
+  static const String account = '/account';
 
   static String lessonPath(String id) => '/lessons/$id';
   static const String register = '/register';
@@ -139,10 +142,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const SettingsPage(),
         routes: [
           GoRoute(
-            path: AppRoutes.preferences,
+            path: AppRoutes.preferencesRelative,
             builder: (_, __) => const PreferencesPage(),
           ),
-        ]
+        ],
+      ),
+      GoRoute(
+        path: AppRoutes.account,
+        builder: (_, __) => const AccountPage(),
       ),
       GoRoute(  
         path: AppRoutes.register,
