@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../domain/entities/teacher_dashboard_data.dart';
 import '../providers/teacher_dashboard_provider.dart';
 import '../widgets/teacher_content.dart';
 import '../widgets/teacher_header.dart';
