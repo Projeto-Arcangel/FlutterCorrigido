@@ -7,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../providers/teacher_dashboard_provider.dart';
 import '../widgets/teacher_content.dart';
 import '../widgets/teacher_header.dart';
 
@@ -57,29 +58,13 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     super.dispose();
   }
 
-  final List<TeacherStatItem> _stats = const [
-    TeacherStatItem(
-      value: '32',
-      label: 'Alunos\nAtivos',
-      icon: FontAwesomeIcons.userGroup,
-    ),
-    TeacherStatItem(
-      value: '156',
-      label: 'Questões\nCriadas',
-      icon: FontAwesomeIcons.fileLines,
-    ),
-    TeacherStatItem(
-      value: '78%',
-      label: 'Média\nda Turma',
-      icon: FontAwesomeIcons.chartSimple,
-    ),
-  ];
-
-  List<TeacherQuickAction> get _actions => [
+  List<TeacherQuickAction> _buildActions(String? classroomId) => [
         TeacherQuickAction(
           icon: FontAwesomeIcons.school,
           title: 'Minha Turma',
-          subtitle: '3ª A · 32 alunos · 78% média',
+          subtitle: classroomId != null
+              ? 'Ver alunos e resultados'
+              : 'Nenhuma turma ainda',
           iconColor: const Color(0xFF8B72D0),
           iconBg: const Color(0x1A8B72D0),
           onTap: () => _showComingSoon('Minha Turma'),
@@ -110,27 +95,6 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         ),
       ];
 
-  final List<TeacherActivityItem> _activities = const [
-    TeacherActivityItem(
-      description: "Beatriz Costa concluiu 'Grécia e Roma' com 100%",
-      timeAgo: 'há 2h',
-      icon: FontAwesomeIcons.solidCircleCheck,
-      dotColor: Color(0xFFFFB347),
-    ),
-    TeacherActivityItem(
-      description: 'Diego Alves enviou o exercício de Sociologia',
-      timeAgo: 'há 4h',
-      icon: FontAwesomeIcons.fileArrowUp,
-      dotColor: Color(0xFF72ACD0),
-    ),
-    TeacherActivityItem(
-      description: 'Você criou 5 questões de Filosofia com IA',
-      timeAgo: 'ontem',
-      icon: FontAwesomeIcons.wandMagicSparkles,
-      dotColor: Color(0xFF8B72D0),
-    ),
-  ];
-
   void _showComingSoon(String feature) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -157,36 +121,117 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     final displayName =
         user?.displayName ?? user?.email.split('@').first ?? 'Professor';
 
+    final asyncDashboard = ref.watch(teacherDashboardProvider);
+
     return Scaffold(
       backgroundColor: AppColors.backgroundDark,
       body: SafeArea(
-        child: CustomScrollView(
-          physics: const BouncingScrollPhysics(),
-          slivers: [
-            SliverToBoxAdapter(
-              child: _animated(
-                0,
-                TeacherHeader(
-                  displayName: displayName,
-                  onLogout: () =>
-                      ref.read(loginControllerProvider.notifier).signOut(),
-                  stats: _stats,
-                ),
-              ),
-            ),
-            SliverToBoxAdapter(
-              child: _animated(
-                1,
-                TeacherContent(
-                  actions: _actions,
-                  activities: _activities,
-                ),
-              ),
-            ),
-            const SliverToBoxAdapter(child: SizedBox(height: 32)),
-          ],
+        child: asyncDashboard.when(
+          loading: () => const Center(
+            child: CircularProgressIndicator(color: AppColors.primary),
+          ),
+          error: (_, __) => _buildContent(
+            context,
+            displayName: displayName,
+            stats: _fallbackStats(),
+            classroomId: null,
+          ),
+          data: (dashboard) => _buildContent(
+            context,
+            displayName: displayName,
+            stats: _buildStats(dashboard),
+            classroomId: dashboard?.classroomId,
+          ),
         ),
       ),
     );
   }
+
+  Widget _buildContent(
+    BuildContext context, {
+    required String displayName,
+    required List<TeacherStatItem> stats,
+    required String? classroomId,
+  }) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: _animated(
+            0,
+            TeacherHeader(
+              displayName: displayName,
+              onLogout: () =>
+                  ref.read(loginControllerProvider.notifier).signOut(),
+              stats: stats,
+            ),
+          ),
+        ),
+        SliverToBoxAdapter(
+          child: _animated(
+            1,
+            TeacherContent(
+              actions: _buildActions(classroomId),
+              activities: _buildActivities(),
+            ),
+          ),
+        ),
+        const SliverToBoxAdapter(child: SizedBox(height: 32)),
+      ],
+    );
+  }
+
+  List<TeacherStatItem> _buildStats(TeacherDashboardData? dashboard) {
+    if (dashboard == null) return _fallbackStats();
+    return [
+      TeacherStatItem(
+        value: dashboard.totalStudents.toString(),
+        label: 'Alunos\nna Turma',
+        icon: FontAwesomeIcons.userGroup,
+      ),
+      TeacherStatItem(
+        value: dashboard.totalQuestions.toString(),
+        label: 'Questões\nCriadas',
+        icon: FontAwesomeIcons.fileLines,
+      ),
+      TeacherStatItem(
+        value: dashboard.averageScoreFormatted,
+        label: 'Média\nda Turma',
+        icon: FontAwesomeIcons.chartSimple,
+      ),
+    ];
+  }
+
+  List<TeacherStatItem> _fallbackStats() => [
+        TeacherStatItem(
+          value: '—',
+          label: 'Alunos\nna Turma',
+          icon: FontAwesomeIcons.userGroup,
+        ),
+        TeacherStatItem(
+          value: '—',
+          label: 'Questões\nCriadas',
+          icon: FontAwesomeIcons.fileLines,
+        ),
+        TeacherStatItem(
+          value: '—',
+          label: 'Média\nda Turma',
+          icon: FontAwesomeIcons.chartSimple,
+        ),
+      ];
+
+  List<TeacherActivityItem> _buildActivities() => const [
+        TeacherActivityItem(
+          description: 'Crie questões e compartilhe com sua turma',
+          timeAgo: '',
+          icon: FontAwesomeIcons.penToSquare,
+          dotColor: Color(0xFF72D09C),
+        ),
+        TeacherActivityItem(
+          description: 'Acompanhe o progresso dos alunos pelo dashboard',
+          timeAgo: '',
+          icon: FontAwesomeIcons.chartLine,
+          dotColor: Color(0xFF72ACD0),
+        ),
+      ];
 }
