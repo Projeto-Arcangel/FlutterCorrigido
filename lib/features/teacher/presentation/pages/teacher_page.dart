@@ -164,8 +164,6 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
             0,
             TeacherHeader(
               displayName: displayName,
-              onLogout: () =>
-                  ref.read(loginControllerProvider.notifier).signOut(),
               stats: stats,
             ),
           ),

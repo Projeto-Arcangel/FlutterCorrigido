@@ -1,14 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 
 abstract class _TeacherColors {
-  static const Color accent = Color(0xFF72D082);
-  static const Color accentSubtle = Color(0x1A72D082);
-  static const Color textMuted = Color(0xFF8FA3AE);
-  static const Color cardBorder = Color(0x14FFFFFF);
+  static const Color accent      = Color(0xFF72D082);
+  static const Color accentSubtle= Color(0x1A72D082);
+  static const Color textMuted   = Color(0xFF8FA3AE);
+
+  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark : Colors.white;
+  static Color cardBorder(bool dark) => dark ? const Color(0x14FFFFFF) : Colors.black12;
+  static Color primaryText(bool dark)=> dark ? Colors.white : AppColors.textPrimary;
+  static Color settingsIcon(bool dark)=> dark ? Colors.white54 : AppColors.textSecondary;
 }
 
 class TeacherStatItem {
@@ -22,16 +28,24 @@ class TeacherStatItem {
   final IconData icon;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// TeacherHeader
+//
+// Heurística #1 – Visibilidade: engrenagem sempre visível no topo-direito,
+//   mesmo padrão que o ProfilePage do aluno (consistência #4).
+// Heurística #3 – Controle: settings acessíveis em 1 toque.
+// Heurística #5 – Prevenção de erros: logout explícito dentro de SettingsPage,
+//   sem ação oculta via long-press.
+// ─────────────────────────────────────────────────────────────────────────────
+
 class TeacherHeader extends StatelessWidget {
   const TeacherHeader({
     super.key,
     required this.displayName,
-    required this.onLogout,
     required this.stats,
   });
 
   final String displayName;
-  final VoidCallback onLogout;
   final List<TeacherStatItem> stats;
 
   @override
@@ -39,26 +53,30 @@ class TeacherHeader extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _HeaderBar(displayName: displayName, onLogout: onLogout),
+        _HeaderBar(displayName: displayName),
         _StatsRow(stats: stats),
       ],
     );
   }
 }
 
+// ── Barra superior: saudação + botão de configurações ────────────────────────
+
 class _HeaderBar extends StatelessWidget {
-  const _HeaderBar({required this.displayName, required this.onLogout});
+  const _HeaderBar({required this.displayName});
 
   final String displayName;
-  final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+      padding: const EdgeInsets.fromLTRB(20, 24, 12, 0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Saudação ────────────────────────────────────────────────────
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -78,33 +96,39 @@ class _HeaderBar extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 26,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: _TeacherColors.primaryText(isDark),
                     height: 1.15,
                   ),
                 ),
               ],
             ),
           ),
-          GestureDetector(
-            onLongPress: onLogout,
-            child: Tooltip(
-              message: 'Segure para sair',
-              child: Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: _TeacherColors.accentSubtle,
-                  border: Border.all(
-                    color: _TeacherColors.accent.withValues(alpha: 0.55),
-                    width: 1.6,
+
+          // ── Botão de configurações ───────────────────────────────────────
+          // Mesmo padrão do ProfilePage do aluno: ícone de engrenagem
+          // no topo-direito, tooltip explícito, toque único para navegar.
+          Tooltip(
+            message: 'Configurações',
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => context.push(AppRoutes.settings),
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    color: _TeacherColors.accentSubtle,
+                    border: Border.all(
+                      color: _TeacherColors.accent.withValues(alpha: 0.30),
+                    ),
                   ),
-                ),
-                child: const Center(
-                  child: FaIcon(
-                    FontAwesomeIcons.chalkboardUser,
-                    color: _TeacherColors.accent,
-                    size: 18,
+                  child: Icon(
+                    Icons.settings_outlined,
+                    color: _TeacherColors.settingsIcon(isDark),
+                    size: 20,
                   ),
                 ),
               ),
@@ -115,6 +139,8 @@ class _HeaderBar extends StatelessWidget {
     );
   }
 }
+
+// ── Linha de estatísticas ─────────────────────────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
   const _StatsRow({required this.stats});
@@ -147,12 +173,14 @@ class _StatCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _TeacherColors.cardBg(isDark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _TeacherColors.cardBorder),
+        border: Border.all(color: _TeacherColors.cardBorder(isDark)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -168,7 +196,7 @@ class _StatCard extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 22,
               fontWeight: FontWeight.w900,
-              color: Colors.white,
+              color: _TeacherColors.primaryText(isDark),
               height: 1.0,
             ),
           ),
