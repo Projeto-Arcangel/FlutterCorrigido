@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
+import '../../../../core/widgets/app_logo.dart';
 import '../providers/login_controller.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
@@ -66,12 +67,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                   const SizedBox(height: 40),
 
                   // ── Logo ──────────────────────────────────────────────
-                  Image.asset(
-                    'assets/images/app_launcher_icon.png',
-                    width: 120,
-                    height: 120,
-                    fit: BoxFit.contain,
-                  ),
+                  const AppLogo(size: 120),
                   const SizedBox(height: 24),
 
                   // ── Título ────────────────────────────────────────────
