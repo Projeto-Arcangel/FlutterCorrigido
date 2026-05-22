@@ -2,7 +2,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
@@ -92,27 +91,15 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         TeacherQuickAction(
           icon: FontAwesomeIcons.chartLine,
           title: 'Dashboard de Alunos',
-          subtitle: 'Acompanhe a evolução da turma em tempo real',
+          subtitle: 'Acompanhe a evolução e exporte as notas da turma',
           iconColor: const Color(0xFF72ACD0),
           iconBg: const Color(0x1A72ACD0),
-          onTap: () => _showComingSoon('Dashboard de Alunos'),
+          onTap: () => context.push(
+            AppRoutes.teacherStudentDashboard,
+            extra: <String, dynamic>{'classroomId': classroomId},
+          ),
         ),
       ];
-
-  void _showComingSoon(String feature) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          '$feature em breve!',
-          style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
-        ),
-        backgroundColor: AppColors.surfaceDark,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-      ),
-    );
-  }
 
   Widget _animated(int slot, Widget child) => FadeTransition(
         opacity: _fades[slot],

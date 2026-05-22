@@ -25,6 +25,7 @@ import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
 import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_review_page.dart';
+import '../../features/teacher/presentation/pages/student_dashboard_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
 
 class AppRoutes {
@@ -37,7 +38,8 @@ class AppRoutes {
   static const String teacherCustomizeQuiz = '/teacher/customize-quiz';
   static const String teacherIaQuiz = '/teacher/ia-quiz';
   static const String teacherIaQuizReview = '/teacher/ia-quiz/review';
-  static const String teacherClassroom = '/teacher/classroom';
+  static const String teacherClassroom        = '/teacher/classroom';
+  static const String teacherStudentDashboard = '/teacher/student-dashboard';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
@@ -167,6 +169,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'classroom',
             builder: (_, __) => const ClassroomListPage(),
+          ),
+          GoRoute(
+            path: 'student-dashboard',
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return StudentDashboardPage(
+                initialClassroomId: extra?['classroomId'] as String?,
+              );
+            },
           ),
         ],
       ),
