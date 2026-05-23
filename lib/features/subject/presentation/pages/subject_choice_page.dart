@@ -74,17 +74,7 @@ class _SubjectList extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 32),
-            for (final subject in subjects) ...[
-              SubjectButton(
-                subject: subject,
-                onTap: () {
-                  ref.read(selectedSubjectProvider.notifier).state = subject;
-                  context.go(AppRoutes.lessons);
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
+            const SizedBox(height: 100),
             const _EnterClassroomButton(),
           ],
         ),
@@ -147,4 +137,4 @@ class _EnterClassroomButton extends ConsumerWidget {
       ),
     );
   }
-}
+}
