@@ -1,4 +1,4 @@
-﻿import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
+import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/preferences_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings_page.dart';
 import 'package:flutter/foundation.dart';
@@ -40,6 +40,7 @@ class AppRoutes {
   static const String teacherIaQuizReview = '/teacher/ia-quiz/review';
   static const String teacherClassroom        = '/teacher/classroom';
   static const String teacherStudentDashboard = '/teacher/student-dashboard';
+  static const String personalTrail = '/trail';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
@@ -206,6 +207,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.forgotPassword,
         builder: (_, __) => const ForgotPasswordPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.personalTrail,
+        builder: (_, __) => const LessonListPage(),
       ),
       GoRoute(
         path: AppRoutes.lessons,

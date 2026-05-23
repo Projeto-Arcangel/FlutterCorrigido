@@ -1,22 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../../../core/router/app_router.dart';
+import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/providers/login_controller.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../classroom/presentation/widgets/classroom_sheet.dart';
 
-import '../../../../core/router/app_router.dart';
-import '../../../auth/presentation/providers/login_controller.dart';
-import '../../domain/entities/subject.dart';
-import '../providers/subject_providers.dart';
-import '../widgets/subject_button.dart';
 
 class SubjectChoicePage extends ConsumerWidget {
   const SubjectChoicePage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncSubjects = ref.watch(subjectsProvider);
-
+    // subjectsProvider não é necessário aqui, mas mantido para futura expansão
+    // (ex.: exibir badge de desbloqueio na tela de escolha).
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -30,33 +29,16 @@ class SubjectChoicePage extends ConsumerWidget {
           ),
         ],
       ),
-      body: SafeArea(
-        child: asyncSubjects.when(
-          // Carregando
-          loading: () => const Center(child: CircularProgressIndicator()),
-
-          // Erro (não bloqueia — usa catálogo como fallback)
-          error: (err, _) => _SubjectList(
-            subjects: Subject.catalog
-                .map((s) => s.copyWith(unlocked: s.id == SubjectId.history))
-                .toList(),
-            ref: ref,
-          ),
-
-          // Dados carregados
-          data: (subjects) => _SubjectList(subjects: subjects, ref: ref),
-        ),
+      body: const SafeArea(
+        child: _SubjectList(),
       ),
     );
   }
 }
 
-// Widget interno extraído para não duplicar a lista nos 3 estados
+// ── Lista interna ─────────────────────────────────────────────────────────────
 class _SubjectList extends StatelessWidget {
-  const _SubjectList({required this.subjects, required this.ref});
-
-  final List<Subject> subjects;
-  final WidgetRef ref;
+  const _SubjectList();
 
   @override
   Widget build(BuildContext context) {
@@ -66,6 +48,7 @@ class _SubjectList extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
+            // ── Título ──────────────────────────────────────────────
             Text(
               'Qual caminho você\ndeseja trilhar?',
               textAlign: TextAlign.center,
@@ -74,7 +57,46 @@ class _SubjectList extends StatelessWidget {
                 fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 100),
+            const SizedBox(height: 48),
+
+            // ── Botão "Sua trilha" (preenchido / primário) ───────────
+            const _PersonalTrailButton(),
+            const SizedBox(height: 16),
+
+            // ── Separador visual ─────────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Divider(
+                      color: AppColors.textSecondary.withValues(alpha: 0.3),
+                      thickness: 1,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: Text(
+                      'ou',
+                      style: TextStyle(
+                        color: AppColors.textSecondary.withValues(alpha: 0.6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: Divider(
+                      color: AppColors.textSecondary.withValues(alpha: 0.3),
+                      thickness: 1,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // ── Botão "Entrar em Turma" (contornado) ─────────────────
             const _EnterClassroomButton(),
           ],
         ),
@@ -83,9 +105,42 @@ class _SubjectList extends StatelessWidget {
   }
 }
 
-/// Botão "Entrar em Turma" inteligente:
-/// - Se o aluno já está em uma turma → navega direto para a trilha da sala.
-/// - Se não está → abre o bottom sheet para digitar o código.
+// ── Botão "Sua trilha" ────────────────────────────────────────────────────────
+/// Navega para a trilha pessoal do aluno (lesson_list_page).
+/// Estilo preenchido com a cor primária do app, para maior destaque.
+class _PersonalTrailButton extends StatelessWidget {
+  const _PersonalTrailButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 320,
+      height: 52,
+      child: FilledButton.icon(
+        onPressed: () => context.push(AppRoutes.personalTrail),
+        icon: const Icon(Icons.route_rounded, size: 20),
+        label: const Text(
+          'Sua trilha',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        style: FilledButton.styleFrom(
+          backgroundColor: AppColors.primary,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(50),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ── Botão "Entrar em Turma" ───────────────────────────────────────────────────
+/// - Aluno já matriculado → navega direto para a trilha da sala.
+/// - Sem turma → abre o bottom sheet para digitar o código.
 class _EnterClassroomButton extends ConsumerWidget {
   const _EnterClassroomButton();
 
@@ -100,13 +155,11 @@ class _EnterClassroomButton extends ConsumerWidget {
       child: OutlinedButton.icon(
         onPressed: () {
           if (existingClassroom != null) {
-            // Já está matriculado → vai direto para a trilha
             context.push(
               AppRoutes.classroomTrailPath(existingClassroom.id),
               extra: existingClassroom,
             );
           } else {
-            // Ainda não tem turma → abre o sheet para digitar código
             showClassroomSheet(context);
           }
         },
@@ -125,9 +178,9 @@ class _EnterClassroomButton extends ConsumerWidget {
           overflow: TextOverflow.ellipsis,
         ),
         style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF72ACD0),
+          foregroundColor: AppColors.primary,
           side: const BorderSide(
-            color: Color(0xFF72ACD0),
+            color: AppColors.primary,
             width: 1.8,
           ),
           shape: RoundedRectangleBorder(
