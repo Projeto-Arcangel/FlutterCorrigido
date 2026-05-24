@@ -140,6 +140,19 @@ final classroomResultsProvider = FutureProvider.autoDispose
   );
 });
 
+/// Ranking da sala, ordenado por porcentagem de acertos (maior → menor).
+/// Usado pelo chip de ranking e pelo bottom sheet de ranking na ClassroomTrailPage.
+final classroomRankingProvider = FutureProvider.autoDispose
+    .family<List<ClassroomResult>, String>((ref, classroomId) async {
+  final useCase = ref.watch(getClassroomResultsProvider);
+  final result = await useCase(classroomId);
+  return result.fold(
+    (failure) => throw Exception(failure.message),
+    (results) => [...results]
+      ..sort((a, b) => b.percentage.compareTo(a.percentage)),
+  );
+});
+
 // ─── Quiz → Fase ───────────────────────────────────────────────
 
 final saveClassroomQuizProvider = Provider<SaveClassroomQuiz>((ref) {
