@@ -44,9 +44,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       email:       _emailCtrl.text.trim(),
       password:    _passwordCtrl.text,
       displayName: _nameCtrl.text.trim(),
-      studentId:   _studentIdCtrl.text.trim().isEmpty
-          ? null
-          : _studentIdCtrl.text.trim().toUpperCase(),
+      studentId: _studentIdCtrl.text.trim().toUpperCase(),
     );
 
     if (!mounted) return;
@@ -131,24 +129,34 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   ),
                   const SizedBox(height: 12),
 
-                  // ── Prontuário ────────────────────────────────────────
+                  // ── Prontuário ────────────────────────────────────
                   _field(
                     controller: _studentIdCtrl,
-                    label: 'Prontuário (opcional)',
+                    label: 'Prontuário',
                     isDark: isDark,
                     prefixIcon: const Icon(Icons.badge_outlined),
-                    helperText: 'Ex.: SP123456 — fornecido pela instituição',
+                    helperText: 'Formato: PT + 7 dígitos (ex.: PT1234567)',
                     keyboardType: TextInputType.text,
                     inputFormatters: [
-                      // Permite letras e números; máx. 20 chars
-                      FilteringTextInputFormatter.allow(
-                        RegExp(r'[A-Za-z0-9]'),
-                      ),
-                      LengthLimitingTextInputFormatter(20),
+                      // Converte para maiúsculas a cada tecla digitada
+                      _UpperCaseTextFormatter(),
+                      // Permite somente letras e números (sem espaços)
+                      FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+                      // Limita exatamente a 9 caracteres (PT + 7)
+                      LengthLimitingTextInputFormatter(9),
                     ],
                     textCapitalization: TextCapitalization.characters,
-                    // Campo opcional — sem validação obrigatória
-                    validator: (_) => null,
+                    validator: (v) {
+                      final value = (v ?? '').trim().toUpperCase();
+                      if (value.isEmpty) return 'Prontuário obrigatório';
+                      if (!value.startsWith('PT')) {
+                        return 'Deve começar com “PT”';
+                      }
+                      if (value.length != 9) {
+                        return 'Deve ter exatamente 9 caracteres';
+                      }
+                      return null;
+                    },
                   ),
                   const SizedBox(height: 12),
 
@@ -306,4 +314,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       ),
     );
   }
+}
+
+// ── Formatter: converte para maiúsculas a cada keystroke ────────────────────
+// Garante consistência mesmo que o sistema de teclado não respeite
+// TextCapitalization.characters (alguns Android e teclados de terceiros).
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) =>
+      newValue.copyWith(text: newValue.text.toUpperCase());
 }
