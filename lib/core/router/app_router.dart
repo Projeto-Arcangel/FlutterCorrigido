@@ -26,7 +26,10 @@ import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_review_page.dart';
 import '../../features/teacher/presentation/pages/student_dashboard_page.dart';
+import '../../features/teacher/presentation/pages/teacher_account_page.dart';
 import '../../features/teacher/presentation/pages/teacher_page.dart';
+import '../../features/teacher/presentation/pages/teacher_preferences_page.dart';
+import '../../features/teacher/presentation/pages/teacher_settings_page.dart';
 
 class AppRoutes {
   AppRoutes._();
@@ -40,6 +43,9 @@ class AppRoutes {
   static const String teacherIaQuizReview = '/teacher/ia-quiz/review';
   static const String teacherClassroom        = '/teacher/classroom';
   static const String teacherStudentDashboard = '/teacher/student-dashboard';
+  static const String teacherSettings = '/teacher/settings';
+  static const String teacherSettingsPreferences = '/teacher/settings/preferences';
+  static const String teacherAccount = '/teacher/account';
   static const String personalTrail = '/trail';
   static const String lessons = '/lessons';
   static const String lesson = '/lessons/:id';
@@ -194,6 +200,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 initialClassroomId: extra?['classroomId'] as String?,
               );
             },
+          ),
+          GoRoute(
+            path: 'settings',
+            builder: (_, __) => const TeacherSettingsPage(),
+            routes: [
+              GoRoute(
+                path: 'preferences',
+                builder: (_, __) => const TeacherPreferencesPage(),
+              ),
+            ],
+          ),
+          GoRoute(
+            path: 'account',
+            builder: (_, __) => const TeacherAccountPage(),
           ),
         ],
       ),
