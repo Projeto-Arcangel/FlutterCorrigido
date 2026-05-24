@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -90,10 +91,8 @@ class _ClassroomTrailHeader extends ConsumerWidget {
             children: [
               // Botão voltar
               IconButton(
-                icon: Icon(
-                  Icons.arrow_back_rounded,
-                  color: mutedColor,
-                ),
+                tooltip: 'Voltar',
+                icon: Icon(Icons.chevron_left, color: primaryText, size: 28),
                 onPressed: () => context.pop(),
               ),
               const Spacer(),
@@ -122,14 +121,34 @@ class _ClassroomTrailHeader extends ConsumerWidget {
                               ),
                             ),
                           ),
-                          CircleAvatar(
-                            radius: 18,
-                            backgroundColor: avatarBg,
-                            child: Icon(
-                              Icons.person,
-                              color: mutedColor,
-                              size: 22,
-                            ),
+                          ClipOval(
+                            child: user?.photoUrl != null
+                                ? CachedNetworkImage(
+                                    imageUrl: user!.photoUrl!,
+                                    width: 36,
+                                    height: 36,
+                                    fit: BoxFit.cover,
+                                    errorWidget: (_, __, ___) => Container(
+                                      width: 36,
+                                      height: 36,
+                                      color: avatarBg,
+                                      child: Icon(
+                                        Icons.person,
+                                        color: mutedColor,
+                                        size: 22,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    width: 36,
+                                    height: 36,
+                                    color: avatarBg,
+                                    child: Icon(
+                                      Icons.person,
+                                      color: mutedColor,
+                                      size: 22,
+                                    ),
+                                  ),
                           ),
                         ],
                       ),
