@@ -1243,18 +1243,20 @@ class _PhaseFormSheet extends ConsumerStatefulWidget {
 
 class _PhaseFormSheetState extends ConsumerState<_PhaseFormSheet> {
   final _nameCtrl = TextEditingController();
-  final _descCtrl = TextEditingController();
+  String? _selectedSubject;
   bool _saving = false;
   String? _error;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
-    _descCtrl.dispose();
     super.dispose();
   }
 
-  bool get _isValid => _nameCtrl.text.trim().isNotEmpty && !_saving;
+  bool get _isValid =>
+      _nameCtrl.text.trim().isNotEmpty &&
+      _selectedSubject != null &&
+      !_saving;
 
   Future<void> _onSave() async {
     if (!_isValid) return;
@@ -1267,7 +1269,7 @@ class _PhaseFormSheetState extends ConsumerState<_PhaseFormSheet> {
     final result = await useCase(
       classroomId: widget.classroomId,
       title: _nameCtrl.text,
-      description: _descCtrl.text,
+      description: _selectedSubject!,
     );
     if (!mounted) return;
 
@@ -1361,13 +1363,11 @@ class _PhaseFormSheetState extends ConsumerState<_PhaseFormSheet> {
               onChanged: () => setState(() {}),
             ),
             const SizedBox(height: 14),
-            _SheetLabel(text: 'DESCRIÇÃO (OPCIONAL)'),
+            _SheetLabel(text: 'DISCIPLINA'),
             const SizedBox(height: 6),
-            _SheetField(
-              controller: _descCtrl,
-              hint: 'Resumo curto do conteúdo da fase',
-              maxLines: 3,
-              onChanged: () => setState(() {}),
+            _SubjectDropdown(
+              value: _selectedSubject,
+              onChanged: (v) => setState(() => _selectedSubject = v),
             ),
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -1515,6 +1515,97 @@ class _SheetField extends StatelessWidget {
               const BorderSide(color: ClassroomPalette.gold, width: 1.5),
         ),
       ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Dropdown de disciplina — usado no _PhaseFormSheet ao criar uma nova fase.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SubjectDropdown extends StatelessWidget {
+  const _SubjectDropdown({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final String? value;
+  final ValueChanged<String?> onChanged;
+
+  static const List<String> _subjects = [
+    'português',
+    'matemática',
+    'história',
+    'geografia',
+    'filosofia',
+    'sociologia',
+    'biologia',
+    'química',
+    'física',
+    'artes',
+    'educação física',
+  ];
+
+  String _label(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return DropdownButtonFormField<String>(
+      value: value,
+      isExpanded: true,
+      onChanged: onChanged,
+      style: GoogleFonts.nunito(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: ClassroomPalette.primaryText(isDark),
+      ),
+      dropdownColor: ClassroomPalette.cardBg(isDark),
+      iconEnabledColor: ClassroomPalette.textMuted,
+      hint: Text(
+        'Escolha a disciplina',
+        style: GoogleFonts.nunito(
+          fontSize: 13,
+          color: ClassroomPalette.textMuted,
+        ),
+      ),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: ClassroomPalette.fieldFill(isDark),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: ClassroomPalette.border(isDark)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: ClassroomPalette.border(isDark)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: ClassroomPalette.gold,
+            width: 1.5,
+          ),
+        ),
+      ),
+      items: _subjects
+          .map(
+            (s) => DropdownMenuItem<String>(
+              value: s,
+              child: Text(
+                _label(s),
+                style: GoogleFonts.nunito(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: ClassroomPalette.primaryText(isDark),
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 }

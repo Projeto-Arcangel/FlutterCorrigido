@@ -120,6 +120,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
         'classroomId': widget.classroom.id,
         'phaseId': widget.phase.id,
         'phaseTitle': widget.phase.title,
+        'subject': widget.phase.description,
       },
     );
     if (!mounted) return;
@@ -133,6 +134,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
         'classroomId': widget.classroom.id,
         'phaseId': widget.phase.id,
         'phaseTitle': widget.phase.title,
+        'subject': widget.phase.description,
       },
     );
     if (!mounted) return;
@@ -465,7 +467,7 @@ class _DetailsSection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Nome e descrição',
+                              'Nome e disciplina',
                               style: GoogleFonts.nunito(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -477,7 +479,7 @@ class _DetailsSection extends StatelessWidget {
                             Text(
                               expanded
                                   ? 'Edite os dados e salve as alterações'
-                                  : 'Toque para editar o nome ou a descrição',
+                                  : 'Toque para editar o nome ou a disciplina',
                               style: GoogleFonts.nunito(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -524,12 +526,12 @@ class _DetailsSection extends StatelessWidget {
                         onChanged: onChanged,
                       ),
                       const SizedBox(height: 14),
-                      _SmallLabel(text: 'DESCRIÇÃO (OPCIONAL)'),
+                      _SmallLabel(text: 'DISCIPLINA'),
                       const SizedBox(height: 6),
                       _PhaseField(
                         controller: descCtrl,
-                        hint: 'Resumo curto do conteúdo da fase',
-                        maxLines: 3,
+                        hint: 'Ex: história, matemática, física...',
+                        maxLines: 1,
                         onChanged: onChanged,
                       ),
                       const SizedBox(height: 16),

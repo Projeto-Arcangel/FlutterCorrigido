@@ -21,13 +21,82 @@ abstract class _C {
   static const Color accentSubtle = Color(0x1A7296D0);
   static const Color gradientEnd = Color(0xFF8B72D0);
 
-  // História — tint mais claro para boa legibilidade no fundo escuro
-  static const Color history = Color(0xFFB8906A);
-  static const Color historySubtle = Color(0x1AB8906A);
-
   static const Color border = Color(0x14FFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Metadados por disciplina — cor, ícone e placeholder do campo de tema.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SubjectMeta {
+  const _SubjectMeta({
+    required this.color,
+    required this.icon,
+    required this.hint,
+  });
+  final Color color;
+  final IconData icon;
+  final String hint;
+}
+
+const _kSubjectMeta = <String, _SubjectMeta>{
+  'português': _SubjectMeta(
+    color: AppColors.subjectPortuguese,
+    icon: FontAwesomeIcons.bookOpen,
+    hint: 'Ex: análise textual, redação, gramática...',
+  ),
+  'matemática': _SubjectMeta(
+    color: AppColors.subjectMath,
+    icon: FontAwesomeIcons.calculator,
+    hint: 'Ex: funções, matrizes, trigonometria...',
+  ),
+  'história': _SubjectMeta(
+    color: Color(0xFFB8906A),
+    icon: FontAwesomeIcons.buildingColumns,
+    hint: 'Ex: Estado Novo, Vargas, industrialização...',
+  ),
+  'geografia': _SubjectMeta(
+    color: AppColors.subjectGeography,
+    icon: FontAwesomeIcons.earthAmericas,
+    hint: 'Ex: clima, biomas, geopolítica...',
+  ),
+  'filosofia': _SubjectMeta(
+    color: AppColors.subjectPhilosophy,
+    icon: FontAwesomeIcons.infinity,
+    hint: 'Ex: Platão, ética, existencialismo...',
+  ),
+  'sociologia': _SubjectMeta(
+    color: AppColors.subjectSociology,
+    icon: FontAwesomeIcons.users,
+    hint: 'Ex: capitalismo, movimentos sociais...',
+  ),
+  'biologia': _SubjectMeta(
+    color: AppColors.subjectBiology,
+    icon: FontAwesomeIcons.dna,
+    hint: 'Ex: genética, ecossistemas, citologia...',
+  ),
+  'química': _SubjectMeta(
+    color: AppColors.subjectChemistry,
+    icon: FontAwesomeIcons.flask,
+    hint: 'Ex: reações, tabela periódica, termodinâmica...',
+  ),
+  'física': _SubjectMeta(
+    color: AppColors.subjectPhysics,
+    icon: FontAwesomeIcons.atom,
+    hint: 'Ex: mecânica, eletricidade, óptica...',
+  ),
+  'artes': _SubjectMeta(
+    color: AppColors.subjectArts,
+    icon: FontAwesomeIcons.paintbrush,
+    hint: 'Ex: renascimento, arte moderna, linguagem visual...',
+  ),
+  'educação física': _SubjectMeta(
+    color: AppColors.subjectPhysEd,
+    icon: FontAwesomeIcons.personRunning,
+    hint: 'Ex: esportes, saúde, biomecânica...',
+  ),
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modelo de domínio de apresentação
@@ -60,6 +129,7 @@ class IaQuizPage extends ConsumerStatefulWidget {
     this.classroomId,
     this.phaseId,
     this.phaseTitle,
+    this.subject,
   });
 
   /// ID da sala de aula em que a fase gerada será salva.
@@ -73,6 +143,10 @@ class IaQuizPage extends ConsumerStatefulWidget {
 
   /// Título da fase-alvo (apenas para exibição/contexto na review).
   final String? phaseTitle;
+
+  /// Disciplina da fase (ex: 'história', 'matemática'). Determina cor,
+  /// ícone e placeholder do campo de tema.
+  final String? subject;
 
   @override
   ConsumerState<IaQuizPage> createState() => _IaQuizPageState();
@@ -184,6 +258,9 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
       iaGenerationNotifierProvider.select((s) => s.isLoading),
     );
 
+    final meta = _kSubjectMeta[widget.subject?.toLowerCase()] ??
+        _kSubjectMeta['história']!;
+
     return GestureDetector(
       // Heurística #3: toque fora do campo fecha o teclado
       onTap: () => FocusScope.of(context).unfocus(),
@@ -204,18 +281,22 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       const _ScreenTitle(),
                       const SizedBox(height: 32),
 
-                      // Disciplina fixa — somente História por ora
+                      // Disciplina — dinâmica conforme a fase selecionada
                       _sectionLabel('DISCIPLINA'),
                       const SizedBox(height: 10),
-                      const _SubjectBadge(),
+                      _SubjectBadge(
+                        subject: widget.subject ?? 'história',
+                        meta: meta,
+                      ),
                       const SizedBox(height: 28),
 
-                      // Tema específico
-                      _sectionLabel('TEMA ESPECÍFICO'),
+                      // Tema geral
+                      _sectionLabel('TEMA GERAL'),
                       const SizedBox(height: 10),
                       _TopicField(
                         controller: _topicCtrl,
                         focusNode: _topicFocus,
+                        placeholder: meta.hint,
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: 28),
@@ -417,40 +498,42 @@ class _ScreenTitle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Subject Badge — História (fixo; outras matérias ainda não disponíveis)
+// Subject Badge — disciplina dinâmica conforme a fase selecionada.
 // Heurística #6 (reconhecimento): ícone + texto tornam a matéria inequívoca.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SubjectBadge extends StatelessWidget {
-  const _SubjectBadge();
+  const _SubjectBadge({required this.subject, required this.meta});
+
+  final String subject;
+  final _SubjectMeta meta;
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _C.historySubtle,
+        color: meta.color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _C.history.withValues(alpha: 0.40),
+          color: meta.color.withValues(alpha: 0.40),
           width: 1.4,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const FaIcon(
-            FontAwesomeIcons.buildingColumns,
-            size: 13,
-            color: _C.history,
-          ),
+          FaIcon(meta.icon, size: 13, color: meta.color),
           const SizedBox(width: 8),
           Text(
-            'História',
+            _capitalize(subject),
             style: GoogleFonts.nunito(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: _C.history,
+              color: meta.color,
             ),
           ),
         ],
@@ -461,7 +544,7 @@ class _SubjectBadge extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Topic Field
-// Heurística #6: placeholder com exemplos reais de uso.
+// Heurística #6: placeholder com exemplos reais de uso por disciplina.
 // Heurística #1: borda destacada no foco indica campo ativo.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -470,11 +553,13 @@ class _TopicField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
+    required this.placeholder,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final String placeholder;
 
   @override
   Widget build(BuildContext context) {
@@ -492,7 +577,7 @@ class _TopicField extends StatelessWidget {
       minLines: 1,
       textInputAction: TextInputAction.done,
       decoration: InputDecoration(
-        hintText: 'Ex: Estado Novo, Vargas, industrialização...',
+        hintText: placeholder,
         hintStyle: GoogleFonts.nunito(
           fontSize: 14,
           fontWeight: FontWeight.w400,
