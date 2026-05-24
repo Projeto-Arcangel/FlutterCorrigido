@@ -45,12 +45,21 @@ class IaQuizReviewPage extends ConsumerStatefulWidget {
     required this.topic,
     required this.difficulty,
     this.classroomId,
+    this.phaseId,
+    this.phaseTitle,
   });
 
   final IaGenerationResult result;
   final String topic;
   final String difficulty;
   final String? classroomId;
+
+  /// Quando informado, as questões aceitas serão **anexadas a esta fase
+  /// existente**, sem criar uma fase nova.
+  final String? phaseId;
+
+  /// Título da fase-alvo (apenas para contexto na UI).
+  final String? phaseTitle;
 
   @override
   ConsumerState<IaQuizReviewPage> createState() => _IaQuizReviewPageState();
@@ -112,6 +121,35 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
         .map((d) => d.question)
         .toList();
 
+    final phaseId = widget.phaseId;
+    if (phaseId != null && phaseId.isNotEmpty) {
+      // ── Anexa as questões a uma fase já existente ──────────────
+      final useCase = ref.read(addQuestionsToPhaseProvider);
+      final result = await useCase(
+        classroomId: widget.classroomId!,
+        phaseId: phaseId,
+        questions: acceptedQuestions,
+      );
+
+      if (!mounted) return;
+      setState(() => _saving = false);
+
+      result.fold(
+        (failure) => _showSnack(failure.message, isError: true),
+        (_) {
+          ref.invalidate(classroomPhasesProvider(widget.classroomId!));
+          _showSnack(
+            'Questões adicionadas à fase '
+            '${widget.phaseTitle ?? "selecionada"}!',
+          );
+          context.pop();
+          context.pop();
+        },
+      );
+      return;
+    }
+
+    // ── Sem phaseId: comportamento antigo (cria uma fase nova) ─────
     final useCase = ref.read(saveClassroomQuizProvider);
     final result = await useCase(
       classroomId: widget.classroomId!,
@@ -127,6 +165,7 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
     result.fold(
       (failure) => _showSnack(failure.message, isError: true),
       (_) {
+        ref.invalidate(classroomPhasesProvider(widget.classroomId!));
         _showSnack('Fase criada na sua turma com sucesso!');
         // Volta para a tela do professor — pop duplo (review + form).
         context.pop();
@@ -214,6 +253,7 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
                 acceptedCount: _acceptedCount,
                 hasClassroom:
                     widget.classroomId?.isNotEmpty ?? false,
+                phaseTitle: widget.phaseId == null ? null : widget.phaseTitle,
                 onTap: _save,
               ),
             ),
@@ -679,6 +719,7 @@ class _SaveButton extends StatelessWidget {
     required this.acceptedCount,
     required this.hasClassroom,
     required this.onTap,
+    this.phaseTitle,
   });
 
   final bool enabled;
@@ -687,13 +728,20 @@ class _SaveButton extends StatelessWidget {
   final bool hasClassroom;
   final VoidCallback onTap;
 
+  /// Quando informado, indica que o salvamento vai anexar as questões
+  /// a uma fase existente (em vez de criar uma fase nova).
+  final String? phaseTitle;
+
   @override
   Widget build(BuildContext context) {
+    final destination = phaseTitle == null
+        ? 'na turma'
+        : 'na fase "$phaseTitle"';
     final label = !hasClassroom
         ? 'Sem turma ativa'
         : acceptedCount == 0
             ? 'Aceite ao menos 1 questão'
-            : 'Salvar $acceptedCount questões na turma';
+            : 'Salvar $acceptedCount questões $destination';
 
     return AnimatedOpacity(
       opacity: enabled ? 1.0 : 0.45,

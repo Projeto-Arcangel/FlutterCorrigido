@@ -6,8 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/login_controller.dart';
-import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local
@@ -50,7 +48,23 @@ enum _Difficulty {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CreateQuizPage extends ConsumerStatefulWidget {
-  const CreateQuizPage({super.key});
+  const CreateQuizPage({
+    super.key,
+    this.classroomId,
+    this.phaseId,
+    this.phaseTitle,
+  });
+
+  /// ID da turma onde as questões serão salvas.
+  /// Quando ausente, o fluxo de salvamento exibirá um erro.
+  final String? classroomId;
+
+  /// ID da fase à qual as questões serão anexadas.
+  /// Sempre acompanha o [classroomId] no fluxo de gerenciamento de fase.
+  final String? phaseId;
+
+  /// Título da fase de destino (apenas para contexto na UI).
+  final String? phaseTitle;
 
   @override
   ConsumerState<CreateQuizPage> createState() => _CreateQuizPageState();
@@ -76,38 +90,15 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
     if (!_canSave) return;
     _focusNode.unfocus();
 
-    // Obtém o ID da primeira sala do professor.
-    // É necessário aguardar a resolução do provider para garantir
-    // que o classroomId esteja disponível antes de navegar.
-    final user = ref.read(authStateProvider).valueOrNull;
-    String? classroomId;
-
-    if (user != null) {
-      // Tenta obter do cache primeiro (síncrono)
-      final cached = ref.read(teacherClassroomsProvider(user.id));
-      classroomId = cached.valueOrNull?.firstOrNull?.id;
-
-      // Se não resolveu ainda, busca de forma assíncrona
-      if (classroomId == null) {
-        try {
-          final classrooms =
-              await ref.read(teacherClassroomsProvider(user.id).future);
-          classroomId = classrooms.firstOrNull?.id;
-        } catch (_) {
-          // Continua sem classroomId — o fluxo trata isso
-        }
-      }
-    }
-
-    if (!mounted) return;
-
     await context.push(
       AppRoutes.teacherCustomizeQuiz,
       extra: <String, dynamic>{
         'quantity': _quantity.round(),
         'topic': _topicCtrl.text.trim(),
         'difficulty': _difficulty.label,
-        'classroomId': classroomId,
+        'classroomId': widget.classroomId,
+        'phaseId': widget.phaseId,
+        'phaseTitle': widget.phaseTitle,
       },
     );
   }

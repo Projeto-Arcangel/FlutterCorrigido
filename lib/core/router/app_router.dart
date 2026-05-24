@@ -130,7 +130,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         routes: [
           GoRoute(
             path: 'create-quiz',
-            builder: (_, __) => const CreateQuizPage(),
+            builder: (_, state) {
+              final extra = state.extra as Map<String, dynamic>?;
+              return CreateQuizPage(
+                classroomId: extra?['classroomId'] as String?,
+                phaseId: extra?['phaseId'] as String?,
+                phaseTitle: extra?['phaseTitle'] as String?,
+              );
+            },
           ),
           GoRoute(
             path: 'customize-quiz',
@@ -141,6 +148,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 topic: extra['topic'] as String,
                 difficulty: extra['difficulty'] as String,
                 classroomId: extra['classroomId'] as String?,
+                phaseId: extra['phaseId'] as String?,
+                phaseTitle: extra['phaseTitle'] as String?,
               );
             },
           ),
@@ -150,6 +159,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               final extra = state.extra as Map<String, dynamic>?;
               return IaQuizPage(
                 classroomId: extra?['classroomId'] as String?,
+                phaseId: extra?['phaseId'] as String?,
+                phaseTitle: extra?['phaseTitle'] as String?,
               );
             },
             routes: [
@@ -162,6 +173,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     topic: extra['topic'] as String,
                     difficulty: extra['difficulty'] as String,
                     classroomId: extra['classroomId'] as String?,
+                    phaseId: extra['phaseId'] as String?,
+                    phaseTitle: extra['phaseTitle'] as String?,
                   );
                 },
               ),

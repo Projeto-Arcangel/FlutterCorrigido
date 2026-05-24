@@ -414,4 +414,190 @@ class ClassroomFirestoreDatasource {
     }
     return phases;
   }
+
+  /// Cria uma fase vazia (sem questões) com `order` igual ao final da
+  /// lista — assim a fase nova aparece no fim da trilha.
+  Future<ClassroomPhaseModel> createEmptyPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+  }) async {
+    final existingSnap = await _phasesRef(classroomId).get();
+    final nextOrder = existingSnap.docs.length + 1;
+    final now = DateTime.now();
+
+    final phaseRef = await _phasesRef(classroomId).add({
+      'name': title,
+      'description': description,
+      'order': nextOrder,
+      'createdAt': Timestamp.fromDate(now),
+    });
+
+    return ClassroomPhaseModel(
+      id: phaseRef.id,
+      classroomId: classroomId,
+      title: title,
+      description: description,
+      order: nextOrder,
+      createdAt: now,
+      questions: const [],
+    );
+  }
+
+  /// Atualiza apenas o nome e a descrição de uma fase existente.
+  Future<void> updatePhase({
+    required String classroomId,
+    required String phaseId,
+    required String title,
+    required String description,
+  }) async {
+    await _phasesRef(classroomId).doc(phaseId).update({
+      'name': title,
+      'description': description,
+    });
+  }
+
+  /// Apaga uma fase e todas as questões dela. Renumera o `order` das
+  /// fases restantes para manter a sequência contínua (1..N).
+  Future<void> deletePhase({
+    required String classroomId,
+    required String phaseId,
+  }) async {
+    final phaseRef = _phasesRef(classroomId).doc(phaseId);
+
+    // 1. Coleta refs das questões aninhadas.
+    final questionsSnap = await phaseRef.collection('questions').get();
+
+    // 2. Apaga em batches de 500.
+    final refs = <DocumentReference<Map<String, dynamic>>>[
+      ...questionsSnap.docs.map((d) => d.reference),
+      phaseRef,
+    ];
+    const chunkSize = 500;
+    for (var i = 0; i < refs.length; i += chunkSize) {
+      final end = (i + chunkSize) > refs.length ? refs.length : i + chunkSize;
+      final batch = _firestore.batch();
+      for (final ref in refs.sublist(i, end)) {
+        batch.delete(ref);
+      }
+      await batch.commit();
+    }
+
+    // 3. Renumera as fases restantes.
+    await _renumberPhases(classroomId);
+  }
+
+  /// Renumera o campo `order` das fases para garantir uma sequência
+  /// contínua começando em 1.
+  Future<void> _renumberPhases(String classroomId) async {
+    final snap = await _phasesRef(classroomId).orderBy('order').get();
+    final batch = _firestore.batch();
+    for (var i = 0; i < snap.docs.length; i++) {
+      batch.update(snap.docs[i].reference, {'order': i + 1});
+    }
+    await batch.commit();
+  }
+
+  /// Reordena fases conforme a nova lista de IDs (do topo para o fim).
+  ///
+  /// O índice do ID na lista vira o novo `order` (1-based).
+  Future<void> reorderPhases({
+    required String classroomId,
+    required List<String> orderedPhaseIds,
+  }) async {
+    final batch = _firestore.batch();
+    for (var i = 0; i < orderedPhaseIds.length; i++) {
+      batch.update(
+        _phasesRef(classroomId).doc(orderedPhaseIds[i]),
+        {'order': i + 1},
+      );
+    }
+    await batch.commit();
+  }
+
+  /// Adiciona novas questões a uma fase JÁ existente, preservando as
+  /// que já estão lá. O `order` das novas continua a partir do maior
+  /// `order` atual.
+  Future<void> addQuestionsToPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<Question> questions,
+  }) async {
+    if (questions.isEmpty) return;
+
+    final existingSnap = await _phaseQuestionsRef(classroomId, phaseId).get();
+    var nextOrder = existingSnap.docs.length;
+
+    final batch = _firestore.batch();
+    for (final q in questions) {
+      nextOrder += 1;
+      final qRef = _phaseQuestionsRef(classroomId, phaseId).doc();
+      batch.set(qRef, {
+        'text': q.text,
+        'options': q.options,
+        'correct_answer': q.correctAnswer,
+        'explanation': q.explanation,
+        'type': _questionTypeToInt(q.type),
+        'image_url': q.imageUrl,
+        'image_author': q.imageAuthor,
+        'image_source': q.imageSource,
+        'order': nextOrder,
+      });
+    }
+    await batch.commit();
+  }
+
+  /// Reordena as questões dentro de uma fase, conforme a nova lista
+  /// ordenada de IDs.
+  Future<void> reorderQuestionsInPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<String> orderedQuestionIds,
+  }) async {
+    final batch = _firestore.batch();
+    for (var i = 0; i < orderedQuestionIds.length; i++) {
+      batch.update(
+        _phaseQuestionsRef(classroomId, phaseId).doc(orderedQuestionIds[i]),
+        {'order': i + 1},
+      );
+    }
+    await batch.commit();
+  }
+
+  /// Atualiza uma questão dentro de uma fase específica.
+  Future<void> updateQuestionInPhase({
+    required String classroomId,
+    required String phaseId,
+    required Question question,
+  }) async {
+    await _phaseQuestionsRef(classroomId, phaseId).doc(question.id).update({
+      'text': question.text,
+      'options': question.options,
+      'correct_answer': question.correctAnswer,
+      'explanation': question.explanation,
+      'type': _questionTypeToInt(question.type),
+      'image_url': question.imageUrl,
+      'image_author': question.imageAuthor,
+      'image_source': question.imageSource,
+    });
+  }
+
+  /// Apaga uma questão de uma fase e renumera as restantes.
+  Future<void> deleteQuestionFromPhase({
+    required String classroomId,
+    required String phaseId,
+    required String questionId,
+  }) async {
+    await _phaseQuestionsRef(classroomId, phaseId).doc(questionId).delete();
+
+    // Renumera para manter sequência contínua.
+    final snap = await _phaseQuestionsRef(classroomId, phaseId)
+        .orderBy('order')
+        .get();
+    final batch = _firestore.batch();
+    for (var i = 0; i < snap.docs.length; i++) {
+      batch.update(snap.docs[i].reference, {'order': i + 1});
+    }
+    await batch.commit();
+  }
 }

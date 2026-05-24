@@ -55,12 +55,24 @@ enum _Difficulty {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class IaQuizPage extends ConsumerStatefulWidget {
-  const IaQuizPage({super.key, this.classroomId});
+  const IaQuizPage({
+    super.key,
+    this.classroomId,
+    this.phaseId,
+    this.phaseTitle,
+  });
 
   /// ID da sala de aula em que a fase gerada será salva.
   /// Passado via `extra` do router. Se nulo, o salvamento na review
   /// page exibe erro pedindo para o professor entrar em uma turma.
   final String? classroomId;
+
+  /// ID de uma fase já existente. Quando informado, as questões
+  /// geradas são **adicionadas a essa fase** (sem criar fase nova).
+  final String? phaseId;
+
+  /// Título da fase-alvo (apenas para exibição/contexto na review).
+  final String? phaseTitle;
 
   @override
   ConsumerState<IaQuizPage> createState() => _IaQuizPageState();
@@ -151,6 +163,8 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                 'topic': _topicCtrl.text.trim(),
                 'difficulty': _difficulty.label,
                 'classroomId': widget.classroomId,
+                'phaseId': widget.phaseId,
+                'phaseTitle': widget.phaseTitle,
               },
             );
           },
