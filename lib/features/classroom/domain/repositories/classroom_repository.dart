@@ -113,4 +113,62 @@ abstract class ClassroomRepository {
   Future<Either<Failure, List<ClassroomPhase>>> getClassroomPhases(
     String classroomId,
   );
+
+  /// Cria uma fase vazia (sem questões).
+  /// As questões podem ser adicionadas depois via [addQuestionsToPhase].
+  Future<Either<Failure, ClassroomPhase>> createEmptyPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+  });
+
+  /// Atualiza o título e a descrição de uma fase existente.
+  Future<Either<Failure, void>> updatePhase({
+    required String classroomId,
+    required String phaseId,
+    required String title,
+    required String description,
+  });
+
+  /// Apaga uma fase (e todas as questões dela). Renumera o `order` das
+  /// fases restantes.
+  Future<Either<Failure, void>> deletePhase({
+    required String classroomId,
+    required String phaseId,
+  });
+
+  /// Reordena as fases conforme a lista de IDs (do início ao fim).
+  Future<Either<Failure, void>> reorderPhases({
+    required String classroomId,
+    required List<String> orderedPhaseIds,
+  });
+
+  /// Adiciona questões a uma fase já existente, preservando as
+  /// questões atuais e continuando o `order`.
+  Future<Either<Failure, void>> addQuestionsToPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<Question> questions,
+  });
+
+  /// Reordena as questões dentro de uma fase.
+  Future<Either<Failure, void>> reorderQuestionsInPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<String> orderedQuestionIds,
+  });
+
+  /// Atualiza uma questão dentro de uma fase.
+  Future<Either<Failure, void>> updateQuestionInPhase({
+    required String classroomId,
+    required String phaseId,
+    required Question question,
+  });
+
+  /// Apaga uma questão de uma fase (renumera as restantes).
+  Future<Either<Failure, void>> deleteQuestionFromPhase({
+    required String classroomId,
+    required String phaseId,
+    required String questionId,
+  });
 }

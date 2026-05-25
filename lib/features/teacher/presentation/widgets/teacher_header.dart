@@ -114,7 +114,7 @@ class _HeaderBar extends StatelessWidget {
               borderRadius: BorderRadius.circular(14),
               child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-                onTap: () => context.push(AppRoutes.settings),
+                onTap: () => context.push(AppRoutes.teacherSettings),
                 child: Container(
                   width: 46,
                   height: 46,

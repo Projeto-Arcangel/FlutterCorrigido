@@ -34,6 +34,9 @@ class UserRepositoryImpl implements UserRepository {
         'gold': 0,
         'faseAtual': 0,
         'created_at': FieldValue.serverTimestamp(),
+        // Prontuário: grava somente se fornecido (não obrigatório p/ Google Sign-in)
+        if (user.studentId != null && user.studentId!.isNotEmpty)
+          'prontuario': user.studentId,
       });
       return const Right(null);
     } catch (e, st) {

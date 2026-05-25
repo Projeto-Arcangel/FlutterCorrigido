@@ -20,7 +20,7 @@ final subjectsProvider = FutureProvider.autoDispose<List<Subject>>((ref) async {
       .watch(progressRepositoryProvider)
       .getProgress(user.id);
 
-  // 3. Em caso de erro no Firestore, History sempre desbloqueada (fail-safe)
+  // 3. Em caso de erro no Firestore, XP=0 → Português e História desbloqueados (fail-safe)
   final xp = result.fold((_) => 0.0, (progress) => progress.xp);
 
   // 4. Calcula quais matérias estão desbloqueadas

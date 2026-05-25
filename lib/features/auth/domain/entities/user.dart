@@ -29,6 +29,9 @@ class User extends Equatable {
   final String? displayName;
   final String? photoUrl;
   final UserRole role;
+  /// Prontuário institucional do aluno (ex.: SP123456).
+  /// Opcional — usuários via Google Sign-in podem não possuir prontuário.
+  final String? studentId;
 
   const User({
     required this.id,
@@ -36,8 +39,9 @@ class User extends Equatable {
     this.displayName,
     this.photoUrl,
     this.role = UserRole.student,
+    this.studentId,
   });
 
   @override
-  List<Object?> get props => [id, email, displayName, photoUrl, role];
+  List<Object?> get props => [id, email, displayName, photoUrl, role, studentId];
 }

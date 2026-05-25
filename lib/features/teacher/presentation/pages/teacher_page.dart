@@ -63,30 +63,11 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           icon: FontAwesomeIcons.school,
           title: 'Minhas Turmas',
           subtitle: classroomId != null
-              ? 'Ver alunos e resultados'
-              : 'Nenhuma turma ainda',
+              ? 'Gerencie alunos, fases e questões'
+              : 'Crie sua primeira turma',
           iconColor: const Color(0xFF8B72D0),
           iconBg: const Color(0x1A8B72D0),
           onTap: () => context.push(AppRoutes.teacherClassroom),
-        ),
-        TeacherQuickAction(
-          icon: FontAwesomeIcons.penToSquare,
-          title: 'Criar Questões',
-          subtitle: 'Escreva suas próprias questões manualmente',
-          iconColor: const Color(0xFF72D09C),
-          iconBg: const Color(0x1A72D09C),
-          onTap: () => context.push(AppRoutes.teacherCreateQuiz),
-        ),
-        TeacherQuickAction(
-          icon: FontAwesomeIcons.wandMagicSparkles,
-          title: 'Criar Questões com IA',
-          subtitle: 'Personalizar questões por tema e dificuldade',
-          iconColor: const Color(0xFF7296D0),
-          iconBg: const Color(0x1A7296D0),
-          onTap: () => context.push(
-            AppRoutes.teacherIaQuiz,
-            extra: <String, dynamic>{'classroomId': classroomId},
-          ),
         ),
         TeacherQuickAction(
           icon: FontAwesomeIcons.chartLine,
@@ -210,10 +191,10 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
 
   List<TeacherActivityItem> _buildActivities() => const [
         TeacherActivityItem(
-          description: 'Crie questões e compartilhe com sua turma',
+          description: 'Acesse "Minhas Turmas" para criar e organizar fases',
           timeAgo: '',
-          icon: FontAwesomeIcons.penToSquare,
-          dotColor: Color(0xFF72D09C),
+          icon: FontAwesomeIcons.layerGroup,
+          dotColor: Color(0xFF8B72D0),
         ),
         TeacherActivityItem(
           description: 'Acompanhe o progresso dos alunos pelo dashboard',

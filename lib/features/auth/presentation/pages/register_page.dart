@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,18 +16,20 @@ class RegisterPage extends ConsumerStatefulWidget {
 }
 
 class _RegisterPageState extends ConsumerState<RegisterPage> {
-  final _formKey      = GlobalKey<FormState>();
-  final _nameCtrl     = TextEditingController();
-  final _emailCtrl    = TextEditingController();
-  final _passwordCtrl = TextEditingController();
-  final _confirmCtrl  = TextEditingController();
-  bool  _obscurePass  = true;
-  bool  _obscureConf  = true;
-  bool  _loading      = false;
+  final _formKey        = GlobalKey<FormState>();
+  final _nameCtrl       = TextEditingController();
+  final _studentIdCtrl  = TextEditingController(); // Prontuário
+  final _emailCtrl      = TextEditingController();
+  final _passwordCtrl   = TextEditingController();
+  final _confirmCtrl    = TextEditingController();
+  bool  _obscurePass    = true;
+  bool  _obscureConf    = true;
+  bool  _loading        = false;
 
   @override
   void dispose() {
     _nameCtrl.dispose();
+    _studentIdCtrl.dispose();
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     _confirmCtrl.dispose();
@@ -38,9 +41,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     setState(() => _loading = true);
 
     final result = await ref.read(registerUserProvider).call(
-      email: _emailCtrl.text.trim(),
-      password: _passwordCtrl.text,
+      email:       _emailCtrl.text.trim(),
+      password:    _passwordCtrl.text,
       displayName: _nameCtrl.text.trim(),
+      studentId: _studentIdCtrl.text.trim().toUpperCase(),
     );
 
     if (!mounted) return;
@@ -106,25 +110,62 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     'Preencha os dados para começar',
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: isDark
-                              ? AppColors.textOnDark.withOpacity(0.7)
+                              ? AppColors.textOnDark.withValues(alpha: 0.7)
                               : AppColors.textSecondary,
                         ),
                   ),
                   const SizedBox(height: 32),
+
+                  // ── Nome ──────────────────────────────────────────────
                   _field(
                     controller: _nameCtrl,
-                    label: 'Nome',
+                    label: 'Nome completo',
                     isDark: isDark,
+                    prefixIcon: const Icon(Icons.person_outline_rounded),
                     validator: (v) =>
                         (v == null || v.trim().length < 2)
                             ? 'Mínimo 2 caracteres'
                             : null,
                   ),
                   const SizedBox(height: 12),
+
+                  // ── Prontuário ────────────────────────────────────
+                  _field(
+                    controller: _studentIdCtrl,
+                    label: 'Prontuário',
+                    isDark: isDark,
+                    prefixIcon: const Icon(Icons.badge_outlined),
+                    helperText: 'Formato: PT + 7 dígitos (ex.: PT1234567)',
+                    keyboardType: TextInputType.text,
+                    inputFormatters: [
+                      // Converte para maiúsculas a cada tecla digitada
+                      _UpperCaseTextFormatter(),
+                      // Permite somente letras e números (sem espaços)
+                      FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
+                      // Limita exatamente a 9 caracteres (PT + 7)
+                      LengthLimitingTextInputFormatter(9),
+                    ],
+                    textCapitalization: TextCapitalization.characters,
+                    validator: (v) {
+                      final value = (v ?? '').trim().toUpperCase();
+                      if (value.isEmpty) return 'Prontuário obrigatório';
+                      if (!value.startsWith('PT')) {
+                        return 'Deve começar com “PT”';
+                      }
+                      if (value.length != 9) {
+                        return 'Deve ter exatamente 9 caracteres';
+                      }
+                      return null;
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  // ── E-mail ────────────────────────────────────────────
                   _field(
                     controller: _emailCtrl,
                     label: 'E-mail',
                     isDark: isDark,
+                    prefixIcon: const Icon(Icons.email_outlined),
                     keyboardType: TextInputType.emailAddress,
                     validator: (v) =>
                         (v == null || !v.contains('@'))
@@ -132,10 +173,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             : null,
                   ),
                   const SizedBox(height: 12),
+
+                  // ── Senha ─────────────────────────────────────────────
                   _field(
                     controller: _passwordCtrl,
                     label: 'Senha',
                     isDark: isDark,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
                     obscureText: _obscurePass,
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -143,7 +187,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
                         color: isDark
-                            ? AppColors.textOnDark.withOpacity(0.6)
+                            ? AppColors.textOnDark.withValues(alpha: 0.6)
                             : AppColors.textSecondary,
                       ),
                       onPressed: () =>
@@ -155,10 +199,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             : null,
                   ),
                   const SizedBox(height: 12),
+
+                  // ── Confirmar senha ───────────────────────────────────
                   _field(
                     controller: _confirmCtrl,
                     label: 'Confirmar senha',
                     isDark: isDark,
+                    prefixIcon: const Icon(Icons.lock_outline_rounded),
                     obscureText: _obscureConf,
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -166,7 +213,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             ? Icons.visibility_off_outlined
                             : Icons.visibility_outlined,
                         color: isDark
-                            ? AppColors.textOnDark.withOpacity(0.6)
+                            ? AppColors.textOnDark.withValues(alpha: 0.6)
                             : AppColors.textSecondary,
                       ),
                       onPressed: () =>
@@ -178,6 +225,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                             : null,
                   ),
                   const SizedBox(height: 32),
+
                   AppButton(
                     onPressed: _submit,
                     label: 'Criar conta',
@@ -199,25 +247,44 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
     required bool isDark,
     bool obscureText = false,
     TextInputType? keyboardType,
+    TextCapitalization textCapitalization = TextCapitalization.none,
+    Widget? prefixIcon,
     Widget? suffixIcon,
+    String? helperText,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
+    final mutedColor = isDark
+        ? AppColors.textOnDark.withValues(alpha: 0.7)
+        : AppColors.textSecondary;
+
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
+      inputFormatters: inputFormatters,
       validator: validator,
       style: TextStyle(
         color: isDark ? AppColors.textOnDark : AppColors.textPrimary,
       ),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(
-          color: isDark
-              ? AppColors.textOnDark.withOpacity(0.7)
-              : AppColors.textSecondary,
-        ),
+        labelStyle: TextStyle(color: mutedColor),
+        prefixIcon: prefixIcon != null
+            ? IconTheme(
+                data: IconThemeData(color: mutedColor, size: 20),
+                child: prefixIcon,
+              )
+            : null,
         suffixIcon: suffixIcon,
+        helperText: helperText,
+        helperStyle: TextStyle(
+          color: isDark
+              ? AppColors.textOnDark.withValues(alpha: 0.45)
+              : AppColors.textSecondary.withValues(alpha: 0.7),
+          fontSize: 11,
+        ),
         filled: true,
         fillColor: isDark ? AppColors.surfaceDark : Colors.white,
         border: OutlineInputBorder(
@@ -229,7 +296,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
           borderSide: BorderSide(
             color: isDark
                 ? Colors.white12
-                : AppColors.borderBlue.withOpacity(0.3),
+                : AppColors.borderBlue.withValues(alpha: 0.3),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -247,4 +314,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
       ),
     );
   }
+}
+
+// ── Formatter: converte para maiúsculas a cada keystroke ────────────────────
+// Garante consistência mesmo que o sistema de teclado não respeite
+// TextCapitalization.characters (alguns Android e teclados de terceiros).
+class _UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) =>
+      newValue.copyWith(text: newValue.text.toUpperCase());
 }

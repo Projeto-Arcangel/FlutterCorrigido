@@ -15,6 +15,7 @@ class RegisterUser {
     required String email,
     required String password,
     required String displayName,
+    String? studentId,
   }) async {
     final result = await _authRepository.registerWithEmail(
       email: email,
@@ -24,8 +25,18 @@ class RegisterUser {
     return result.fold(
       Left.new,
       (user) async {
-        await _userRepository.createProfileIfAbsent(user);
-        return Right(user);
+        final userWithId = studentId != null && studentId.isNotEmpty
+            ? User(
+                id: user.id,
+                email: user.email,
+                displayName: user.displayName,
+                photoUrl: user.photoUrl,
+                role: user.role,
+                studentId: studentId,
+              )
+            : user;
+        await _userRepository.createProfileIfAbsent(userWithId);
+        return Right(userWithId);
       },
     );
   }

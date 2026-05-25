@@ -292,4 +292,156 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       return const Left(NetworkFailure('Falha ao carregar fases da sala'));
     }
   }
+
+  @override
+  Future<Either<Failure, ClassroomPhase>> createEmptyPhase({
+    required String classroomId,
+    required String title,
+    required String description,
+  }) async {
+    try {
+      final phase = await _datasource.createEmptyPhase(
+        classroomId: classroomId,
+        title: title,
+        description: description,
+      );
+      return Right(phase);
+    } catch (e, st) {
+      _logger.e('createEmptyPhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao criar fase'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePhase({
+    required String classroomId,
+    required String phaseId,
+    required String title,
+    required String description,
+  }) async {
+    try {
+      await _datasource.updatePhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+        title: title,
+        description: description,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('updatePhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao atualizar a fase'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deletePhase({
+    required String classroomId,
+    required String phaseId,
+  }) async {
+    try {
+      await _datasource.deletePhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('deletePhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao excluir a fase'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> reorderPhases({
+    required String classroomId,
+    required List<String> orderedPhaseIds,
+  }) async {
+    try {
+      await _datasource.reorderPhases(
+        classroomId: classroomId,
+        orderedPhaseIds: orderedPhaseIds,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('reorderPhases failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao reordenar as fases'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> addQuestionsToPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<Question> questions,
+  }) async {
+    try {
+      await _datasource.addQuestionsToPhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+        questions: questions,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('addQuestionsToPhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao adicionar questões à fase'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> reorderQuestionsInPhase({
+    required String classroomId,
+    required String phaseId,
+    required List<String> orderedQuestionIds,
+  }) async {
+    try {
+      await _datasource.reorderQuestionsInPhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+        orderedQuestionIds: orderedQuestionIds,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('reorderQuestionsInPhase failed', error: e, stackTrace: st);
+      return const Left(
+        NetworkFailure('Falha ao reordenar as questões'),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateQuestionInPhase({
+    required String classroomId,
+    required String phaseId,
+    required Question question,
+  }) async {
+    try {
+      await _datasource.updateQuestionInPhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+        question: question,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('updateQuestionInPhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao editar a questão'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> deleteQuestionFromPhase({
+    required String classroomId,
+    required String phaseId,
+    required String questionId,
+  }) async {
+    try {
+      await _datasource.deleteQuestionFromPhase(
+        classroomId: classroomId,
+        phaseId: phaseId,
+        questionId: questionId,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('deleteQuestionFromPhase failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao excluir a questão'));
+    }
+  }
 }

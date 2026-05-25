@@ -1,4 +1,5 @@
 import 'package:arcangel_o_oficial/core/router/app_router.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -131,6 +132,7 @@ class _HeroSection extends StatelessWidget {
           _Avatar(
             photoUrl: profile.photoUrl,
             level: profile.progress.level,
+            levelProgress: profile.levelProgress,
           ),
           const SizedBox(height: 16),
           Text(
@@ -168,34 +170,65 @@ class _HeroSection extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _Avatar extends StatelessWidget {
-  const _Avatar({required this.photoUrl, required this.level});
+  const _Avatar({
+    required this.photoUrl,
+    required this.level,
+    required this.levelProgress,
+  });
 
   final String? photoUrl;
   final int level;
+  final double levelProgress;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final avatarBg = isDark ? AppColors.surfaceDark : Colors.white;
+
     return Stack(
       alignment: Alignment.bottomRight,
       children: [
-        Container(
+        SizedBox(
           width: 96,
           height: 96,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(color: AppColors.primary, width: 3),
-            color: isDark ? AppColors.surfaceDark : Colors.white,
-          ),
-          child: photoUrl != null
-              ? ClipOval(
-                  child: Image.network(
-                    photoUrl!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const _DefaultAvatarIcon(),
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                width: 96,
+                height: 96,
+                child: CircularProgressIndicator(
+                  value: levelProgress,
+                  strokeWidth: 3,
+                  backgroundColor:
+                      isDark ? Colors.white12 : Colors.black12,
+                  valueColor: const AlwaysStoppedAnimation<Color>(
+                    AppColors.primary,
                   ),
-                )
-              : const _DefaultAvatarIcon(),
+                ),
+              ),
+              Container(
+                width: 82,
+                height: 82,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: avatarBg,
+                ),
+                child: photoUrl != null
+                    ? ClipOval(
+                        child: CachedNetworkImage(
+                          imageUrl: photoUrl!,
+                          width: 82,
+                          height: 82,
+                          fit: BoxFit.cover,
+                          errorWidget: (_, __, ___) =>
+                              const _DefaultAvatarIcon(),
+                        ),
+                      )
+                    : const _DefaultAvatarIcon(),
+              ),
+            ],
+          ),
         ),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
