@@ -5,9 +5,16 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
 abstract class _TeacherColors {
-  static const Color divider = Color(0x1AFFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
-  static const Color cardBorder = Color(0x14FFFFFF);
+
+  static Color divider(bool dark) =>
+      dark ? const Color(0x1AFFFFFF) : Colors.black12;
+  static Color cardBorder(bool dark) =>
+      dark ? const Color(0x14FFFFFF) : Colors.black12;
+  static Color cardBg(bool dark) =>
+      dark ? AppColors.surfaceDark : Colors.white;
+  static Color primaryText(bool dark) =>
+      dark ? Colors.white : AppColors.textPrimary;
 }
 
 class TeacherQuickAction {
@@ -99,12 +106,13 @@ class _QuickActionsList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: _TeacherColors.cardBg(isDark),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: _TeacherColors.cardBorder),
+        border: Border.all(color: _TeacherColors.cardBorder(isDark)),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(20),
@@ -117,9 +125,9 @@ class _QuickActionsList extends StatelessWidget {
               children: [
                 _QuickActionTile(action: entry.value),
                 if (!isLast)
-                  const Divider(
+                  Divider(
                     height: 1,
-                    color: _TeacherColors.divider,
+                    color: _TeacherColors.divider(isDark),
                     indent: 20,
                     endIndent: 20,
                   ),
@@ -139,6 +147,7 @@ class _QuickActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -164,7 +173,7 @@ class _QuickActionTile extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: _TeacherColors.primaryText(isDark),
                         height: 1.2,
                       ),
                     ),
@@ -232,35 +241,40 @@ class _RecentActivitySection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel(label: 'ATIVIDADE RECENTE'),
-        Container(
-          margin: const EdgeInsets.symmetric(horizontal: 20),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceDark,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _TeacherColors.cardBorder),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: activities.asMap().entries.map((entry) {
-                final isLast = entry.key == activities.length - 1;
-                return Column(
+        Builder(
+          builder: (context) {
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              decoration: BoxDecoration(
+                color: _TeacherColors.cardBg(isDark),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: _TeacherColors.cardBorder(isDark)),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(20),
+                child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _ActivityTile(item: entry.value),
-                    if (!isLast)
-                      const Divider(
-                        height: 1,
-                        color: _TeacherColors.divider,
-                        indent: 20,
-                        endIndent: 20,
-                      ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+                  children: activities.asMap().entries.map((entry) {
+                    final isLast = entry.key == activities.length - 1;
+                    return Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        _ActivityTile(item: entry.value),
+                        if (!isLast)
+                          Divider(
+                            height: 1,
+                            color: _TeacherColors.divider(isDark),
+                            indent: 20,
+                            endIndent: 20,
+                          ),
+                      ],
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
@@ -299,7 +313,9 @@ class _ActivityTile extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: _TeacherColors.primaryText(
+                  Theme.of(context).brightness == Brightness.dark,
+                ),
                 height: 1.4,
               ),
             ),
