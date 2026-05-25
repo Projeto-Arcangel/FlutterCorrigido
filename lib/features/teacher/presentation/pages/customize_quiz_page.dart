@@ -71,6 +71,8 @@ class CustomizeQuizPage extends ConsumerStatefulWidget {
     required this.topic,
     required this.difficulty,
     this.classroomId,
+    this.phaseId,
+    this.phaseTitle,
   });
 
   final int quantity;
@@ -80,6 +82,13 @@ class CustomizeQuizPage extends ConsumerStatefulWidget {
   /// ID da sala de aula do professor. Se preenchido, o quiz será salvo
   /// como uma fase (Phase) vinculada a essa sala no Firestore.
   final String? classroomId;
+
+  /// ID da fase existente em que as questões serão anexadas.
+  /// Quando ausente, o quiz vira uma fase nova (comportamento antigo).
+  final String? phaseId;
+
+  /// Título da fase-alvo (para contexto/UX).
+  final String? phaseTitle;
 
   @override
   ConsumerState<CustomizeQuizPage> createState() => _CustomizeQuizPageState();
@@ -126,17 +135,26 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
     setState(() => _saving = true);
 
     final classroomId = widget.classroomId;
+    final phaseId = widget.phaseId;
 
-    if (classroomId != null && classroomId.isNotEmpty) {
-      // ─── Salvar como fase vinculada à sala de aula ───────────────
-      final useCase = ref.read(saveClassroomQuizProvider);
-      final questions = _buildQuestionEntities();
+    if (classroomId == null || classroomId.isEmpty) {
+      if (!mounted) return;
+      setState(() => _saving = false);
+      _showErrorSnack(
+        'Você não possui uma turma ativa. '
+        'Crie ou entre em uma turma para salvar questionários.',
+      );
+      return;
+    }
 
+    final questions = _buildQuestionEntities();
+
+    if (phaseId != null && phaseId.isNotEmpty) {
+      // ── Anexa as questões a uma fase já existente ──────────────
+      final useCase = ref.read(addQuestionsToPhaseProvider);
       final result = await useCase(
         classroomId: classroomId,
-        title: widget.topic,
-        description:
-            '${widget.quantity} questões · ${widget.difficulty}',
+        phaseId: phaseId,
         questions: questions,
       );
 
@@ -144,111 +162,107 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
       setState(() => _saving = false);
 
       result.fold(
-        (failure) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const FaIcon(
-                    FontAwesomeIcons.circleExclamation,
-                    size: 15,
-                    color: Color(0xFFFF6B6B),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      failure.message,
-                      style: GoogleFonts.nunito(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: AppColors.surfaceDark,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              duration: const Duration(seconds: 4),
-            ),
-          );
-        },
+        (failure) => _showErrorSnack(failure.message),
         (_) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  const FaIcon(
-                    FontAwesomeIcons.solidCircleCheck,
-                    size: 15,
-                    color: _C.accent,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Fase criada na sua turma com sucesso!',
-                      style: GoogleFonts.nunito(
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              backgroundColor: AppColors.surfaceDark,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              duration: const Duration(seconds: 3),
-            ),
+          ref.invalidate(classroomPhasesProvider(classroomId));
+          _showSuccessSnack(
+            'Questões adicionadas à fase '
+            '${widget.phaseTitle ?? "selecionada"}!',
           );
-          // Volta para a tela do professor.
           context.pop();
           context.pop();
         },
       );
-    } else {
-      // ─── Sem sala vinculada — não é possível salvar ───────────────
-      if (!mounted) return;
-      setState(() => _saving = false);
+      return;
+    }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const FaIcon(
-                FontAwesomeIcons.circleExclamation,
-                size: 15,
-                color: Color(0xFFFF6B6B),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Você não possui uma turma ativa. '
-                  'Crie ou entre em uma turma para salvar questionários.',
-                  style: GoogleFonts.nunito(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
+    // ── Sem phaseId: comportamento antigo (cria fase nova) ─────────
+    final useCase = ref.read(saveClassroomQuizProvider);
+    final result = await useCase(
+      classroomId: classroomId,
+      title: widget.topic,
+      description: '${widget.quantity} questões · ${widget.difficulty}',
+      questions: questions,
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
+    result.fold(
+      (failure) => _showErrorSnack(failure.message),
+      (_) {
+        ref.invalidate(classroomPhasesProvider(classroomId));
+        _showSuccessSnack('Fase criada na sua turma com sucesso!');
+        context.pop();
+        context.pop();
+      },
+    );
+  }
+
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.circleExclamation,
+              size: 15,
+              color: Color(0xFFFF6B6B),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
                 ),
               ),
-            ],
-          ),
-          backgroundColor: AppColors.surfaceDark,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-          duration: const Duration(seconds: 4),
+            ),
+          ],
         ),
-      );
-    }
+        backgroundColor: AppColors.surfaceDark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        duration: const Duration(seconds: 4),
+      ),
+    );
+  }
+
+  void _showSuccessSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const FaIcon(
+              FontAwesomeIcons.solidCircleCheck,
+              size: 15,
+              color: _C.accent,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                message,
+                style: GoogleFonts.nunito(
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: AppColors.surfaceDark,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   @override

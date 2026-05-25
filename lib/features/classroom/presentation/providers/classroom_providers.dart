@@ -19,6 +19,7 @@ import '../../domain/usecases/get_student_classroom.dart';
 import '../../domain/usecases/get_teacher_classrooms.dart';
 import '../../domain/usecases/join_classroom.dart';
 import '../../domain/usecases/leave_classroom.dart';
+import '../../domain/usecases/manage_classroom_phases.dart';
 import '../../domain/usecases/save_classroom_quiz.dart';
 import '../../domain/usecases/submit_classroom_result.dart';
 import '../../domain/usecases/update_classroom.dart';
@@ -139,6 +140,19 @@ final classroomResultsProvider = FutureProvider.autoDispose
   );
 });
 
+/// Ranking da sala, ordenado por porcentagem de acertos (maior → menor).
+/// Usado pelo chip de ranking e pelo bottom sheet de ranking na ClassroomTrailPage.
+final classroomRankingProvider = FutureProvider.autoDispose
+    .family<List<ClassroomResult>, String>((ref, classroomId) async {
+  final useCase = ref.watch(getClassroomResultsProvider);
+  final result = await useCase(classroomId);
+  return result.fold(
+    (failure) => throw Exception(failure.message),
+    (results) => [...results]
+      ..sort((a, b) => b.percentage.compareTo(a.percentage)),
+  );
+});
+
 // ─── Quiz → Fase ───────────────────────────────────────────────
 
 final saveClassroomQuizProvider = Provider<SaveClassroomQuiz>((ref) {
@@ -146,14 +160,55 @@ final saveClassroomQuizProvider = Provider<SaveClassroomQuiz>((ref) {
 });
 
 /// Fases (phases) de uma sala de aula (por classroomId).
+///
+/// O datasource devolve `List<ClassroomPhaseModel>`, mas o provider
+/// expõe `List<ClassroomPhase>`. O `.cast<ClassroomPhase>()` garante
+/// que `firstWhere(orElse: () => ClassroomPhase(...))` consumindo essa
+/// lista não dispare TypeError em runtime.
 final classroomPhasesProvider = FutureProvider.autoDispose
     .family<List<ClassroomPhase>, String>((ref, classroomId) async {
   final repo = ref.watch(classroomRepositoryProvider);
   final result = await repo.getClassroomPhases(classroomId);
   return result.fold(
     (failure) => throw Exception(failure.message),
-    (phases) => phases,
+    (phases) => phases.cast<ClassroomPhase>(),
   );
+});
+
+// ─── Gerenciamento de fases (CRUD + reordenação) ───────────────
+
+final createEmptyPhaseProvider = Provider<CreateEmptyPhase>((ref) {
+  return CreateEmptyPhase(ref.watch(classroomRepositoryProvider));
+});
+
+final updatePhaseProvider = Provider<UpdatePhase>((ref) {
+  return UpdatePhase(ref.watch(classroomRepositoryProvider));
+});
+
+final deletePhaseProvider = Provider<DeletePhase>((ref) {
+  return DeletePhase(ref.watch(classroomRepositoryProvider));
+});
+
+final reorderPhasesProvider = Provider<ReorderPhases>((ref) {
+  return ReorderPhases(ref.watch(classroomRepositoryProvider));
+});
+
+final addQuestionsToPhaseProvider = Provider<AddQuestionsToPhase>((ref) {
+  return AddQuestionsToPhase(ref.watch(classroomRepositoryProvider));
+});
+
+final reorderQuestionsInPhaseProvider =
+    Provider<ReorderQuestionsInPhase>((ref) {
+  return ReorderQuestionsInPhase(ref.watch(classroomRepositoryProvider));
+});
+
+final updateQuestionInPhaseProvider = Provider<UpdateQuestionInPhase>((ref) {
+  return UpdateQuestionInPhase(ref.watch(classroomRepositoryProvider));
+});
+
+final deleteQuestionFromPhaseProvider =
+    Provider<DeleteQuestionFromPhase>((ref) {
+  return DeleteQuestionFromPhase(ref.watch(classroomRepositoryProvider));
 });
 
 // É um AsyncNotifier para expor estado de loading e método .join().

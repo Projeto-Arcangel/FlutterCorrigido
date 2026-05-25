@@ -6,8 +6,6 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/login_controller.dart';
-import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local
@@ -19,12 +17,82 @@ abstract class _C {
   static const Color accentSubtle = Color(0x1A72D09C);
   static const Color gradientEnd = Color(0xFF4EB882);
 
-  static const Color history = Color(0xFFB8906A);
-  static const Color historySubtle = Color(0x1AB8906A);
-
   static const Color border = Color(0x14FFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Metadados por disciplina — cor, ícone e placeholder do campo de tema.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SubjectMeta {
+  const _SubjectMeta({
+    required this.color,
+    required this.icon,
+    required this.hint,
+  });
+  final Color color;
+  final IconData icon;
+  final String hint;
+}
+
+const _kSubjectMeta = <String, _SubjectMeta>{
+  'português': _SubjectMeta(
+    color: AppColors.subjectPortuguese,
+    icon: FontAwesomeIcons.bookOpen,
+    hint: 'Ex: análise textual, redação, gramática...',
+  ),
+  'matemática': _SubjectMeta(
+    color: AppColors.subjectMath,
+    icon: FontAwesomeIcons.calculator,
+    hint: 'Ex: funções, matrizes, trigonometria...',
+  ),
+  'história': _SubjectMeta(
+    color: Color(0xFFB8906A),
+    icon: FontAwesomeIcons.buildingColumns,
+    hint: 'Ex: Estado Novo, Vargas, industrialização...',
+  ),
+  'geografia': _SubjectMeta(
+    color: AppColors.subjectGeography,
+    icon: FontAwesomeIcons.earthAmericas,
+    hint: 'Ex: clima, biomas, geopolítica...',
+  ),
+  'filosofia': _SubjectMeta(
+    color: AppColors.subjectPhilosophy,
+    icon: FontAwesomeIcons.infinity,
+    hint: 'Ex: Platão, ética, existencialismo...',
+  ),
+  'sociologia': _SubjectMeta(
+    color: AppColors.subjectSociology,
+    icon: FontAwesomeIcons.users,
+    hint: 'Ex: capitalismo, movimentos sociais...',
+  ),
+  'biologia': _SubjectMeta(
+    color: AppColors.subjectBiology,
+    icon: FontAwesomeIcons.dna,
+    hint: 'Ex: genética, ecossistemas, citologia...',
+  ),
+  'química': _SubjectMeta(
+    color: AppColors.subjectChemistry,
+    icon: FontAwesomeIcons.flask,
+    hint: 'Ex: reações, tabela periódica, termodinâmica...',
+  ),
+  'física': _SubjectMeta(
+    color: AppColors.subjectPhysics,
+    icon: FontAwesomeIcons.atom,
+    hint: 'Ex: mecânica, eletricidade, óptica...',
+  ),
+  'artes': _SubjectMeta(
+    color: AppColors.subjectArts,
+    icon: FontAwesomeIcons.paintbrush,
+    hint: 'Ex: renascimento, arte moderna, linguagem visual...',
+  ),
+  'educação física': _SubjectMeta(
+    color: AppColors.subjectPhysEd,
+    icon: FontAwesomeIcons.personRunning,
+    hint: 'Ex: esportes, saúde, biomecânica...',
+  ),
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Modelos de apresentação
@@ -50,7 +118,28 @@ enum _Difficulty {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class CreateQuizPage extends ConsumerStatefulWidget {
-  const CreateQuizPage({super.key});
+  const CreateQuizPage({
+    super.key,
+    this.classroomId,
+    this.phaseId,
+    this.phaseTitle,
+    this.subject,
+  });
+
+  /// ID da turma onde as questões serão salvas.
+  /// Quando ausente, o fluxo de salvamento exibirá um erro.
+  final String? classroomId;
+
+  /// ID da fase à qual as questões serão anexadas.
+  /// Sempre acompanha o [classroomId] no fluxo de gerenciamento de fase.
+  final String? phaseId;
+
+  /// Título da fase de destino (apenas para contexto na UI).
+  final String? phaseTitle;
+
+  /// Disciplina da fase (ex: 'história', 'matemática'). Determina cor,
+  /// ícone e placeholder do campo de tema.
+  final String? subject;
 
   @override
   ConsumerState<CreateQuizPage> createState() => _CreateQuizPageState();
@@ -76,44 +165,24 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
     if (!_canSave) return;
     _focusNode.unfocus();
 
-    // Obtém o ID da primeira sala do professor.
-    // É necessário aguardar a resolução do provider para garantir
-    // que o classroomId esteja disponível antes de navegar.
-    final user = ref.read(authStateProvider).valueOrNull;
-    String? classroomId;
-
-    if (user != null) {
-      // Tenta obter do cache primeiro (síncrono)
-      final cached = ref.read(teacherClassroomsProvider(user.id));
-      classroomId = cached.valueOrNull?.firstOrNull?.id;
-
-      // Se não resolveu ainda, busca de forma assíncrona
-      if (classroomId == null) {
-        try {
-          final classrooms =
-              await ref.read(teacherClassroomsProvider(user.id).future);
-          classroomId = classrooms.firstOrNull?.id;
-        } catch (_) {
-          // Continua sem classroomId — o fluxo trata isso
-        }
-      }
-    }
-
-    if (!mounted) return;
-
     await context.push(
       AppRoutes.teacherCustomizeQuiz,
       extra: <String, dynamic>{
         'quantity': _quantity.round(),
         'topic': _topicCtrl.text.trim(),
         'difficulty': _difficulty.label,
-        'classroomId': classroomId,
+        'classroomId': widget.classroomId,
+        'phaseId': widget.phaseId,
+        'phaseTitle': widget.phaseTitle,
       },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final meta = _kSubjectMeta[widget.subject?.toLowerCase()] ??
+        _kSubjectMeta['história']!;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -132,18 +201,22 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
                       const _ScreenTitle(),
                       const SizedBox(height: 32),
 
-                      // Disciplina fixa — somente História por ora
+                      // Disciplina — dinâmica conforme a fase selecionada
                       _sectionLabel('DISCIPLINA'),
                       const SizedBox(height: 10),
-                      const _SubjectBadge(),
+                      _SubjectBadge(
+                        subject: widget.subject ?? 'história',
+                        meta: meta,
+                      ),
                       const SizedBox(height: 28),
 
-                      // Tema específico
-                      _sectionLabel('TEMA ESPECÍFICO'),
+                      // Tema geral
+                      _sectionLabel('TEMA GERAL'),
                       const SizedBox(height: 10),
                       _TopicField(
                         controller: _topicCtrl,
                         focusNode: _focusNode,
+                        placeholder: meta.hint,
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: 28),
@@ -321,39 +394,42 @@ class _ScreenTitle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Subject Badge — História (fixo)
+// Subject Badge — disciplina dinâmica conforme a fase selecionada.
+// Heurística #6 (reconhecimento): ícone + texto tornam a matéria inequívoca.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _SubjectBadge extends StatelessWidget {
-  const _SubjectBadge();
+  const _SubjectBadge({required this.subject, required this.meta});
+
+  final String subject;
+  final _SubjectMeta meta;
+
+  String _capitalize(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1);
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
-        color: _C.historySubtle,
+        color: meta.color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: _C.history.withValues(alpha: 0.40),
+          color: meta.color.withValues(alpha: 0.40),
           width: 1.4,
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const FaIcon(
-            FontAwesomeIcons.buildingColumns,
-            size: 13,
-            color: _C.history,
-          ),
+          FaIcon(meta.icon, size: 13, color: meta.color),
           const SizedBox(width: 8),
           Text(
-            'História',
+            _capitalize(subject),
             style: GoogleFonts.nunito(
               fontSize: 14,
               fontWeight: FontWeight.w700,
-              color: _C.history,
+              color: meta.color,
             ),
           ),
         ],
@@ -364,6 +440,7 @@ class _SubjectBadge extends StatelessWidget {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Topic Field
+// Heurística #6: placeholder com exemplos reais de uso por disciplina.
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TopicField extends StatelessWidget {
@@ -371,11 +448,13 @@ class _TopicField extends StatelessWidget {
     required this.controller,
     required this.focusNode,
     required this.onChanged,
+    required this.placeholder,
   });
 
   final TextEditingController controller;
   final FocusNode focusNode;
   final ValueChanged<String> onChanged;
+  final String placeholder;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +472,7 @@ class _TopicField extends StatelessWidget {
       minLines: 1,
       textInputAction: TextInputAction.done,
       decoration: InputDecoration(
-        hintText: 'Ex: Revolução Francesa, Segunda Guerra, colonização...',
+        hintText: placeholder,
         hintStyle: GoogleFonts.nunito(
           fontSize: 14,
           fontWeight: FontWeight.w400,
