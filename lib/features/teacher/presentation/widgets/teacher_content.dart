@@ -5,7 +5,10 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 
 abstract class _TeacherColors {
-  static const Color textMuted = Color(0xFF8FA3AE);
+  // No modo claro usamos um cinza mais escuro para garantir contraste
+  // mínimo WCAG AA mesmo em fontes pequenas (11 px / letra espaçada).
+  static Color textMuted(bool dark) =>
+      dark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78);
 
   static Color divider(bool dark) =>
       dark ? const Color(0x1AFFFFFF) : Colors.black12;
@@ -84,6 +87,7 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: padding,
       child: Text(
@@ -91,7 +95,7 @@ class _SectionLabel extends StatelessWidget {
         style: GoogleFonts.nunito(
           fontSize: 11,
           fontWeight: FontWeight.w700,
-          color: _TeacherColors.textMuted,
+          color: _TeacherColors.textMuted(isDark),
           letterSpacing: 2.2,
         ),
       ),
@@ -183,7 +187,7 @@ class _QuickActionTile extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: _TeacherColors.textMuted,
+                        color: _TeacherColors.textMuted(isDark),
                         height: 1.35,
                       ),
                     ),
@@ -326,7 +330,9 @@ class _ActivityTile extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w500,
-              color: _TeacherColors.textMuted,
+              color: _TeacherColors.textMuted(
+                Theme.of(context).brightness == Brightness.dark,
+              ),
             ),
           ),
         ],
