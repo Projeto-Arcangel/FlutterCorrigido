@@ -249,10 +249,9 @@ final joinClassroomNotifierProvider =
   JoinClassroomNotifier.new,
 );
 
-// ─── Turmas do aluno logado (sem parâmetro) ─────────────────────
-// Lê o uid internamente via firebaseAuthProvider.
-// Usado pelo _ClassroomList no classroom_sheet.dart.
-
+/// Turmas do aluno logado (sem parâmetro).
+/// Lê o uid internamente via firebaseAuthProvider.
+/// Usado pelo _ClassroomList no classroom_sheet.dart.
 final userClassroomsProvider =
     FutureProvider.autoDispose<List<Classroom>>((ref) async {
   final user = ref.watch(firebaseAuthProvider).currentUser;
@@ -264,5 +263,24 @@ final userClassroomsProvider =
   return result.fold(
     (_) => [],
     (classroom) => classroom == null ? [] : [classroom],
+  );
+});
+
+/// Busca uma sala de aula pelo ID.
+///
+/// Usado como fallback quando a rota `/classroom/:classroomId` é reconstruída
+/// pelo GoRouter sem o `extra` (ex.: após update de perfil que dispara
+/// authStateChanges). Retorna `null` se o aluno não está nessa sala.
+final classroomByIdProvider = FutureProvider.autoDispose
+    .family<Classroom?, String>((ref, classroomId) async {
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) return null;
+
+  final useCase = ref.watch(getStudentClassroomProvider);
+  final result = await useCase(user.uid);
+
+  return result.fold(
+    (_) => null,
+    (classroom) => classroom?.id == classroomId ? classroom : null,
   );
 });

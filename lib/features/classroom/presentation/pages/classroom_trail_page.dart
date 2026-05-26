@@ -15,10 +15,57 @@ import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../providers/classroom_providers.dart';
 
+
 // ── Trilha de fases de uma sala de aula ──────────────────────────────────────
 
 class ClassroomTrailPage extends ConsumerWidget {
-  const ClassroomTrailPage({super.key, required this.classroom});
+  const ClassroomTrailPage({
+    super.key,
+    required this.classroomId,
+    this.classroom,
+  });
+
+  final String classroomId;
+
+  /// Passado via `extra` na navegação. Pode ser null se o GoRouter
+  /// reconstruiu a rota (ex.: mudança de nome nas configurações dispara
+  /// authStateChanges). Nesse caso, carregamos via [classroomByIdProvider].
+  final Classroom? classroom;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Se já temos o objeto classroom (navegação normal), usamos direto.
+    // Caso contrário, buscamos do Firestore via provider.
+    if (classroom != null) {
+      return _ClassroomTrailContent(classroom: classroom!);
+    }
+
+    final asyncClassroom = ref.watch(classroomByIdProvider(classroomId));
+    return asyncClassroom.when(
+      loading: () => const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      ),
+      error: (_, __) => const Scaffold(
+        body: Center(child: Text('Erro ao carregar a turma.')),
+      ),
+      data: (loaded) {
+        if (loaded == null) {
+          return const Scaffold(
+            body: Center(child: Text('Turma não encontrada.')),
+          );
+        }
+        return _ClassroomTrailContent(classroom: loaded);
+      },
+    );
+  }
+}
+
+// ── Conteúdo principal da trilha ──────────────────────────────────────────────
+
+class _ClassroomTrailContent extends ConsumerWidget {
+  const _ClassroomTrailContent({required this.classroom});
 
   final Classroom classroom;
 

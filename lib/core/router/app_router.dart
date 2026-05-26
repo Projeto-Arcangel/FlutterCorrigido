@@ -16,6 +16,7 @@ import '../../features/classroom/domain/entities/classroom.dart';
 import '../../features/classroom/domain/entities/classroom_phase.dart';
 import '../../features/classroom/presentation/pages/classroom_lesson_page.dart';
 import '../../features/classroom/presentation/pages/classroom_trail_page.dart';
+import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/lesson/presentation/pages/lesson_list_page.dart';
 import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
@@ -23,7 +24,6 @@ import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/classroom_list_page.dart';
 import '../../features/teacher/presentation/pages/create_quiz_page.dart';
 import '../../features/teacher/presentation/pages/customize_quiz_page.dart';
-import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_page.dart';
 import '../../features/teacher/presentation/pages/ia_quiz_review_page.dart';
 import '../../features/teacher/presentation/pages/student_dashboard_page.dart';
@@ -59,13 +59,13 @@ class AppRoutes {
   static const String preferences = '$settings/$preferencesRelative';
   static const String account = '/account';
   static const String googleCompleteProfile = '/google-complete-profile';
+  static const String register = '/register';
+  static const String forgotPassword = '/forgot-password';
 
   static String lessonPath(String id) => '/lessons/$id';
   static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
   static String classroomLessonPath(String classroomId, String phaseId) =>
       '/classroom/$classroomId/phase/$phaseId';
-  static const String register = '/register';
-  static const String forgotPassword = '/forgot-password';
 }
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -275,8 +275,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.classroomTrail,
         builder: (_, state) {
-          final classroom = state.extra! as Classroom;
-          return ClassroomTrailPage(classroom: classroom);
+          final classroomId = state.pathParameters['classroomId']!;
+          // `extra` pode ser null quando o GoRouter reconstrói a rota após
+          // uma mudança de auth (ex.: troca de nome nas configurações).
+          // Nesse caso, ClassroomTrailPage carrega o classroom via provider.
+          final classroom = state.extra as Classroom?;
+          return ClassroomTrailPage(
+            classroomId: classroomId,
+            classroom: classroom,
+          );
         },
         routes: [
           GoRoute(
