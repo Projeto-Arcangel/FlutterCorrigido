@@ -26,7 +26,7 @@ abstract class _C {
 
   // ── Theme-aware ───────────────────────────────────────────────────────────
   static Color card(bool dark) =>
-      dark ? AppColors.surfaceDark : AppColors.surface;
+      dark ? AppColors.surfaceDark : Colors.white;
 
   static Color cardBorder(bool dark) =>
       dark ? const Color(0x14FFFFFF) : Colors.black12;

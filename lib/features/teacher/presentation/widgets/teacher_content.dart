@@ -15,7 +15,7 @@ abstract class _TeacherColors {
   static Color cardBorder(bool dark) =>
       dark ? const Color(0x14FFFFFF) : Colors.black12;
   static Color cardBg(bool dark) =>
-      dark ? AppColors.surfaceDark : AppColors.surface;
+      dark ? AppColors.surfaceDark : Colors.white;
   static Color primaryText(bool dark) =>
       dark ? Colors.white : AppColors.textPrimary;
 }

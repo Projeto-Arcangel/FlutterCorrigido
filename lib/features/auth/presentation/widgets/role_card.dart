@@ -29,11 +29,12 @@ class RoleCard extends StatefulWidget {
 class _RoleCardState extends State<RoleCard> {
   bool _pressed = false;
 
-  static const _kSurface       = Color(0xFF242B30);
-  static const _kSurfaceBorder = Color(0xFF2E373E);
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final kSurface = isDark ? const Color(0xFF242B30) : Colors.white;
+    final kSurfaceBorder = isDark ? const Color(0xFF2E373E) : Colors.black12;
+
     return GestureDetector(
       onTapDown:   (_) => setState(() => _pressed = true),
       onTapUp:     (_) => setState(() => _pressed = false),
@@ -47,12 +48,12 @@ class _RoleCardState extends State<RoleCard> {
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           decoration: BoxDecoration(
-            color: _pressed ? _kSurface.withOpacity(0.85) : _kSurface,
+            color: _pressed ? kSurface.withOpacity(0.85) : kSurface,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: _pressed
                   ? widget.accentColor.withOpacity(0.55)
-                  : _kSurfaceBorder,
+                  : kSurfaceBorder,
               width: 1.4,
             ),
             boxShadow: _pressed
@@ -130,6 +131,7 @@ class _CardTexts extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -148,7 +150,7 @@ class _CardTexts extends StatelessWidget {
           style: GoogleFonts.nunito(
             fontSize: 13,
             fontWeight: FontWeight.w500,
-            color: const Color(0xFF8FA3AE),
+            color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
             height: 1.35,
           ),
         ),

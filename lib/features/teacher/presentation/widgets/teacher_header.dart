@@ -21,7 +21,7 @@ abstract class _TeacherColors {
   static Color textMuted(bool dark) =>
       dark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78);
 
-  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark : AppColors.surface;
+  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark : Colors.white;
   static Color cardBorder(bool dark)  => dark ? const Color(0x14FFFFFF) : Colors.black12;
   static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
   static Color settingsIcon(bool dark)=> dark ? Colors.white54 : AppColors.textSecondary;

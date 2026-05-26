@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_logo.dart';
 
 class RoleSelectionHeader extends StatelessWidget {
@@ -8,6 +9,7 @@ class RoleSelectionHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         const AppLogo(size: 140),
@@ -17,7 +19,7 @@ class RoleSelectionHeader extends StatelessWidget {
           style: GoogleFonts.nunito(
             fontSize: 36,
             fontWeight: FontWeight.w800,
-            color: Colors.white,
+            color: isDark ? Colors.white : AppColors.textPrimary,
             letterSpacing: 0.5,
           ),
         ),
@@ -27,7 +29,7 @@ class RoleSelectionHeader extends StatelessWidget {
           style: GoogleFonts.nunito(
             fontSize: 11,
             fontWeight: FontWeight.w600,
-            color: const Color(0xFF8FA3AE),
+            color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
             letterSpacing: 2.2,
           ),
         ),
