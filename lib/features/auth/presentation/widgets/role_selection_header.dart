@@ -10,20 +10,20 @@ class RoleSelectionHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const AppLogo(size: 72),
+        const AppLogo(size: 140),
         const SizedBox(height: 20),
         Text(
           'Arcangel',
           style: GoogleFonts.nunito(
             fontSize: 36,
             fontWeight: FontWeight.w800,
-            color: const Color(0xFFEAD47F),
+            color: Colors.white,
             letterSpacing: 0.5,
           ),
         ),
         const SizedBox(height: 6),
         Text(
-          'CIÊNCIAS HUMANAS · ENSINO MÉDIO',
+          'APOIO AO DOCENTE EM SALA DE AULA',
           style: GoogleFonts.nunito(
             fontSize: 11,
             fontWeight: FontWeight.w600,

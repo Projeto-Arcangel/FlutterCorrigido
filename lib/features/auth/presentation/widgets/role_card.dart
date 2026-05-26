@@ -9,14 +9,14 @@ import 'package:google_fonts/google_fonts.dart';
 class RoleCard extends StatefulWidget {
   const RoleCard({
     super.key,
-    required this.emoji,
+    required this.icon,
     required this.accentColor,
     required this.title,
     required this.subtitle,
     required this.onTap,
   });
 
-  final String       emoji;
+  final IconData     icon;
   final Color        accentColor;
   final String       title;
   final String       subtitle;
@@ -67,8 +67,8 @@ class _RoleCardState extends State<RoleCard> {
           ),
           child: Row(
             children: [
-              _EmojiContainer(
-                emoji: widget.emoji,
+              _IconContainer(
+                icon: widget.icon,
                 accentColor: widget.accentColor,
               ),
               const SizedBox(width: 16),
@@ -94,14 +94,14 @@ class _RoleCardState extends State<RoleCard> {
 
 // ─── Sub-widgets internos ─────────────────────────────────────────────────────
 
-class _EmojiContainer extends StatelessWidget {
-  const _EmojiContainer({
-    required this.emoji,
+class _IconContainer extends StatelessWidget {
+  const _IconContainer({
+    required this.icon,
     required this.accentColor,
   });
 
-  final String emoji;
-  final Color  accentColor;
+  final IconData icon;
+  final Color    accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -109,12 +109,10 @@ class _EmojiContainer extends StatelessWidget {
       width: 48,
       height: 48,
       decoration: BoxDecoration(
-        color: accentColor.withOpacity(0.12),
+        color: accentColor.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: Center(
-        child: Text(emoji, style: const TextStyle(fontSize: 24)),
-      ),
+      child: Icon(icon, size: 24, color: accentColor),
     );
   }
 }
