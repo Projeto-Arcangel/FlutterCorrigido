@@ -103,7 +103,7 @@ class _GoogleCompleteProfilePageState
 
                   // ── Título ────────────────────────────────────────────
                   Text(
-                    'Quase lá! 🎉',
+                    'Quase lá!',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                           fontWeight: FontWeight.bold,
