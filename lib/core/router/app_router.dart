@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/domain/entities/user.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
+import '../../features/auth/presentation/pages/google_complete_profile_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/role_selection_page.dart';
@@ -57,6 +58,7 @@ class AppRoutes {
   static const String preferencesRelative = 'preferences';
   static const String preferences = '$settings/$preferencesRelative';
   static const String account = '/account';
+  static const String googleCompleteProfile = '/google-complete-profile';
 
   static String lessonPath(String id) => '/lessons/$id';
   static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
@@ -93,7 +95,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return isUnauthRoute ? null : AppRoutes.login;
       }
 
-      // 2. Logado → verifica role.
+      // 2. Logado → verifica se é novo usuário Google (precisa completar perfil).
+      final isGoogleNewUser = ref.read(googleNewUserProvider);
+      if (isGoogleNewUser) {
+        return loc == AppRoutes.googleCompleteProfile
+            ? null
+            : AppRoutes.googleCompleteProfile;
+      }
+
+      // 3. Logado → verifica role.
       final roleAsync = ref.read(currentUserRoleProvider);
 
       // 2a. Role ainda carregando: NÃO redireciona — evita flicker.
@@ -235,9 +245,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.account,
         builder: (_, __) => const AccountPage(),
       ),
-      GoRoute(  
+      GoRoute(
         path: AppRoutes.register,
         builder: (_, __) => const RegisterPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.googleCompleteProfile,
+        builder: (_, __) => const GoogleCompleteProfilePage(),
       ),
       GoRoute(
         path: AppRoutes.forgotPassword,
@@ -283,12 +297,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
 /// Bridge entre Riverpod e GoRouter.
 ///
-/// Observa dois providers e dispara `notifyListeners` em qualquer mudança:
+/// Observa três providers e dispara `notifyListeners` em qualquer mudança:
 /// 1. `authStateProvider` — login/logout/registro.
 ///    Quando muda, INVALIDA `currentUserRoleProvider` para forçar o
 ///    refetch do role do novo usuário (ou limpar o cache no logout).
 /// 2. `currentUserRoleProvider` — após o refetch terminar, dispara o
 ///    redirect de novo (agora com o role conhecido, o gate decide).
+/// 3. `googleNewUserProvider` — quando o usuário Google conclui o perfil
+///    (flag vai de true → false), o router re-avalia e redireciona para
+///    a `RoleSelectionPage`.
 class _AuthRefreshNotifier extends ChangeNotifier {
   _AuthRefreshNotifier(Ref ref) {
     _authSub = ref.listen(authStateProvider, (_, __) {
@@ -298,15 +315,20 @@ class _AuthRefreshNotifier extends ChangeNotifier {
     _roleSub = ref.listen(currentUserRoleProvider, (_, __) {
       notifyListeners();
     });
+    _googleNewUserSub = ref.listen(googleNewUserProvider, (_, __) {
+      notifyListeners();
+    });
   }
 
   late final ProviderSubscription<dynamic> _authSub;
   late final ProviderSubscription<dynamic> _roleSub;
+  late final ProviderSubscription<dynamic> _googleNewUserSub;
 
   @override
   void dispose() {
     _authSub.close();
     _roleSub.close();
+    _googleNewUserSub.close();
     super.dispose();
   }
 }

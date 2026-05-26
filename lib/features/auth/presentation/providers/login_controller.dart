@@ -35,7 +35,13 @@ class LoginController extends _$LoginController {
     final result = await ref.read(signInWithGoogleProvider)();
     state = result.fold(
       (failure) => AsyncError<User?>(failure.message, StackTrace.current),
-      (user) => AsyncData<User?>(user),
+      (googleResult) {
+        if (googleResult.isNewGoogleUser) {
+          // Sinaliza para o router redirecionar para a tela de completar perfil.
+          ref.read(googleNewUserProvider.notifier).state = true;
+        }
+        return AsyncData<User?>(googleResult.user);
+      },
     );
   }
 
