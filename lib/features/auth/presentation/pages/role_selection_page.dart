@@ -117,8 +117,9 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: const Color(0xFF1D2428),
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -137,7 +138,7 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,
-                    color: const Color(0xFF8FA3AE),
+                    color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
                     letterSpacing: 2.0,
                   ),
                 ),

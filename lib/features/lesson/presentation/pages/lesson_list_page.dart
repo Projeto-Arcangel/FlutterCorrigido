@@ -295,11 +295,12 @@ class _PhaseButton extends StatelessWidget {
       onTap: _unlocked
           ? () => context.push(AppRoutes.lessonPath(lesson.id))
           : () {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Conclua a fase anterior'),
-                  backgroundColor: Color(0xFF282932),
-                  duration: Duration(seconds: 2),
+                SnackBar(
+                  content: const Text('Conclua a fase anterior'),
+                  backgroundColor: isDark ? const Color(0xFF282932) : null,
+                  duration: const Duration(seconds: 2),
                 ),
               );
             },

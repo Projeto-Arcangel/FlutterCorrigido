@@ -63,13 +63,14 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final isLoading = ref.watch(joinClassroomNotifierProvider).isLoading;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
 
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.backgroundDark,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.backgroundDark : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
       ),
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottomInset),
       child: Column(
@@ -83,7 +84,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: isDark ? Colors.white24 : Colors.black12,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -95,7 +96,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
             style: GoogleFonts.nunito(
               fontSize: 22,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: isDark ? Colors.white : AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 4),
@@ -104,7 +105,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
             style: GoogleFonts.nunito(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF8FA3AE),
+              color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
             ),
           ),
           const SizedBox(height: 24),
@@ -126,7 +127,7 @@ class _ClassroomSheetState extends ConsumerState<_ClassroomSheet> {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: const Color(0xFF8FA3AE),
+              color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
               letterSpacing: 2.0,
             ),
           ),
@@ -160,6 +161,7 @@ class _CodeForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Form(
       key: formKey,
       child: Column(
@@ -182,7 +184,7 @@ class _CodeForm extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: isDark ? Colors.white : AppColors.textPrimary,
                     letterSpacing: 3,
                   ),
                   decoration: InputDecoration(
@@ -190,11 +192,11 @@ class _CodeForm extends StatelessWidget {
                     hintStyle: GoogleFonts.nunito(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white24,
+                      color: isDark ? Colors.white24 : Colors.black26,
                       letterSpacing: 2,
                     ),
                     filled: true,
-                    fillColor: AppColors.surfaceDark,
+                    fillColor: isDark ? AppColors.surfaceDark : AppColors.surface,
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 16,
@@ -205,8 +207,8 @@ class _CodeForm extends StatelessWidget {
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(14),
-                      borderSide: const BorderSide(
-                        color: Colors.white12,
+                      borderSide: BorderSide(
+                        color: isDark ? Colors.white12 : Colors.black12,
                         width: 1.2,
                       ),
                     ),
@@ -345,19 +347,20 @@ class _EmptyClassrooms extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 28, horizontal: 16),
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.school_outlined,
-            color: Colors.white24,
+            color: isDark ? Colors.white24 : Colors.black26,
             size: 36,
           ),
           const SizedBox(height: 10),
@@ -367,7 +370,7 @@ class _EmptyClassrooms extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: const Color(0xFF8FA3AE),
+              color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
             ),
           ),
         ],
@@ -387,9 +390,10 @@ class _ClassroomCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surfaceDark,
+        color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: _color.withOpacity(0.35),
@@ -435,7 +439,7 @@ class _ClassroomCard extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 15,
                           fontWeight: FontWeight.w800,
-                          color: Colors.white,
+                          color: isDark ? Colors.white : AppColors.textPrimary,
                           height: 1.2,
                         ),
                       ),
@@ -445,7 +449,7 @@ class _ClassroomCard extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: const Color(0xFF8FA3AE),
+                          color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
                         ),
                       ),
                     ],

@@ -19,7 +19,7 @@ abstract class _TC {
   static const Color danger       = Color(0xFFFF5963);
   static const Color textMuted    = Color(0xFF8FA3AE);
 
-  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark  : AppColors.surface;
+  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark  : Colors.white;
   static Color cardBorder(bool dark)  => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color divider(bool dark)     => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color textPrimary(bool dark) => dark ? Colors.white : AppColors.textPrimary;

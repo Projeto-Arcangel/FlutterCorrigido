@@ -21,7 +21,7 @@ abstract class _C {
   static const Color divider = Color(0x1AFFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
 
-  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : AppColors.surface;
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
   static Color adaptiveBorder(bool dark) => dark ? const Color(0x14FFFFFF) : Colors.black12;
   static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
   static Color fieldFill(bool dark) => dark ? AppColors.backgroundDark : AppColors.surface;

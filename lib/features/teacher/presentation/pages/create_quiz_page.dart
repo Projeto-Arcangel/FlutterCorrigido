@@ -19,6 +19,13 @@ abstract class _C {
 
   static const Color border = Color(0x14FFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
+
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
+  static Color adaptiveBorder(bool dark) => dark ? border : Colors.black12;
+  static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
+  static Color mutedText(bool dark) => dark ? textMuted : const Color(0xFF5A6B78);
+  static Color disabledBg(bool dark) => dark ? AppColors.surfaceDark : const Color(0xFFE0E0E0);
+  static Color trackInactive(bool dark) => dark ? AppColors.surfaceDark : const Color(0xFFCFD8DC);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -279,15 +286,18 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
     );
   }
 
-  Widget _sectionLabel(String text) => Text(
-        text,
-        style: GoogleFonts.nunito(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: _C.textMuted,
-          letterSpacing: 2.0,
-        ),
-      );
+  Widget _sectionLabel(String text) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      text,
+      style: GoogleFonts.nunito(
+        fontSize: 11,
+        fontWeight: FontWeight.w700,
+        color: _C.mutedText(isDark),
+        letterSpacing: 2.0,
+      ),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -345,6 +355,7 @@ class _ScreenTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Container(
@@ -372,7 +383,7 @@ class _ScreenTitle extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 22,
                   fontWeight: FontWeight.w800,
-                  color: Colors.white,
+                  color: _C.primaryText(isDark),
                   height: 1.15,
                 ),
               ),
@@ -381,7 +392,7 @@ class _ScreenTitle extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: _C.textMuted,
+                  color: _C.mutedText(isDark),
                   height: 1.3,
                 ),
               ),
@@ -458,6 +469,7 @@ class _TopicField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -465,7 +477,7 @@ class _TopicField extends StatelessWidget {
       style: GoogleFonts.nunito(
         fontSize: 15,
         fontWeight: FontWeight.w500,
-        color: Colors.white,
+        color: _C.primaryText(isDark),
       ),
       cursorColor: _C.accent,
       maxLines: 2,
@@ -476,19 +488,19 @@ class _TopicField extends StatelessWidget {
         hintStyle: GoogleFonts.nunito(
           fontSize: 14,
           fontWeight: FontWeight.w400,
-          color: _C.textMuted,
+          color: _C.mutedText(isDark),
         ),
         filled: true,
-        fillColor: AppColors.surfaceDark,
+        fillColor: _C.cardBg(isDark),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: _C.border),
+          borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: _C.border),
+          borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
@@ -546,6 +558,7 @@ class _DifficultyOption extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
       onTap: onTap,
       child: AnimatedContainer(
@@ -553,12 +566,12 @@ class _DifficultyOption extends StatelessWidget {
         curve: Curves.easeOut,
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: isSelected ? _C.accentSubtle : AppColors.surfaceDark,
+          color: isSelected ? _C.accentSubtle : _C.cardBg(isDark),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected
                 ? _C.accent.withValues(alpha: 0.55)
-                : _C.border,
+                : _C.adaptiveBorder(isDark),
             width: isSelected ? 1.5 : 1.0,
           ),
         ),
@@ -611,10 +624,11 @@ class _QuantitySlider extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliderTheme(
       data: SliderTheme.of(context).copyWith(
         activeTrackColor: _C.accent,
-        inactiveTrackColor: AppColors.surfaceDark,
+        inactiveTrackColor: _C.trackInactive(isDark),
         thumbColor: _C.accent,
         overlayColor: _C.accentSubtle,
         trackHeight: 4,
@@ -650,6 +664,7 @@ class _ConfigSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedOpacity(
       opacity: topic.isEmpty ? 0 : 1,
       duration: const Duration(milliseconds: 250),
@@ -691,7 +706,7 @@ class _ConfigSummary extends StatelessWidget {
                     style: GoogleFonts.nunito(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: _C.primaryText(isDark),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -732,6 +747,7 @@ class _SaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return AnimatedOpacity(
       opacity: enabled ? 1.0 : 0.45,
       duration: const Duration(milliseconds: 200),
@@ -747,7 +763,7 @@ class _SaveButton extends StatelessWidget {
                     end: Alignment.centerRight,
                   )
                 : null,
-            color: enabled ? null : AppColors.surfaceDark,
+            color: enabled ? null : _C.disabledBg(isDark),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(

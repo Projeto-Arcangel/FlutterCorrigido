@@ -23,7 +23,7 @@ abstract class _TP {
   static Color accentText(bool dark) =>
       dark ? accent : const Color(0xFF2E7D42);
 
-  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : AppColors.surface;
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
   static Color cardBorder(bool dark) =>
       dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color trackInactive(bool dark) =>

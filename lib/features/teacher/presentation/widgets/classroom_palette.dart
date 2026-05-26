@@ -16,7 +16,7 @@ abstract class ClassroomPalette {
   static const Color success = Color(0xFF72D09C);
 
   static Color cardBg(bool dark) =>
-      dark ? AppColors.surfaceDark : AppColors.surface;
+      dark ? AppColors.surfaceDark : Colors.white;
   static Color border(bool dark) =>
       dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color divider(bool dark) =>

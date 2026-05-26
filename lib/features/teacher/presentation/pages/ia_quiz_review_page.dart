@@ -29,6 +29,14 @@ abstract class _C {
   static const Color border = Color(0x14FFFFFF);
   static const Color divider = Color(0x1AFFFFFF);
   static const Color textMuted = Color(0xFF8FA3AE);
+
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
+  static Color adaptiveBorder(bool dark) => dark ? border : Colors.black12;
+  static Color adaptiveDivider(bool dark) => dark ? divider : Colors.black12;
+  static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
+  static Color mutedText(bool dark) => dark ? textMuted : const Color(0xFF5A6B78);
+  static Color disabledBg(bool dark) => dark ? AppColors.surfaceDark : const Color(0xFFE0E0E0);
+  static Color letterBg(bool dark) => dark ? const Color(0x14FFFFFF) : const Color(0x14000000);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,10 +99,11 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
   }
 
   Future<void> _editDraft(int index) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final updated = await showModalBottomSheet<Question>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: isDark ? AppColors.backgroundDark : Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -209,8 +218,9 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
-      backgroundColor: AppColors.backgroundDark,
+      backgroundColor: isDark ? AppColors.backgroundDark : AppColors.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -274,6 +284,7 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(4, 8, 20, 4),
       child: Row(
@@ -315,7 +326,7 @@ class _TopBar extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 16,
               fontWeight: FontWeight.w800,
-              color: Colors.white,
+              color: _C.primaryText(isDark),
             ),
           ),
           const Spacer(),
@@ -349,11 +360,12 @@ class _InfoStrip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      decoration: const BoxDecoration(
-        color: AppColors.surfaceDark,
-        border: Border(bottom: BorderSide(color: _C.divider)),
+      decoration: BoxDecoration(
+        color: _C.cardBg(isDark),
+        border: Border(bottom: BorderSide(color: _C.adaptiveDivider(isDark))),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -369,7 +381,7 @@ class _InfoStrip extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: _C.primaryText(isDark),
                   ),
                 ),
               ),
@@ -476,6 +488,7 @@ class _QuestionReviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final accepted = draft.isAccepted;
     final q = draft.question;
 
@@ -485,12 +498,12 @@ class _QuestionReviewCard extends StatelessWidget {
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 220),
         decoration: BoxDecoration(
-          color: AppColors.surfaceDark,
+          color: _C.cardBg(isDark),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: accepted
                 ? _C.accent.withValues(alpha: 0.35)
-                : _C.border,
+                : _C.adaptiveBorder(isDark),
             width: accepted ? 1.5 : 1.0,
           ),
         ),
@@ -508,7 +521,7 @@ class _QuestionReviewCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: accepted
                           ? _C.accentSubtle
-                          : const Color(0x14FFFFFF),
+                          : _C.letterBg(isDark),
                       shape: BoxShape.circle,
                     ),
                     child: Center(
@@ -517,7 +530,7 @@ class _QuestionReviewCard extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 13,
                           fontWeight: FontWeight.w800,
-                          color: accepted ? _C.accent : _C.textMuted,
+                          color: accepted ? _C.accent : _C.mutedText(isDark),
                         ),
                       ),
                     ),
@@ -528,7 +541,7 @@ class _QuestionReviewCard extends StatelessWidget {
                     style: GoogleFonts.nunito(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: _C.primaryText(isDark),
                     ),
                   ),
                   if (draft.isEdited) ...[
@@ -586,7 +599,7 @@ class _QuestionReviewCard extends StatelessWidget {
               ),
             ),
 
-            const Divider(height: 1, color: _C.divider),
+            Divider(height: 1, color: _C.adaptiveDivider(isDark)),
 
             // Enunciado
             Padding(
@@ -596,7 +609,7 @@ class _QuestionReviewCard extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white,
+                  color: _C.primaryText(isDark),
                   height: 1.4,
                 ),
               ),
@@ -612,7 +625,7 @@ class _QuestionReviewCard extends StatelessWidget {
 
             // Explicação
             if (q.explanation.isNotEmpty) ...[
-              const Divider(height: 1, color: _C.divider, indent: 14, endIndent: 14),
+              Divider(height: 1, color: _C.adaptiveDivider(isDark), indent: 14, endIndent: 14),
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
                 child: Row(
@@ -659,6 +672,7 @@ class _AlternativeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       child: Row(
@@ -668,7 +682,7 @@ class _AlternativeRow extends StatelessWidget {
             width: 26,
             height: 26,
             decoration: BoxDecoration(
-              color: isCorrect ? _C.accentSubtle : const Color(0x14FFFFFF),
+              color: isCorrect ? _C.accentSubtle : _C.letterBg(isDark),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
@@ -677,7 +691,7 @@ class _AlternativeRow extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: isCorrect ? _C.accent : _C.textMuted,
+                  color: isCorrect ? _C.accent : _C.mutedText(isDark),
                 ),
               ),
             ),
@@ -689,7 +703,9 @@ class _AlternativeRow extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 13,
                 fontWeight: isCorrect ? FontWeight.w700 : FontWeight.w500,
-                color: isCorrect ? Colors.white : Colors.white70,
+                color: isCorrect
+                    ? _C.primaryText(isDark)
+                    : _C.mutedText(isDark),
               ),
             ),
           ),
@@ -734,6 +750,7 @@ class _SaveButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final destination = phaseTitle == null
         ? 'na turma'
         : 'na fase "$phaseTitle"';
@@ -758,7 +775,7 @@ class _SaveButton extends StatelessWidget {
                     end: Alignment.centerRight,
                   )
                 : null,
-            color: enabled ? null : AppColors.surfaceDark,
+            color: enabled ? null : _C.disabledBg(isDark),
             borderRadius: BorderRadius.circular(16),
           ),
           child: Center(
@@ -859,6 +876,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final viewInsets = MediaQuery.of(context).viewInsets;
     return Padding(
       padding: EdgeInsets.only(bottom: viewInsets.bottom),
@@ -878,7 +896,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
                 height: 4,
                 margin: const EdgeInsets.only(bottom: 12),
                 decoration: BoxDecoration(
-                  color: _C.textMuted.withValues(alpha: 0.4),
+                  color: _C.mutedText(isDark).withValues(alpha: 0.4),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -890,7 +908,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
                   style: GoogleFonts.nunito(
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
-                    color: Colors.white,
+                    color: _C.primaryText(isDark),
                   ),
                 ),
                 const Spacer(),
@@ -919,6 +937,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
                       controller: _textCtrl,
                       maxLines: 3,
                       hint: 'Pergunta...',
+                      isDark: isDark,
                       onChanged: (_) => setState(() {}),
                     ),
                     const SizedBox(height: 16),
@@ -943,6 +962,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
                       controller: _explanationCtrl,
                       maxLines: 3,
                       hint: 'Justificativa pedagógica da resposta correta',
+                      isDark: isDark,
                       onChanged: (_) => setState(() {}),
                     ),
                   ],
@@ -998,6 +1018,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
     required TextEditingController controller,
     required int maxLines,
     required String hint,
+    required bool isDark,
     required ValueChanged<String> onChanged,
   }) {
     return TextField(
@@ -1006,7 +1027,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
       style: GoogleFonts.nunito(
         fontSize: 14,
         fontWeight: FontWeight.w500,
-        color: Colors.white,
+        color: _C.primaryText(isDark),
       ),
       maxLines: maxLines,
       minLines: 1,
@@ -1015,18 +1036,18 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
         hintText: hint,
         hintStyle: GoogleFonts.nunito(
           fontSize: 13,
-          color: _C.textMuted,
+          color: _C.mutedText(isDark),
         ),
         filled: true,
-        fillColor: AppColors.surfaceDark,
+        fillColor: _C.cardBg(isDark),
         contentPadding: const EdgeInsets.all(12),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _C.border),
+          borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: _C.border),
+          borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -1054,6 +1075,7 @@ class _OptionEditRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         GestureDetector(
@@ -1070,7 +1092,7 @@ class _OptionEditRow extends StatelessWidget {
               border: Border.all(
                 color: isCorrect
                     ? _C.accent
-                    : _C.textMuted.withValues(alpha: 0.4),
+                    : _C.mutedText(isDark).withValues(alpha: 0.4),
                 width: 1.5,
               ),
             ),
@@ -1084,7 +1106,7 @@ class _OptionEditRow extends StatelessWidget {
           width: 26,
           height: 26,
           decoration: BoxDecoration(
-            color: isCorrect ? _C.accentSubtle : const Color(0x14FFFFFF),
+            color: isCorrect ? _C.accentSubtle : _C.letterBg(isDark),
             borderRadius: BorderRadius.circular(6),
           ),
           child: Center(
@@ -1093,7 +1115,7 @@ class _OptionEditRow extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 12,
                 fontWeight: FontWeight.w800,
-                color: isCorrect ? _C.accent : _C.textMuted,
+                color: isCorrect ? _C.accent : _C.mutedText(isDark),
               ),
             ),
           ),
@@ -1106,22 +1128,22 @@ class _OptionEditRow extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.white,
+              color: _C.primaryText(isDark),
             ),
             cursorColor: _C.accent,
             decoration: InputDecoration(
               hintText: 'Alternativa $letter',
               hintStyle: GoogleFonts.nunito(
                 fontSize: 12,
-                color: _C.textMuted,
+                color: _C.mutedText(isDark),
               ),
               isDense: true,
               contentPadding: EdgeInsets.zero,
-              border: const UnderlineInputBorder(
-                borderSide: BorderSide(color: _C.border),
+              border: UnderlineInputBorder(
+                borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
               ),
-              enabledBorder: const UnderlineInputBorder(
-                borderSide: BorderSide(color: _C.border),
+              enabledBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: _C.adaptiveBorder(isDark)),
               ),
               focusedBorder: const UnderlineInputBorder(
                 borderSide: BorderSide(color: _C.accent, width: 1.2),
