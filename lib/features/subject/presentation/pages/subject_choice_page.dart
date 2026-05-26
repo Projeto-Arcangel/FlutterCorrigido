@@ -14,8 +14,6 @@ class SubjectChoicePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // subjectsProvider não é necessário aqui, mas mantido para futura expansão
-    // (ex.: exibir badge de desbloqueio na tela de escolha).
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.transparent,
@@ -50,7 +48,7 @@ class _SubjectList extends StatelessWidget {
           children: [
             // ── Título ──────────────────────────────────────────────
             Text(
-              'Qual caminho você\ndeseja trilhar?',
+              'Pronto para estudar?',
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                 fontSize: 24,
@@ -59,44 +57,7 @@ class _SubjectList extends StatelessWidget {
             ),
             const SizedBox(height: 48),
 
-            // ── Botão "Sua trilha" (preenchido / primário) ───────────
-            const _PersonalTrailButton(),
-            const SizedBox(height: 16),
-
-            // ── Separador visual ─────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 32),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Divider(
-                      color: AppColors.textSecondary.withValues(alpha: 0.3),
-                      thickness: 1,
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    child: Text(
-                      'ou',
-                      style: TextStyle(
-                        color: AppColors.textSecondary.withValues(alpha: 0.6),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: Divider(
-                      color: AppColors.textSecondary.withValues(alpha: 0.3),
-                      thickness: 1,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // ── Botão "Entrar em Turma" (contornado) ─────────────────
+            // ── Botão "Entrar em Turma" ───────────────────────────
             const _EnterClassroomButton(),
           ],
         ),
@@ -105,38 +66,6 @@ class _SubjectList extends StatelessWidget {
   }
 }
 
-// ── Botão "Sua trilha" ────────────────────────────────────────────────────────
-/// Navega para a trilha pessoal do aluno (lesson_list_page).
-/// Estilo preenchido com a cor primária do app, para maior destaque.
-class _PersonalTrailButton extends StatelessWidget {
-  const _PersonalTrailButton();
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 320,
-      height: 52,
-      child: FilledButton.icon(
-        onPressed: () => context.push(AppRoutes.personalTrail),
-        icon: const Icon(Icons.route_rounded, size: 20),
-        label: const Text(
-          'Sua trilha',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
-          foregroundColor: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(50),
-          ),
-        ),
-      ),
-    );
-  }
-}
 
 // ── Botão "Entrar em Turma" ───────────────────────────────────────────────────
 /// - Aluno já matriculado → navega direto para a trilha da sala.
