@@ -104,6 +104,25 @@ final deleteAccountProvider = Provider<DeleteAccountFn>(
   (ref) => ref.watch(authRepositoryProvider).deleteAccount,
 );
 
+typedef UpdateProfileFn = Future<Either<Failure, void>> Function({
+  required String userId,
+  required String displayName,
+  required String studentId,
+});
+
+final updateProfileProvider = Provider<UpdateProfileFn>(
+  (ref) => ref.watch(userRepositoryProvider).updateProfile,
+);
+
+/// Sinaliza que um usuário Google acaba de entrar pela primeira vez
+/// e precisa completar o perfil (Nome + Prontuário).
+///
+/// - `true`  → redirecionar para `GoogleCompleteProfilePage`.
+/// - `false` → fluxo normal.
+///
+/// Limpo (false) após o perfil ser criado com sucesso.
+final googleNewUserProvider = StateProvider<bool>((_) => false);
+
 /// Role do usuário autenticado, lido de `Users/{uid}.role` no Firestore.
 ///
 /// • `null`             = logado mas ainda não escolheu role

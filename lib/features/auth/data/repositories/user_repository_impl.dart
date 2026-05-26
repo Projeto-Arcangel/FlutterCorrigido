@@ -46,6 +46,38 @@ class UserRepositoryImpl implements UserRepository {
   }
 
   @override
+  Future<Either<Failure, bool>> hasProfile(String userId) async {
+    try {
+      final snap = await _userDoc(userId).get();
+      return Right(snap.exists);
+    } catch (e, st) {
+      _logger.e('hasProfile failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao verificar perfil do usuário.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updateProfile({
+    required String userId,
+    required String displayName,
+    required String studentId,
+  }) async {
+    try {
+      await _userDoc(userId).set(
+        {
+          'display_name': displayName,
+          'prontuario': studentId,
+        },
+        SetOptions(merge: true),
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('updateProfile failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao atualizar perfil do usuário.'));
+    }
+  }
+
+  @override
   Future<Either<Failure, UserRole?>> getRole(String userId) async {
     try {
       final snap = await _userDoc(userId).get();
