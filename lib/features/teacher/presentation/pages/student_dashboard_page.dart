@@ -17,13 +17,36 @@ import '../providers/student_dashboard_provider.dart';
 // ─── Cores internas ──────────────────────────────────────────────────────────
 
 abstract class _C {
-  static const Color card        = Color(0xFF282932);
-  static const Color cardBorder  = Color(0x14FFFFFF);
-  static const Color textMuted   = Color(0xFF8FA3AE);
-  static const Color good        = Color(0xFF72D082); // ≥ 70 %
-  static const Color medium      = Color(0xFFEAD47F); // 50–69 %
-  static const Color bad         = Color(0xFFE53935); // < 50 %
-  static const Color accent      = AppColors.primary;
+  // Cores de situação — funcionam em ambos os temas pois são usadas
+  // apenas como cor de destaque (badge, barra, ícone), nunca como fundo sólido.
+  static const Color good   = Color(0xFF72D082); // ≥ 70 %
+  static const Color medium = Color(0xFFEAD47F); // 50–69 %
+  static const Color bad    = Color(0xFFE53935); // < 50 %
+  static const Color accent = Color(0xFF72D082); // verde professor
+
+  // ── Theme-aware ───────────────────────────────────────────────────────────
+  static Color card(bool dark) =>
+      dark ? const Color(0xFF282932) : Colors.white;
+
+  static Color cardBorder(bool dark) =>
+      dark ? const Color(0x14FFFFFF) : Colors.black12;
+
+  // Texto primário dentro dos cards
+  static Color primaryText(bool dark) =>
+      dark ? Colors.white : AppColors.textPrimary;
+
+  // Texto secundário / rótulos pequenos
+  // No claro: cinza-ardósia mais escuro para contraste mínimo WCAG AA
+  static Color textMuted(bool dark) =>
+      dark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78);
+
+  // Fundo do dropdown e do campo de busca
+  static Color inputFill(bool dark) =>
+      dark ? const Color(0xFF282932) : const Color(0xFFF1F4F8);
+
+  // Cor do ícone de engrenagem / ação secundária
+  static Color iconSecondary(bool dark) =>
+      dark ? Colors.white54 : AppColors.textSecondary;
 }
 
 // ─── Filtro ──────────────────────────────────────────────────────────────────
@@ -434,7 +457,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
               '${filtered.length} aluno${filtered.length != 1 ? 's' : ''} exibido${filtered.length != 1 ? 's' : ''}',
               style: GoogleFonts.nunito(
                 fontSize: 12,
-                color: _C.textMuted,
+                color: _C.textMuted(isDark),
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -487,59 +510,69 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
               Text(e.toString(),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.nunito(
-                      fontSize: 13, color: _C.textMuted,),),
+                      fontSize: 13, color: _C.textMuted(Theme.of(context).brightness == Brightness.dark),),),
             ],
           ),
         ),
       );
 
-  Widget _buildEmpty() => Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(FontAwesomeIcons.userGroup,
-                  size: 48, color: _C.textMuted.withValues(alpha: 0.6),),
-              const SizedBox(height: 16),
-              Text(
-                'Nenhuma turma encontrada',
-                style: GoogleFonts.nunito(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    color: _C.textMuted,),
+  Widget _buildEmpty() => Builder(
+        builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(FontAwesomeIcons.userGroup,
+                      size: 48, color: _C.textMuted(isDark).withValues(alpha: 0.6),),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhuma turma encontrada',
+                    style: GoogleFonts.nunito(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: _C.textMuted(isDark),),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Crie uma turma em "Minhas Turmas".',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.nunito(
+                        fontSize: 13, color: _C.textMuted(isDark),),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Crie uma turma em "Minhas Turmas".',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.nunito(
-                    fontSize: 13, color: _C.textMuted,),
-              ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
 
-  Widget _buildEmptyResults() => Center(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FaIcon(FontAwesomeIcons.magnifyingGlass,
-                  size: 36, color: _C.textMuted.withValues(alpha: 0.6),),
-              const SizedBox(height: 16),
-              Text(
-                'Nenhum resultado encontrado',
-                style: GoogleFonts.nunito(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w700,
-                    color: _C.textMuted,),
+  Widget _buildEmptyResults() => Builder(
+        builder: (context) {
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FaIcon(FontAwesomeIcons.magnifyingGlass,
+                      size: 36, color: _C.textMuted(isDark).withValues(alpha: 0.6),),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Nenhum resultado encontrado',
+                    style: GoogleFonts.nunito(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: _C.textMuted(isDark),),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       );
 }
 
@@ -558,25 +591,26 @@ class _ClassroomSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         decoration: BoxDecoration(
-          color: _C.card,
+          color: _C.card(isDark),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _C.cardBorder),
+          border: Border.all(color: _C.cardBorder(isDark)),
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             value: selectedId,
-            dropdownColor: _C.card,
-            icon: const Icon(Icons.keyboard_arrow_down_rounded,
+            dropdownColor: _C.card(isDark),
+            icon: Icon(Icons.keyboard_arrow_down_rounded,
                 color: _C.accent,),
             style: GoogleFonts.nunito(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,),
+                color: _C.primaryText(isDark),),
             items: classrooms
                 .map(
                   (c) => DropdownMenuItem(
@@ -679,13 +713,14 @@ class _KpiCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 8),
         decoration: BoxDecoration(
-          color: _C.card,
+          color: _C.card(isDark),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _C.cardBorder),
+          border: Border.all(color: _C.cardBorder(isDark)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -700,7 +735,7 @@ class _KpiCard extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: small ? 13 : 18,
                 fontWeight: FontWeight.w900,
-                color: Colors.white,
+                color: _C.primaryText(isDark),
                 height: 1.0,
               ),
             ),
@@ -711,7 +746,7 @@ class _KpiCard extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 9,
                 fontWeight: FontWeight.w600,
-                color: _C.textMuted,
+                color: _C.textMuted(isDark),
                 height: 1.3,
               ),
             ),
@@ -739,6 +774,7 @@ class _SearchAndFilter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       children: [
         // Campo de busca
@@ -750,17 +786,17 @@ class _SearchAndFilter extends StatelessWidget {
             style: GoogleFonts.nunito(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,),
+                color: _C.primaryText(isDark),),
             decoration: InputDecoration(
               hintText: 'Buscar aluno pelo nome…',
               hintStyle: GoogleFonts.nunito(
-                  fontSize: 14, color: _C.textMuted,),
-              prefixIcon: const Icon(Icons.search_rounded,
-                  color: _C.textMuted, size: 20,),
+                  fontSize: 14, color: _C.textMuted(isDark),),
+              prefixIcon: Icon(Icons.search_rounded,
+                  color: _C.textMuted(isDark), size: 20,),
               suffixIcon: controller.text.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear_rounded,
-                          color: _C.textMuted, size: 18,),
+                      icon: Icon(Icons.clear_rounded,
+                          color: _C.textMuted(isDark), size: 18,),
                       onPressed: () {
                         controller.clear();
                         onSearch('');
@@ -768,7 +804,7 @@ class _SearchAndFilter extends StatelessWidget {
                     )
                   : null,
               filled: true,
-              fillColor: _C.card,
+              fillColor: _C.inputFill(isDark),
               contentPadding:
                   const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
               border: OutlineInputBorder(
@@ -777,12 +813,12 @@ class _SearchAndFilter extends StatelessWidget {
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
-                borderSide: const BorderSide(color: _C.cardBorder),
+                borderSide: BorderSide(color: _C.cardBorder(isDark)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(14),
                 borderSide:
-                    const BorderSide(color: AppColors.primary, width: 1.5),
+                    const BorderSide(color: _C.accent, width: 1.5),
               ),
             ),
           ),
@@ -806,13 +842,13 @@ class _SearchAndFilter extends StatelessWidget {
                         horizontal: 14, vertical: 6,),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.primary.withValues(alpha: 0.15)
-                          : _C.card,
+                          ? _C.accent.withValues(alpha: 0.15)
+                          : _C.card(isDark),
                       borderRadius: BorderRadius.circular(20),
                       border: Border.all(
                         color: selected
-                            ? AppColors.primary.withValues(alpha: 0.6)
-                            : _C.cardBorder,
+                            ? _C.accent.withValues(alpha: 0.6)
+                            : _C.cardBorder(isDark),
                         width: 1.2,
                       ),
                     ),
@@ -821,7 +857,7 @@ class _SearchAndFilter extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 12,
                         fontWeight: FontWeight.w700,
-                        color: selected ? AppColors.primary : _C.textMuted,
+                        color: selected ? _C.accent : _C.textMuted(isDark),
                       ),
                     ),
                   ),
@@ -846,6 +882,7 @@ class _StudentCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark    = Theme.of(context).brightness == Brightness.dark;
     final situation = _situationOf(result.percentage);
     final color     = _situationColor(situation);
     final fmt       = DateFormat("dd 'de' MMM 'de' yyyy", 'pt_BR');
@@ -854,9 +891,9 @@ class _StudentCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: _C.card,
+        color: _C.card(isDark),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _C.cardBorder),
+        border: Border.all(color: _C.cardBorder(isDark)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -896,7 +933,7 @@ class _StudentCard extends StatelessWidget {
                       style: GoogleFonts.nunito(
                         fontSize: 14,
                         fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                        color: _C.primaryText(isDark),
                         height: 1.2,
                       ),
                       maxLines: 1,
@@ -915,7 +952,7 @@ class _StudentCard extends StatelessWidget {
                           '${result.correctAnswers} corretas',
                           style: GoogleFonts.nunito(
                             fontSize: 11,
-                            color: _C.textMuted,
+                            color: _C.textMuted(isDark),
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -946,7 +983,7 @@ class _StudentCard extends StatelessWidget {
             width: MediaQuery.of(context).size.width - 32 - 32 - 32,
             lineHeight: 6,
             percent: result.percentage.clamp(0.0, 1.0),
-            backgroundColor: Colors.white12,
+            backgroundColor: isDark ? Colors.white12 : Colors.black12,
             progressColor: color,
             barRadius: const Radius.circular(3),
           ),
@@ -966,7 +1003,7 @@ class _StudentCard extends StatelessWidget {
               _MetaChip(
                 icon: FontAwesomeIcons.clockRotateLeft,
                 label: fmt.format(result.completedAt),
-                color: _C.textMuted,
+                color: _C.textMuted(isDark),
               ),
             ],
           ),
