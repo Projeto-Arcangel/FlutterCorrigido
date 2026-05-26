@@ -5,8 +5,8 @@ class AppColors {
 
   // ── App ─────────────────────────────────────────────────────────────────────
   static const Color primary = Color(0xFF72ACD0);
-  static const Color background = Color(0xFFD9D9D9);
-  static const Color surface = Colors.white;
+  static const Color background = Colors.white;
+  static const Color surface = Color(0xFFD9D9D9);
   static const Color textPrimary = Color(0xFF1E1F28);
   static const Color textSecondary = Color(0xFF6B7280);
   static const Color borderBlue = Color(0xFF72ACD0);

@@ -12,10 +12,18 @@ import '../../../settings/presentation/pages/preferences_page.dart'
 
 abstract class _TP {
   static const Color accent    = Color(0xFF72D082);
-  static const Color textMuted = Color(0xFF8FA3AE);
   static const Color warning   = Color(0xFFFFD166);
 
-  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : Colors.white;
+  // Texto secundário: mais escuro no claro para contraste mínimo WCAG AA
+  // (11–12 px com letter-spacing exige ≥ 4.5:1; #5A6B78 entrega ~5.6:1 sobre branco)
+  static Color textMuted(bool dark) =>
+      dark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78);
+
+  // Verde como COR DE TEXTO: vibrante no escuro, floresta no claro (~5.1:1)
+  static Color accentText(bool dark) =>
+      dark ? accent : const Color(0xFF2E7D42);
+
+  static Color cardBg(bool dark) => dark ? AppColors.surfaceDark : AppColors.surface;
   static Color cardBorder(bool dark) =>
       dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color trackInactive(bool dark) =>
@@ -259,7 +267,7 @@ class _SectionCard extends StatelessWidget {
                 style: GoogleFonts.nunito(
                   fontSize: 11,
                   fontWeight: FontWeight.w700,
-                  color: _TP.textMuted,
+                  color: _TP.textMuted(isDark),
                   letterSpacing: 2.0,
                 ),
               ),
@@ -334,7 +342,7 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: value == 0 ? _TP.textMuted : _TP.accent,
+                    color: value == 0 ? _TP.textMuted(isDark) : _TP.accentText(isDark),
                   ),
                 ),
               ),
@@ -365,7 +373,7 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: _TP.textMuted,
+                    color: _TP.textMuted(isDark),
                   ),
                 ),
                 Text(
@@ -373,7 +381,7 @@ class _VolumeRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: _TP.textMuted,
+                    color: _TP.textMuted(isDark),
                   ),
                 ),
               ],
@@ -422,7 +430,7 @@ class _ToggleRow extends StatelessWidget {
             child: Icon(
               icon,
               size: 20,
-              color: value ? _TP.accent : _TP.textMuted,
+              color: value ? _TP.accent : _TP.textMuted(isDark),
             ),
           ),
           const SizedBox(width: 14),
@@ -445,7 +453,7 @@ class _ToggleRow extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
-                    color: _TP.textMuted,
+                    color: _TP.textMuted(isDark),
                   ),
                 ),
               ],

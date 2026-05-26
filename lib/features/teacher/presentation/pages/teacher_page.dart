@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
@@ -73,8 +73,8 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           icon: FontAwesomeIcons.chartLine,
           title: 'Dashboard de Alunos',
           subtitle: 'Acompanhe a evolução e exporte as notas da turma',
-          iconColor: const Color(0xFF72ACD0),
-          iconBg: const Color(0x1A72ACD0),
+          iconColor: const Color(0xFF72D082),
+          iconBg: const Color(0x1A72D082),
           onTap: () => context.push(
             AppRoutes.teacherStudentDashboard,
             extra: <String, dynamic>{'classroomId': classroomId},
@@ -200,7 +200,7 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           description: 'Acompanhe o progresso dos alunos pelo dashboard',
           timeAgo: '',
           icon: FontAwesomeIcons.chartLine,
-          dotColor: Color(0xFF72ACD0),
+          dotColor: Color(0xFF72D082),
         ),
       ];
 }

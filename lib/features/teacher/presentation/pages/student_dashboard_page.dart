@@ -26,7 +26,7 @@ abstract class _C {
 
   // ── Theme-aware ───────────────────────────────────────────────────────────
   static Color card(bool dark) =>
-      dark ? const Color(0xFF282932) : Colors.white;
+      dark ? AppColors.surfaceDark : AppColors.surface;
 
   static Color cardBorder(bool dark) =>
       dark ? const Color(0x14FFFFFF) : Colors.black12;
@@ -42,7 +42,7 @@ abstract class _C {
 
   // Fundo do dropdown e do campo de busca
   static Color inputFill(bool dark) =>
-      dark ? const Color(0xFF282932) : const Color(0xFFF1F4F8);
+      dark ? AppColors.surfaceDark : AppColors.surface;
 
   // Cor do ícone de engrenagem / ação secundária
   static Color iconSecondary(bool dark) =>
@@ -271,7 +271,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
 
     return Scaffold(
       backgroundColor:
-          isDark ? AppColors.backgroundDark : const Color(0xFFF1F4F8),
+          isDark ? AppColors.backgroundDark : AppColors.background,
       appBar: _buildAppBar(context, isDark, classroomsAsync),
       body: classroomsAsync.when(
         loading: () => const Center(
@@ -315,7 +315,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     AsyncValue<List<Classroom>> classroomsAsync,
   ) {
     final bgColor =
-        isDark ? AppColors.backgroundDark : const Color(0xFFF1F4F8);
+        isDark ? AppColors.backgroundDark : AppColors.background;
 
     return AppBar(
       backgroundColor: bgColor,

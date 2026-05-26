@@ -18,13 +18,13 @@ abstract class _Colors {
   static const Color googleBlue    = Color(0xFF4285F4);
 
   // Adaptativos ao modo
-  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark  : Colors.white;
+  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark  : AppColors.surface;
   static Color cardBorder(bool dark)  => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color divider(bool dark)     => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color bgPage(bool dark)      => dark ? AppColors.backgroundDark : AppColors.background;
   static Color textPrimary(bool dark) => dark ? Colors.white : AppColors.textPrimary;
-  static Color fieldFill(bool dark)   => dark ? AppColors.backgroundDark : AppColors.background;
-  static Color sheetBg(bool dark)     => dark ? AppColors.surfaceDark : Colors.white;
+  static Color fieldFill(bool dark)   => dark ? AppColors.backgroundDark : AppColors.surface;
+  static Color sheetBg(bool dark)     => dark ? AppColors.surfaceDark : AppColors.surface;
   static Color handleColor(bool dark) => dark ? Colors.white24 : Colors.black12;
 }
 

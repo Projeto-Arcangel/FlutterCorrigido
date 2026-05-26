@@ -16,9 +16,9 @@ abstract class AppTheme {
       onSecondary: Colors.white,
       error: AppColors.error,
       onError: Colors.white,
-      surface: Colors.white,
+      surface: AppColors.surface,
       onSurface: AppColors.textPrimary,
-      surfaceContainerHighest: AppColors.background,
+      surfaceContainerHighest: AppColors.surface,
       outline: AppColors.borderBlue,
     );
 
@@ -37,7 +37,7 @@ abstract class AppTheme {
         iconTheme: IconThemeData(color: AppColors.textPrimary),
       ),
       cardTheme: CardThemeData(
-        color: Colors.white,
+        color: AppColors.surface,
         elevation: 0,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
@@ -52,7 +52,7 @@ abstract class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.surface,
         labelStyle: const TextStyle(color: AppColors.textSecondary),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -97,12 +97,12 @@ abstract class AppTheme {
       ),
       dividerTheme: const DividerThemeData(color: Colors.black12, thickness: 1),
       dialogTheme: DialogThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
       snackBarTheme: const SnackBarThemeData(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.surface,
         contentTextStyle: TextStyle(color: AppColors.textPrimary),
         behavior: SnackBarBehavior.floating,
       ),

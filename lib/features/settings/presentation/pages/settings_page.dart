@@ -17,7 +17,7 @@ abstract class _C {
   static const Color textMuted     = Color(0xFF8FA3AE);
 
   // Dependem do modo
-  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark  : Colors.white;
+  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark  : AppColors.surface;
   static Color cardBorder(bool dark) => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color divider(bool dark)    => dark ? const Color(0x1AFFFFFF) : Colors.black12;
   static Color textPrimary(bool dark) => dark ? Colors.white : AppColors.textPrimary;
