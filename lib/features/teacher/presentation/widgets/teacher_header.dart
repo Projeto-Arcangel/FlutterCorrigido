@@ -7,13 +7,23 @@ import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 
 abstract class _TeacherColors {
-  static const Color accent      = Color(0xFF72D082);
-  static const Color accentSubtle= Color(0x1A72D082);
-  static const Color textMuted   = Color(0xFF8FA3AE);
+  static const Color accent       = Color(0xFF72D082);
+  static const Color accentSubtle = Color(0x1A72D082);
 
-  static Color cardBg(bool dark)     => dark ? AppColors.surfaceDark : Colors.white;
-  static Color cardBorder(bool dark) => dark ? const Color(0x14FFFFFF) : Colors.black12;
-  static Color primaryText(bool dark)=> dark ? Colors.white : AppColors.textPrimary;
+  // Variante do accent para uso como COR DE TEXTO.
+  // No modo claro, o verde vibrante (#72D082) tem contraste ~1.8:1 sobre
+  // branco — usamos um verde-floresta mais escuro (#2E7D42, ~5.1:1).
+  static Color accentText(bool dark) =>
+      dark ? accent : const Color(0xFF2E7D42);
+
+  // No modo claro usamos um cinza mais escuro para garantir contraste
+  // mínimo WCAG AA mesmo em fontes muito pequenas (10 px nos stat cards).
+  static Color textMuted(bool dark) =>
+      dark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78);
+
+  static Color cardBg(bool dark)      => dark ? AppColors.surfaceDark : Colors.white;
+  static Color cardBorder(bool dark)  => dark ? const Color(0x14FFFFFF) : Colors.black12;
+  static Color primaryText(bool dark) => dark ? Colors.white : AppColors.textPrimary;
   static Color settingsIcon(bool dark)=> dark ? Colors.white54 : AppColors.textSecondary;
 }
 
@@ -86,7 +96,7 @@ class _HeaderBar extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: _TeacherColors.accent,
+                    color: _TeacherColors.accentText(isDark),
                     letterSpacing: 1.2,
                   ),
                 ),
@@ -207,7 +217,7 @@ class _StatCard extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 10,
               fontWeight: FontWeight.w600,
-              color: _TeacherColors.textMuted,
+              color: _TeacherColors.textMuted(isDark),
               height: 1.3,
             ),
           ),
