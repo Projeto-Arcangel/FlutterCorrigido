@@ -75,6 +75,26 @@ class ClassroomFirestoreDatasource {
     });
   }
 
+  /// Atualiza o campo `teacherName` em todas as salas do professor.
+  ///
+  /// Chamado após o professor alterar o próprio nome na tela de conta,
+  /// para manter o banner da trilha dos alunos sempre sincronizado.
+  Future<void> updateTeacherName({
+    required String teacherId,
+    required String newName,
+  }) async {
+    final snap = await _classrooms
+        .where('teacherId', isEqualTo: teacherId)
+        .get();
+    if (snap.docs.isEmpty) return;
+
+    final batch = _firestore.batch();
+    for (final doc in snap.docs) {
+      batch.update(doc.reference, {'teacherName': newName});
+    }
+    await batch.commit();
+  }
+
   /// Apaga a sala e todas as suas subcoleções (questions, results,
   /// phases e as questões aninhadas em cada phase).
   ///
