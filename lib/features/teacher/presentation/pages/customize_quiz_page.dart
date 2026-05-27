@@ -200,6 +200,7 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
   }
 
   void _showErrorSnack(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -215,13 +216,13 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
                 message,
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.surfaceDark,
+        backgroundColor: _C.cardBg(isDark),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -233,6 +234,7 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
   }
 
   void _showSuccessSnack(String message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -248,13 +250,13 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
                 message,
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.surfaceDark,
+        backgroundColor: _C.cardBg(isDark),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -377,13 +379,18 @@ class _TopBar extends StatelessWidget {
             ),
           ),
           const Spacer(),
-          Text(
-            'Editor de Questões',
-            style: GoogleFonts.nunito(
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-              color: Colors.white,
-            ),
+          Builder(
+            builder: (context) {
+              final isDark = Theme.of(context).brightness == Brightness.dark;
+              return Text(
+                'Editor de Questões',
+                style: GoogleFonts.nunito(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w800,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
+                ),
+              );
+            },
           ),
           const Spacer(),
           // Espaço espelho para centralizar o título
@@ -441,7 +448,7 @@ class _InfoStrip extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: _C.primaryText(isDark),
                   ),
                 ),
               ),
@@ -573,7 +580,7 @@ class _QuestionCard extends StatelessWidget {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: complete ? _C.accentSubtle : const Color(0x14FFFFFF),
+                    color: complete ? _C.accentSubtle : (isDark ? const Color(0x14FFFFFF) : const Color(0x14000000)),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
@@ -593,7 +600,7 @@ class _QuestionCard extends StatelessWidget {
                   style: GoogleFonts.nunito(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
-                    color: Colors.white,
+                    color: _C.primaryText(isDark),
                   ),
                 ),
                 const Spacer(),
@@ -611,7 +618,7 @@ class _QuestionCard extends StatelessWidget {
             ),
           ),
 
-          const Divider(height: 1, color: _C.divider),
+          Divider(height: 1, color: _C.adaptiveBorder(isDark)),
 
           // ── Campo da pergunta ─────────────────────────────────────────
           Padding(
@@ -730,6 +737,7 @@ class _AlternativeTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       child: Row(
@@ -773,7 +781,7 @@ class _AlternativeTile extends StatelessWidget {
             width: 26,
             height: 26,
             decoration: BoxDecoration(
-              color: isCorrect ? _C.accentSubtle : const Color(0x14FFFFFF),
+              color: isCorrect ? _C.accentSubtle : (isDark ? const Color(0x14FFFFFF) : const Color(0x14000000)),
               borderRadius: BorderRadius.circular(6),
             ),
             child: Center(
@@ -797,7 +805,7 @@ class _AlternativeTile extends StatelessWidget {
               style: GoogleFonts.nunito(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.white,
+                color: _C.primaryText(isDark),
               ),
               cursorColor: _C.accent,
               maxLines: 1,
@@ -812,9 +820,9 @@ class _AlternativeTile extends StatelessWidget {
                 contentPadding:
                     const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                 border: InputBorder.none,
-                enabledBorder: const UnderlineInputBorder(
+                enabledBorder: UnderlineInputBorder(
                   borderSide: BorderSide(
-                    color: _C.border,
+                    color: isDark ? _C.border : Colors.black12,
                     width: 1.0,
                   ),
                 ),

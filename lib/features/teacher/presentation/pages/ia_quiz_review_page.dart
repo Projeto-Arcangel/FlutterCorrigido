@@ -184,6 +184,7 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
   }
 
   void _showSnack(String message, {bool isError = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Row(
@@ -201,13 +202,13 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
                 message,
                 style: GoogleFonts.nunito(
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: isDark ? Colors.white : AppColors.textPrimary,
                 ),
               ),
             ),
           ],
         ),
-        backgroundColor: AppColors.surfaceDark,
+        backgroundColor: _C.cardBg(isDark),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
