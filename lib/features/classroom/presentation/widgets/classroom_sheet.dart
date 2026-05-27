@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/classroom.dart';
 import '../providers/classroom_providers.dart';
 
@@ -379,24 +380,81 @@ class _EmptyClassrooms extends StatelessWidget {
   }
 }
 
-class _ClassroomCard extends StatelessWidget {
+class _ClassroomCard extends ConsumerWidget {
   const _ClassroomCard({required this.classroom});
   final Classroom classroom;
 
-  // Mesma paleta usada nas matérias
-  Color get _color => AppColors.primary;
+  static const _color = AppColors.primary;
 
-  IconData get _icon => Icons.school_outlined;
+  Future<void> _confirmLeave(BuildContext context, WidgetRef ref) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          'Sair da turma?',
+          style: GoogleFonts.nunito(
+            fontWeight: FontWeight.w800,
+            color: isDark ? Colors.white : AppColors.textPrimary,
+          ),
+        ),
+        content: Text(
+          'Você vai sair de "${classroom.name}". Poderá voltar usando o código da turma.',
+          style: GoogleFonts.nunito(
+            fontSize: 14,
+            color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancelar',
+              style: GoogleFonts.nunito(
+                fontWeight: FontWeight.w700,
+                color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
+              ),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.error,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              'Sair',
+              style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !context.mounted) return;
+
+    final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
+    if (firebaseUser == null) return;
+
+    final useCase = ref.read(leaveClassroomProvider);
+    await useCase(classroomId: classroom.id, studentId: firebaseUser.uid);
+    ref.invalidate(userClassroomsProvider);
+  }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       decoration: BoxDecoration(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: _color.withOpacity(0.35),
+          color: _color.withValues(alpha: 0.35),
           width: 1.3,
         ),
       ),
@@ -405,7 +463,7 @@ class _ClassroomCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          splashColor: _color.withOpacity(0.08),
+          splashColor: _color.withValues(alpha: 0.08),
           onTap: () {
             Navigator.of(context).pop();
             context.push(
@@ -417,19 +475,19 @@ class _ClassroomCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
-                // Ícone da matéria
+                // Ícone da turma
                 Container(
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: _color.withOpacity(0.15),
+                    color: _color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(_icon, color: _color, size: 22),
+                  child: const Icon(Icons.school_outlined, color: _color, size: 22),
                 ),
                 const SizedBox(width: 14),
 
-                // Textos
+                // Nome + professor
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -449,21 +507,20 @@ class _ClassroomCard extends StatelessWidget {
                         style: GoogleFonts.nunito(
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
-                          color: isDark ? const Color(0xFF8FA3AE) : const Color(0xFF5A6B78),
+                          color: isDark
+                              ? const Color(0xFF8FA3AE)
+                              : const Color(0xFF5A6B78),
                         ),
                       ),
                     ],
                   ),
                 ),
 
-                // Código no canto direito
+                // Código
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _color.withOpacity(0.12),
+                    color: _color.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
@@ -473,6 +530,26 @@ class _ClassroomCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                       color: _color,
                       letterSpacing: 1.5,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(width: 8),
+
+                // Botão sair
+                GestureDetector(
+                  onTap: () => _confirmLeave(context, ref),
+                  child: Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: AppColors.error.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Icon(
+                      Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                      size: 18,
                     ),
                   ),
                 ),
