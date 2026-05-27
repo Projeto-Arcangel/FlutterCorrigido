@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — tons esverdeados exclusivos do professor
@@ -123,6 +124,16 @@ class _TeacherAccountPageState extends ConsumerState<TeacherAccountPage>
         onSave: (name) async {
           final either =
               await ref.read(updateDisplayNameProvider)(name: name);
+          if (either.isRight()) {
+            // Sincroniza o novo nome em todas as turmas do professor
+            final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+            if (uid != null) {
+              await ref.read(updateTeacherNameProvider)(
+                teacherId: uid,
+                newName: name,
+              );
+            }
+          }
           return either.fold((f) => f.message, (_) => null);
         },
         onSuccess: () => _snack('Nome atualizado com sucesso!'),
@@ -1238,7 +1249,7 @@ class _DeleteAccountDialogState extends State<_DeleteAccountDialog> {
                 controller: _ctrl,
                 obscureText: _obscure,
                 style: GoogleFonts.nunito(
-                    fontSize: 15, color: _TC.textPrimary(isDark)),
+                    fontSize: 15, color: _TC.textPrimary(isDark),),
                 decoration: InputDecoration(
                   hintText: 'Senha atual',
                   hintStyle: GoogleFonts.nunito(color: _TC.textMuted),

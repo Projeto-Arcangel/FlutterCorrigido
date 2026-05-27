@@ -23,11 +23,20 @@ abstract class ClassroomRepository {
     required String teacherName,
   });
 
-  /// Atualiza nome e/ou descrição da sala.
+  /// Atualiza nome e descrição da sala.
   Future<Either<Failure, void>> updateClassroom({
     required String classroomId,
     required String name,
     required String description,
+  });
+
+  /// Atualiza o campo `teacherName` em todas as salas do professor.
+  ///
+  /// Deve ser chamado após o professor alterar o próprio nome na tela
+  /// de conta, para manter o banner da trilha dos alunos sincronizado.
+  Future<Either<Failure, void>> updateTeacherName({
+    required String teacherId,
+    required String newName,
   });
 
   /// Apaga a sala e todas as suas subcoleções (questions, results,

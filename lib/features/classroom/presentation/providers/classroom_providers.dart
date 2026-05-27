@@ -50,6 +50,18 @@ final updateClassroomProvider = Provider<UpdateClassroom>((ref) {
   return UpdateClassroom(ref.watch(classroomRepositoryProvider));
 });
 
+/// Atualiza o `teacherName` em todas as salas do professor.
+/// Chamado pela tela de conta do professor após salvar o novo nome.
+final updateTeacherNameProvider = Provider<
+    Future<void> Function({required String teacherId, required String newName})>(
+  (ref) {
+    final repo = ref.watch(classroomRepositoryProvider);
+    return ({required String teacherId, required String newName}) async {
+      await repo.updateTeacherName(teacherId: teacherId, newName: newName);
+    };
+  },
+);
+
 final deleteClassroomProvider = Provider<DeleteClassroom>((ref) {
   return DeleteClassroom(ref.watch(classroomRepositoryProvider));
 });

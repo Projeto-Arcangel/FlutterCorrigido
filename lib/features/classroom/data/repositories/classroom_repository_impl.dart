@@ -63,6 +63,23 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
+  Future<Either<Failure, void>> updateTeacherName({
+    required String teacherId,
+    required String newName,
+  }) async {
+    try {
+      await _datasource.updateTeacherName(
+        teacherId: teacherId,
+        newName: newName,
+      );
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('updateTeacherName failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao sincronizar nome nas turmas'));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> deleteClassroom(String classroomId) async {
     try {
       await _datasource.deleteClassroom(classroomId);
