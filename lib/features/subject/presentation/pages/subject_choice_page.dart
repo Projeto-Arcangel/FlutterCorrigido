@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
-import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../classroom/presentation/widgets/classroom_sheet.dart';
 
 
@@ -68,50 +65,26 @@ class _SubjectList extends StatelessWidget {
 
 
 // ── Botão "Entrar em Turma" ───────────────────────────────────────────────────
-/// - Aluno já matriculado → navega direto para a trilha da sala.
-/// - Sem turma → abre o bottom sheet para digitar o código.
-class _EnterClassroomButton extends ConsumerWidget {
+/// Sempre abre o bottom sheet de turmas — o sheet já mostra as turmas
+/// actuais do aluno em "MINHAS TURMAS" e permite entrar numa nova.
+class _EnterClassroomButton extends StatelessWidget {
   const _EnterClassroomButton();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final asyncClassrooms = ref.watch(userClassroomsProvider);
-    final existingClassroom = asyncClassrooms.valueOrNull?.firstOrNull;
-
+  Widget build(BuildContext context) {
     return SizedBox(
       width: 320,
       height: 52,
       child: OutlinedButton.icon(
-        onPressed: () {
-          if (existingClassroom != null) {
-            context.push(
-              AppRoutes.classroomTrailPath(existingClassroom.id),
-              extra: existingClassroom,
-            );
-          } else {
-            showClassroomSheet(context);
-          }
-        },
-        icon: const Icon(
-          Icons.school_rounded,
-          size: 20,
-        ),
-        label: Text(
-          existingClassroom != null
-              ? existingClassroom.name
-              : 'Entrar em Turma',
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
-          overflow: TextOverflow.ellipsis,
+        onPressed: () => showClassroomSheet(context),
+        icon: const Icon(Icons.school_rounded, size: 20),
+        label: const Text(
+          'Entrar em Turma',
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: AppColors.primary,
-          side: const BorderSide(
-            color: AppColors.primary,
-            width: 1.8,
-          ),
+          side: const BorderSide(color: AppColors.primary, width: 1.8),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(50),
           ),

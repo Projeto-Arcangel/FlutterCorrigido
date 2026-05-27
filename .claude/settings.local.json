@@ -1,7 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "PowerShell(git push --force origin main)"
+      "PowerShell(git push --force origin main)",
+      "Bash(dart analyze *)"
     ]
   }
 }

@@ -240,6 +240,7 @@ class _ClassroomQuiz extends ConsumerWidget {
           correctAnswers: correctCount,
           completedAt: DateTime.now(),
         ),
+        phaseTitle: phase.title,
       );
 
       final repo = ref.read(progressRepositoryProvider);

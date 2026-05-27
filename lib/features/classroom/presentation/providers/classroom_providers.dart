@@ -7,6 +7,7 @@ import '../../../lesson/domain/entities/question.dart';
 import '../../data/datasources/firebase/classroom_firestore_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
 import '../../domain/entities/classroom.dart';
+import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
@@ -119,14 +120,14 @@ final teacherClassroomsProvider = FutureProvider.autoDispose
   );
 });
 
-/// Sala atual do aluno (por studentId). Retorna null se não está em nenhuma.
-final studentClassroomProvider = FutureProvider.autoDispose
-    .family<Classroom?, String>((ref, studentId) async {
+/// Salas do aluno (por studentId). Pode estar em várias ao mesmo tempo.
+final studentClassroomsProvider = FutureProvider.autoDispose
+    .family<List<Classroom>, String>((ref, studentId) async {
   final useCase = ref.watch(getStudentClassroomProvider);
   final result = await useCase(studentId);
   return result.fold(
     (failure) => throw Exception(failure.message),
-    (classroom) => classroom,
+    (classrooms) => classrooms,
   );
 });
 
@@ -240,6 +241,7 @@ class JoinClassroomNotifier extends AsyncNotifier<void> {
     final result = await useCase(
       code: code,
       studentId: user.uid,
+      studentName: user.displayName ?? '',
     );
 
     return result.fold(
@@ -272,10 +274,7 @@ final userClassroomsProvider =
   final useCase = ref.watch(getStudentClassroomProvider);
   final result = await useCase(user.uid);
 
-  return result.fold(
-    (_) => [],
-    (classroom) => classroom == null ? [] : [classroom],
-  );
+  return result.fold((_) => [], (classrooms) => classrooms);
 });
 
 /// Busca uma sala de aula pelo ID.
@@ -293,6 +292,16 @@ final classroomByIdProvider = FutureProvider.autoDispose
 
   return result.fold(
     (_) => null,
-    (classroom) => classroom?.id == classroomId ? classroom : null,
+    (classrooms) => classrooms.where((c) => c.id == classroomId).firstOrNull,
   );
+});
+
+/// Últimas [limit] actividades recentes de todas as salas do professor logado.
+final recentActivitiesProvider =
+    FutureProvider.autoDispose<List<ClassroomActivity>>((ref) async {
+  final user = ref.watch(firebaseAuthProvider).currentUser;
+  if (user == null) return [];
+
+  final repo = ref.read(classroomRepositoryProvider);
+  return repo.fetchRecentActivities(user.uid);
 });

@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
+import '../../../domain/entities/classroom_activity.dart';
 import '../../models/classroom_model.dart';
 import '../../models/classroom_phase_model.dart';
 import '../../models/classroom_result_model.dart';
@@ -171,33 +173,40 @@ class ClassroomFirestoreDatasource {
     return classrooms;
   }
 
-  /// Retorna a sala em que o aluno está (ou null).
-  Future<ClassroomModel?> fetchStudentClassroom(String studentId) async {
+  /// Retorna todas as salas em que o aluno está matriculado.
+  Future<List<ClassroomModel>> fetchStudentClassrooms(String studentId) async {
     final snap = await _classrooms
         .where('studentIds', arrayContains: studentId)
-        .limit(1)
         .get();
 
-    if (snap.docs.isEmpty) return null;
+    if (snap.docs.isEmpty) return [];
 
-    final doc = snap.docs.first;
-    List<QuestionModel> questions = [];
-    try {
-      questions = await _fetchQuestions(doc.id);
-    } catch (_) {}
-    return ClassroomModel.fromSnapshot(doc, questions);
+    final result = <ClassroomModel>[];
+    for (final doc in snap.docs) {
+      List<QuestionModel> questions = [];
+      try {
+        questions = await _fetchQuestions(doc.id);
+      } catch (_) {}
+      result.add(ClassroomModel.fromSnapshot(doc, questions));
+    }
+    return result;
   }
 
   // ─── Aluno entra/sai ──────────────────────────────────────────
 
-  /// Adiciona o uid do aluno ao array `studentIds`.
+  /// Adiciona o uid do aluno ao array `studentIds` e regista a actividade.
   Future<void> joinClassroom({
     required String classroomId,
     required String studentId,
+    String? studentName,
   }) async {
     await _classrooms.doc(classroomId).update({
       'studentIds': FieldValue.arrayUnion([studentId]),
     });
+    final name = (studentName != null && studentName.trim().isNotEmpty)
+        ? studentName.trim()
+        : 'Um aluno';
+    _writeActivity(classroomId, 'student_joined', '$name entrou na turma');
   }
 
   /// Remove o uid do aluno do array `studentIds`.
@@ -284,15 +293,21 @@ class ClassroomFirestoreDatasource {
   ) =>
       _classrooms.doc(classroomId).collection('results');
 
-  /// Salva (ou sobrescreve) o resultado de um aluno.
+  /// Salva (ou sobrescreve) o resultado de um aluno e regista a actividade.
   /// O document ID é o uid do aluno — garante 1 resultado por aluno.
   Future<void> submitResult({
     required String classroomId,
     required ClassroomResultModel result,
+    String? phaseTitle,
   }) async {
     await _resultsRef(classroomId)
         .doc(result.studentId)
         .set(result.toFirestore());
+    final name = result.studentName.isNotEmpty ? result.studentName : 'Um aluno';
+    final phase = (phaseTitle != null && phaseTitle.trim().isNotEmpty)
+        ? ' na fase "${phaseTitle.trim()}"'
+        : '';
+    _writeActivity(classroomId, 'student_completed', '$name concluiu$phase');
   }
 
   /// Retorna todos os resultados de uma sala.
@@ -400,6 +415,8 @@ class ClassroomFirestoreDatasource {
 
     await batch.commit();
 
+    _writeActivity(classroomId, 'phase_created', 'Fase "$title" criada');
+
     // Retorna o model com as questões incluídas.
     return ClassroomPhaseModel(
       id: phaseRef.id,
@@ -452,6 +469,8 @@ class ClassroomFirestoreDatasource {
       'order': nextOrder,
       'createdAt': Timestamp.fromDate(now),
     });
+
+    _writeActivity(classroomId, 'phase_created', 'Fase "$title" criada');
 
     return ClassroomPhaseModel(
       id: phaseRef.id,
@@ -619,5 +638,57 @@ class ClassroomFirestoreDatasource {
       batch.update(snap.docs[i].reference, {'order': i + 1});
     }
     await batch.commit();
+  }
+
+  // ─── Actividades recentes ─────────────────────────────────────
+
+  CollectionReference<Map<String, dynamic>> _activitiesRef(
+    String classroomId,
+  ) =>
+      _classrooms.doc(classroomId).collection('activities');
+
+  /// Grava um evento na subcoleção `activities` da sala.
+  /// Fire-and-forget: não bloqueia a operação principal.
+  void _writeActivity(String classroomId, String type, String description) {
+    unawaited(
+      _activitiesRef(classroomId).add({
+        'type': type,
+        'description': description,
+        'createdAt': Timestamp.fromDate(DateTime.now()),
+      }),
+    );
+  }
+
+  /// Devolve as [limit] actividades mais recentes de todas as salas
+  /// do professor, ordenadas da mais recente para a mais antiga.
+  Future<List<ClassroomActivity>> fetchRecentActivities(
+    String teacherId, {
+    int limit = 3,
+  }) async {
+    final classroomsSnap = await _classrooms
+        .where('teacherId', isEqualTo: teacherId)
+        .get();
+
+    if (classroomsSnap.docs.isEmpty) return [];
+
+    final all = <ClassroomActivity>[];
+    for (final classroomDoc in classroomsSnap.docs) {
+      final activitiesSnap = await _activitiesRef(classroomDoc.id)
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+      for (final doc in activitiesSnap.docs) {
+        final data = doc.data();
+        all.add(ClassroomActivity(
+          type: (data['type'] as String?) ?? '',
+          description: (data['description'] as String?) ?? '',
+          createdAt:
+              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+        ),);
+      }
+    }
+
+    all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return all.take(limit).toList();
   }
 }

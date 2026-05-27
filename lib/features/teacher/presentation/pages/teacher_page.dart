@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../classroom/domain/entities/classroom_activity.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../providers/teacher_dashboard_provider.dart';
 import '../widgets/teacher_content.dart';
 import '../widgets/teacher_header.dart';
@@ -93,6 +95,13 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         user?.displayName ?? user?.email.split('@').first ?? 'Professor';
 
     final asyncDashboard = ref.watch(teacherDashboardProvider);
+    final asyncActivities = ref.watch(recentActivitiesProvider);
+
+    final activities = asyncActivities.when(
+      loading: () => <TeacherActivityItem>[],
+      error: (_, __) => <TeacherActivityItem>[],
+      data: _mapActivities,
+    );
 
     return Scaffold(
       body: SafeArea(
@@ -104,11 +113,13 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
             context,
             displayName: displayName,
             classroomId: null,
+            activities: activities,
           ),
           data: (dashboard) => _buildContent(
             context,
             displayName: displayName,
             classroomId: dashboard?.classroomId,
+            activities: activities,
           ),
         ),
       ),
@@ -119,22 +130,22 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     BuildContext context, {
     required String displayName,
     required String? classroomId,
+    required List<TeacherActivityItem> activities,
   }) {
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
         SliverToBoxAdapter(
-          child: _animated(
-            0,
-            TeacherHeader(displayName: displayName),
-          ),
+          child: _animated(0, TeacherHeader(displayName: displayName)),
         ),
         SliverToBoxAdapter(
           child: _animated(
             1,
             TeacherContent(
               actions: _buildActions(classroomId),
-              activities: _buildActivities(),
+              activities: activities.isNotEmpty
+                  ? activities
+                  : _placeholderActivities(),
             ),
           ),
         ),
@@ -143,18 +154,67 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     );
   }
 
-  List<TeacherActivityItem> _buildActivities() => const [
+  List<TeacherActivityItem> _mapActivities(
+    List<ClassroomActivity> events,
+  ) {
+    return events.map((e) {
+      return TeacherActivityItem(
+        description: e.description,
+        timeAgo: _timeAgo(e.createdAt),
+        icon: _activityIcon(e.type),
+        dotColor: _activityColor(e.type),
+      );
+    }).toList();
+  }
+
+  List<TeacherActivityItem> _placeholderActivities() => const [
         TeacherActivityItem(
-          description: 'Acesse "Minhas Turmas" para criar e organizar fases',
+          description: 'Crie uma fase para começar',
           timeAgo: '',
           icon: FontAwesomeIcons.layerGroup,
           dotColor: Color(0xFF8B72D0),
         ),
         TeacherActivityItem(
-          description: 'Acompanhe o progresso dos alunos pelo dashboard',
+          description: 'Acompanhe o progresso pelo dashboard',
           timeAgo: '',
           icon: FontAwesomeIcons.chartLine,
           dotColor: Color(0xFF72D082),
         ),
       ];
+
+  IconData _activityIcon(String type) {
+    switch (type) {
+      case 'phase_created':
+        return FontAwesomeIcons.layerGroup;
+      case 'student_joined':
+        return FontAwesomeIcons.userPlus;
+      case 'student_completed':
+        return FontAwesomeIcons.circleCheck;
+      default:
+        return FontAwesomeIcons.bell;
+    }
+  }
+
+  Color _activityColor(String type) {
+    switch (type) {
+      case 'phase_created':
+        return const Color(0xFF8B72D0);
+      case 'student_joined':
+        return const Color(0xFF72B2D0);
+      case 'student_completed':
+        return const Color(0xFF72D082);
+      default:
+        return const Color(0xFF8FA3AE);
+    }
+  }
+
+  String _timeAgo(DateTime dt) {
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'agora';
+    if (diff.inMinutes < 60) return 'há ${diff.inMinutes} min';
+    if (diff.inHours < 24) return 'há ${diff.inHours} h';
+    if (diff.inDays == 1) return 'ontem';
+    if (diff.inDays < 7) return 'há ${diff.inDays} dias';
+    return 'há ${diff.inDays ~/ 7} sem';
+  }
 }

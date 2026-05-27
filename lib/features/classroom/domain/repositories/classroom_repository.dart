@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../entities/classroom.dart';
+import '../entities/classroom_activity.dart';
 import '../entities/classroom_phase.dart';
 import '../entities/classroom_result.dart';
 
@@ -51,8 +52,8 @@ abstract class ClassroomRepository {
     String teacherId,
   );
 
-  /// Retorna a sala em que o aluno está (ou null se não está em nenhuma).
-  Future<Either<Failure, Classroom?>> getStudentClassroom(String studentId);
+  /// Retorna todas as salas em que o aluno está matriculado.
+  Future<Either<Failure, List<Classroom>>> getStudentClassrooms(String studentId);
 
   // ─── Aluno entra/sai ──────────────────────────────────────────
 
@@ -60,6 +61,7 @@ abstract class ClassroomRepository {
   Future<Either<Failure, void>> joinClassroom({
     required String classroomId,
     required String studentId,
+    String? studentName,
   });
 
   /// Remove o aluno da sala.
@@ -97,6 +99,7 @@ abstract class ClassroomRepository {
   Future<Either<Failure, void>> submitResult({
     required String classroomId,
     required ClassroomResult result,
+    String? phaseTitle,
   });
 
   /// Retorna os resultados de todos os alunos de uma sala (para o professor).
@@ -179,5 +182,11 @@ abstract class ClassroomRepository {
     required String classroomId,
     required String phaseId,
     required String questionId,
+  });
+
+  /// Devolve as [limit] actividades mais recentes de todas as salas do professor.
+  Future<List<ClassroomActivity>> fetchRecentActivities(
+    String teacherId, {
+    int limit = 3,
   });
 }

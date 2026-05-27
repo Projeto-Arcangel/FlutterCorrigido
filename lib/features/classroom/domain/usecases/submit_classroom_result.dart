@@ -12,10 +12,12 @@ class SubmitClassroomResult {
   Future<Either<Failure, void>> call({
     required String classroomId,
     required ClassroomResult result,
+    String? phaseTitle,
   }) {
     return _repository.submitResult(
       classroomId: classroomId,
       result: result,
+      phaseTitle: phaseTitle,
     );
   }
 }

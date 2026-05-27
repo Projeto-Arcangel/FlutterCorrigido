@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../../domain/entities/classroom.dart';
+import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
@@ -120,15 +121,15 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
-  Future<Either<Failure, Classroom?>> getStudentClassroom(
+  Future<Either<Failure, List<Classroom>>> getStudentClassrooms(
     String studentId,
   ) async {
     try {
-      final classroom = await _datasource.fetchStudentClassroom(studentId);
-      return Right(classroom);
+      final classrooms = await _datasource.fetchStudentClassrooms(studentId);
+      return Right(classrooms);
     } catch (e, st) {
-      _logger.e('getStudentClassroom failed', error: e, stackTrace: st);
-      return const Left(NetworkFailure('Falha ao buscar sala do aluno'));
+      _logger.e('getStudentClassrooms failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao buscar salas do aluno'));
     }
   }
 
@@ -138,11 +139,13 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Either<Failure, void>> joinClassroom({
     required String classroomId,
     required String studentId,
+    String? studentName,
   }) async {
     try {
       await _datasource.joinClassroom(
         classroomId: classroomId,
         studentId: studentId,
+        studentName: studentName,
       );
       return const Right(null);
     } catch (e, st) {
@@ -240,6 +243,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   Future<Either<Failure, void>> submitResult({
     required String classroomId,
     required ClassroomResult result,
+    String? phaseTitle,
   }) async {
     try {
       await _datasource.submitResult(
@@ -251,6 +255,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
           correctAnswers: result.correctAnswers,
           completedAt: result.completedAt,
         ),
+        phaseTitle: phaseTitle,
       );
       return const Right(null);
     } catch (e, st) {
@@ -459,6 +464,19 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     } catch (e, st) {
       _logger.e('deleteQuestionFromPhase failed', error: e, stackTrace: st);
       return const Left(NetworkFailure('Falha ao excluir a questão'));
+    }
+  }
+
+  @override
+  Future<List<ClassroomActivity>> fetchRecentActivities(
+    String teacherId, {
+    int limit = 3,
+  }) async {
+    try {
+      return await _datasource.fetchRecentActivities(teacherId, limit: limit);
+    } catch (e, st) {
+      _logger.e('fetchRecentActivities failed', error: e, stackTrace: st);
+      return [];
     }
   }
 }
