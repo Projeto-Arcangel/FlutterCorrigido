@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
-import '../../domain/entities/teacher_dashboard_data.dart';
 import '../providers/teacher_dashboard_provider.dart';
 import '../widgets/teacher_content.dart';
 import '../widgets/teacher_header.dart';
@@ -104,13 +103,11 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
           error: (_, __) => _buildContent(
             context,
             displayName: displayName,
-            stats: _fallbackStats(),
             classroomId: null,
           ),
           data: (dashboard) => _buildContent(
             context,
             displayName: displayName,
-            stats: _buildStats(dashboard),
             classroomId: dashboard?.classroomId,
           ),
         ),
@@ -121,7 +118,6 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
   Widget _buildContent(
     BuildContext context, {
     required String displayName,
-    required List<TeacherStatItem> stats,
     required String? classroomId,
   }) {
     return CustomScrollView(
@@ -130,10 +126,7 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         SliverToBoxAdapter(
           child: _animated(
             0,
-            TeacherHeader(
-              displayName: displayName,
-              stats: stats,
-            ),
+            TeacherHeader(displayName: displayName),
           ),
         ),
         SliverToBoxAdapter(
@@ -149,45 +142,6 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
       ],
     );
   }
-
-  List<TeacherStatItem> _buildStats(TeacherDashboardData? dashboard) {
-    if (dashboard == null) return _fallbackStats();
-    return [
-      TeacherStatItem(
-        value: dashboard.totalStudents.toString(),
-        label: 'Alunos\nna Turma',
-        icon: FontAwesomeIcons.userGroup,
-      ),
-      TeacherStatItem(
-        value: dashboard.totalQuestions.toString(),
-        label: 'Questões\nCriadas',
-        icon: FontAwesomeIcons.fileLines,
-      ),
-      TeacherStatItem(
-        value: dashboard.averageScoreFormatted,
-        label: 'Média\nda Turma',
-        icon: FontAwesomeIcons.chartSimple,
-      ),
-    ];
-  }
-
-  List<TeacherStatItem> _fallbackStats() => [
-        const TeacherStatItem(
-          value: '—',
-          label: 'Alunos\nna Turma',
-          icon: FontAwesomeIcons.userGroup,
-        ),
-        const TeacherStatItem(
-          value: '—',
-          label: 'Questões\nCriadas',
-          icon: FontAwesomeIcons.fileLines,
-        ),
-        const TeacherStatItem(
-          value: '—',
-          label: 'Média\nda Turma',
-          icon: FontAwesomeIcons.chartSimple,
-        ),
-      ];
 
   List<TeacherActivityItem> _buildActivities() => const [
         TeacherActivityItem(
