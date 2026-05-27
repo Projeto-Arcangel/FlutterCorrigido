@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../../../core/providers/core_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -36,20 +38,56 @@ class PreferencesState {
   }
 }
 
-class PreferencesNotifier extends StateNotifier<PreferencesState> {
-  PreferencesNotifier() : super(const PreferencesState());
+// ─────────────────────────────────────────────────────────────────────────────
+// Notifier com persistência em SharedPreferences.
+//
+// Cada setter grava o novo valor no disco imediatamente (fire-and-forget),
+// garantindo que a preferência sobreviva a hot-reloads e reinicializações.
+// ─────────────────────────────────────────────────────────────────────────────
 
-  void setMusicVolume(double v) => state = state.copyWith(musicVolume: v);
-  void setSfxVolume(double v) => state = state.copyWith(sfxVolume: v);
-  void toggleNotifications() =>
-      state = state.copyWith(notificationsEnabled: !state.notificationsEnabled);
-  void toggleLightMode() =>
-      state = state.copyWith(lightMode: !state.lightMode);
+class PreferencesNotifier extends StateNotifier<PreferencesState> {
+  PreferencesNotifier(this._prefs) : super(_load(_prefs));
+
+  final SharedPreferences _prefs;
+
+  static const _kLight         = 'pref_light_mode';
+  static const _kMusic         = 'pref_music_volume';
+  static const _kSfx           = 'pref_sfx_volume';
+  static const _kNotifications = 'pref_notifications';
+
+  static PreferencesState _load(SharedPreferences p) => PreferencesState(
+        lightMode:            p.getBool(_kLight)         ?? false,
+        musicVolume:          p.getDouble(_kMusic)        ?? 0.3,
+        sfxVolume:            p.getDouble(_kSfx)          ?? 0.6,
+        notificationsEnabled: p.getBool(_kNotifications)  ?? true,
+      );
+
+  void setMusicVolume(double v) {
+    _prefs.setDouble(_kMusic, v);
+    state = state.copyWith(musicVolume: v);
+  }
+
+  void setSfxVolume(double v) {
+    _prefs.setDouble(_kSfx, v);
+    state = state.copyWith(sfxVolume: v);
+  }
+
+  void toggleNotifications() {
+    final next = !state.notificationsEnabled;
+    _prefs.setBool(_kNotifications, next);
+    state = state.copyWith(notificationsEnabled: next);
+  }
+
+  void toggleLightMode() {
+    final next = !state.lightMode;
+    _prefs.setBool(_kLight, next);
+    state = state.copyWith(lightMode: next);
+  }
 }
 
 final preferencesProvider =
     StateNotifierProvider<PreferencesNotifier, PreferencesState>(
-  (_) => PreferencesNotifier(),
+  (ref) => PreferencesNotifier(ref.watch(sharedPreferencesProvider)),
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
