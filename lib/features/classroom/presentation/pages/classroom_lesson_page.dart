@@ -15,8 +15,8 @@ import '../providers/classroom_providers.dart';
 
 /// Página de quiz para uma fase de sala de aula.
 ///
-/// Usa sua própria tela de resultado ("Voltar à turma") em vez do
-/// [QuizResultView] global, que manda para a trilha de história.
+/// Usa sua própria tela de resultado ("Voltar à turma"), definida inline
+/// neste arquivo, em vez de uma tela global.
 class ClassroomLessonPage extends ConsumerWidget {
   const ClassroomLessonPage({
     super.key,

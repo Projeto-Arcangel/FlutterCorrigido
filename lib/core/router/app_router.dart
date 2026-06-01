@@ -17,8 +17,6 @@ import '../../features/classroom/domain/entities/classroom_phase.dart';
 import '../../features/classroom/presentation/pages/classroom_lesson_page.dart';
 import '../../features/classroom/presentation/pages/classroom_trail_page.dart';
 import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
-import '../../features/lesson/presentation/pages/lesson_list_page.dart';
-import '../../features/lesson/presentation/pages/lesson_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/classroom_list_page.dart';
@@ -47,9 +45,6 @@ class AppRoutes {
   static const String teacherSettings = '/teacher/settings';
   static const String teacherSettingsPreferences = '/teacher/settings/preferences';
   static const String teacherAccount = '/teacher/account';
-  static const String personalTrail = '/trail';
-  static const String lessons = '/lessons';
-  static const String lesson = '/lessons/:id';
   static const String profile = '/profile';
   static const String roleSelection = '/';
   static const String settings = '/settings';
@@ -62,7 +57,6 @@ class AppRoutes {
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
 
-  static String lessonPath(String id) => '/lessons/$id';
   static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
   static String classroomLessonPath(String classroomId, String phaseId) =>
       '/classroom/$classroomId/phase/$phaseId';
@@ -256,21 +250,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.forgotPassword,
         builder: (_, __) => const ForgotPasswordPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.personalTrail,
-        builder: (_, __) => const LessonListPage(),
-      ),
-      GoRoute(
-        path: AppRoutes.lessons,
-        builder: (_, __) => const LessonListPage(),
-        routes: [
-          GoRoute(
-            path: ':id',
-            builder: (_, state) =>
-                LessonPage(lessonId: state.pathParameters['id']!),
-          ),
-        ],
       ),
       GoRoute(
         path: AppRoutes.classroomTrail,
