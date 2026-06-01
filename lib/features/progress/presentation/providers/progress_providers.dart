@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/repositories/progress_repository_impl.dart';
 import '../../domain/entities/user_progress.dart';
@@ -8,7 +8,7 @@ import '../../domain/repositories/progress_repository.dart';
 
 final progressRepositoryProvider = Provider<ProgressRepository>((ref) {
   return ProgressRepositoryImpl(
-    ref.watch(firestoreProvider),
+    ref.watch(supabaseClientProvider),
     ref.watch(loggerProvider),
   );
 });

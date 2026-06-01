@@ -7,6 +7,7 @@ import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../domain/entities/user.dart';
 import '../providers/auth_providers.dart';
+import '../providers/login_controller.dart';
 
 class GoogleCompleteProfilePage extends ConsumerStatefulWidget {
   const GoogleCompleteProfilePage({super.key});
@@ -34,8 +35,8 @@ class _GoogleCompleteProfilePageState
     if (!_formKey.currentState!.validate()) return;
     setState(() => _loading = true);
 
-    final fbUser = ref.read(firebaseAuthProvider).currentUser;
-    if (fbUser == null) {
+    final authUser = ref.read(authStateProvider).valueOrNull;
+    if (authUser == null) {
       setState(() => _loading = false);
       return;
     }
@@ -43,12 +44,12 @@ class _GoogleCompleteProfilePageState
     final name      = _nameCtrl.text.trim();
     final studentId = _studentIdCtrl.text.trim().toUpperCase();
 
-    // 1. Cria o perfil no Firestore com nome e prontuário.
+    // 1. Completa o perfil (profiles) com nome e prontuário.
     final user = User(
-      id:          fbUser.uid,
-      email:       fbUser.email ?? '',
+      id:          authUser.id,
+      email:       authUser.email,
       displayName: name,
-      photoUrl:    fbUser.photoURL,
+      photoUrl:    authUser.photoUrl,
       studentId:   studentId,
     );
 
@@ -67,8 +68,8 @@ class _GoogleCompleteProfilePageState
       return;
     }
 
-    // 2. Atualiza displayName no Firebase Auth para consistência.
-    await fbUser.updateDisplayName(name);
+    // 2. Atualiza displayName no Supabase Auth (user_metadata) p/ consistência.
+    await ref.read(updateDisplayNameProvider)(name: name);
 
     if (!mounted) return;
 

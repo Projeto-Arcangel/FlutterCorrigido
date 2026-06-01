@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
@@ -93,8 +94,8 @@ class _AccountPageState extends ConsumerState<AccountPage>
   // ── helpers ──────────────────────────────────────────────────────────────
 
   bool get _isEmailUser {
-    final fbUser = ref.read(firebaseAuthProvider).currentUser;
-    return fbUser?.providerData.any((p) => p.providerId == 'password') ?? false;
+    final user = Supabase.instance.client.auth.currentUser;
+    return user?.appMetadata['provider'] == 'email';
   }
 
   void _snack(String msg, {bool error = false}) {

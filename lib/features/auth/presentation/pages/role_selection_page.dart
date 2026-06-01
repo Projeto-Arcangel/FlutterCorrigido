@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../domain/entities/user.dart';
 import '../providers/auth_providers.dart';
+import '../providers/login_controller.dart';
 import '../widgets/role_card.dart';
 import '../widgets/role_selection_header.dart';
 
@@ -66,8 +67,8 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
   Future<void> _onRoleSelected(UserRole role) async {
     if (_saving) return;
 
-    final fbUser = ref.read(firebaseAuthProvider).currentUser;
-    if (fbUser == null) {
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user == null) {
       // Defesa em profundidade: o router não deveria deixar chegar aqui
       // sem usuário logado, mas se acontecer (deep link, race condition),
       // não tenta gravar e deixa o redirect resolver.
@@ -77,18 +78,17 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
     setState(() => _saving = true);
 
     final result = await ref.read(userRepositoryProvider).setRole(
-          userId: fbUser.uid,
+          userId: user.id,
           role: role,
         );
 
     if (role == UserRole.teacher && result.isRight()) {
       // Cria uma turma padrão para o professor recém-cadastrado
       final createClassroom = ref.read(createClassroomProvider);
-      final displayName =
-          fbUser.displayName ?? fbUser.email?.split('@').first ?? 'Professor';
+      final displayName = user.displayName ?? user.email.split('@').first;
       await createClassroom(
         name: 'Minha Primeira Turma',
-        teacherId: fbUser.uid,
+        teacherId: user.id,
         teacherName: displayName,
         description: 'Turma gerada automaticamente.',
       );

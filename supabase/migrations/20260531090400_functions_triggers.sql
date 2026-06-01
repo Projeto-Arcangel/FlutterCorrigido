@@ -17,7 +17,9 @@ begin
     new.email,
     new.raw_user_meta_data ->> 'display_name',
     new.raw_user_meta_data ->> 'photo_url',
-    coalesce((new.raw_user_meta_data ->> 'role')::public.user_role, 'student')
+    -- role propositalmente NULL quando não vem no metadata: o app força a
+    -- RoleSelectionPage e grava via RPC set_role. (não usar default aqui)
+    (new.raw_user_meta_data ->> 'role')::public.user_role
   );
   insert into public.user_progress (user_id) values (new.id);
   return new;
@@ -187,6 +189,22 @@ begin
 end;
 $$;
 
+-- Avança a fase atual do usuário (escrita direta em user_progress é
+-- bloqueada pela RLS; só muda por esta RPC).
+create or replace function public.advance_phase(p_phase int)
+returns public.user_progress
+language plpgsql security definer set search_path = public as $$
+declare v_row public.user_progress;
+begin
+  if p_phase is null or p_phase < 1 then
+    raise exception 'Fase inválida';
+  end if;
+  update public.user_progress set current_phase = p_phase
+   where user_id = auth.uid() returning * into v_row;
+  return v_row;
+end;
+$$;
+
 -- ─────────────────────────────────────────────────────────────────────
 -- 4.6 · Salas — código único, entrar, registrar resultado
 -- ─────────────────────────────────────────────────────────────────────
@@ -300,6 +318,17 @@ begin
 end;
 $$;
 
+-- Exclui a própria conta (auth.users → cascade apaga profile/progresso).
+-- O cliente Supabase não consegue auto-deletar usuário (só service_role),
+-- por isso a operação fica numa função SECURITY DEFINER restrita ao próprio uid.
+create or replace function public.delete_account()
+returns void
+language plpgsql security definer set search_path = public, auth as $$
+begin
+  delete from auth.users where id = auth.uid();
+end;
+$$;
+
 -- ─────────────────────────────────────────────────────────────────────
 -- 4.7 · Permissões de execução (RPCs só para autenticados)
 -- ─────────────────────────────────────────────────────────────────────
@@ -310,10 +339,12 @@ begin
     'public.set_role(public.user_role)',
     'public.award_xp(numeric)',
     'public.award_gold(integer)',
+    'public.advance_phase(integer)',
     'public.register_login()',
     'public.create_classroom(text, text)',
     'public.join_classroom(text)',
-    'public.submit_result(uuid, uuid, integer, integer)'
+    'public.submit_result(uuid, uuid, integer, integer)',
+    'public.delete_account()'
   ] loop
     execute format('revoke all on function %s from public, anon;', fn);
     execute format('grant execute on function %s to authenticated;', fn);

@@ -70,8 +70,37 @@ Depois de aplicar, teste no SQL Editor com um JWT de aluno e um de professor:
 - Aluno **não** consegue `update` direto em `user_progress` (XP só muda via `select award_xp(50)`).
 - Professor só vê/edita as próprias salas.
 
+## Edge Function — `generate-questions` (OpenRouter)
+
+Substitui a Cloud Function `generateQuestionsAI`. Código em
+[`functions/generate-questions/index.ts`](functions/generate-questions/index.ts);
+lógica de IA portada em [`functions/_shared/openrouter.ts`](functions/_shared/openrouter.ts).
+
+Fluxo: valida JWT → exige `role = teacher` (em `profiles`) → chama OpenRouter
+com fallback de modelos → audita em `ai_generation_logs` (via `service_role`).
+
+### Teste local
+```powershell
+# 1. Copie o exemplo e preencha a chave real:
+#    supabase/functions/.env  (gitignored)  ->  OPENROUTER_API_KEY=sk-or-...
+npx supabase functions serve generate-questions --env-file supabase/functions/.env
+# Sem JWT válido a função responde 401; com JWT de aluno responde 403.
+```
+
+### Deploy (cloud)
+```powershell
+npx supabase secrets set OPENROUTER_API_KEY=sk-or-...   # segredo no Vault
+npx supabase functions deploy generate-questions
+```
+
+> `SUPABASE_URL`, `SUPABASE_ANON_KEY` e `SUPABASE_SERVICE_ROLE_KEY` são injetados
+> automaticamente pelo runtime — não precisam ser configurados como segredo.
+> A whitelist `ALLOWED_MODELS` deve continuar espelhando `IaModelOption`
+> (`lib/features/ia_quiz/domain/entities/ia_model_option.dart`).
+
 ## Próximos passos do plano
 
-- **Fase 3:** Edge Function `generate-questions` + segredo `OPENROUTER_API_KEY`.
 - **Fase 5:** ETL de dados do Firestore.
-- **Fase 6:** trocar os datasources Flutter (`cloud_firestore` → `supabase_flutter`).
+- **Fase 6:** trocar os datasources Flutter (`cloud_firestore` → `supabase_flutter`);
+  o `FirebaseFunctionsIaDatasource` passa a chamar
+  `supabase.functions.invoke('generate-questions', body: {...})`.

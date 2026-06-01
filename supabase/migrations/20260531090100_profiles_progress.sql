@@ -10,7 +10,7 @@ create table public.profiles (
   email        text not null,
   display_name text,
   photo_url    text,
-  role         public.user_role not null default 'student',
+  role         public.user_role,        -- null = ainda não escolheu (gate da RoleSelectionPage)
   student_id   text,                    -- prontuário (ex.: SP123456), opcional
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now()

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/failure.dart';
-import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/user_repository_impl.dart';
@@ -26,7 +26,7 @@ final googleSignInProvider = Provider<GoogleSignIn>(
 
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
-    ref.watch(firebaseAuthProvider),
+    ref.watch(supabaseClientProvider),
     ref.watch(googleSignInProvider),
     ref.watch(loggerProvider),
   );
@@ -80,7 +80,7 @@ final sendPasswordResetProvider = Provider<ResetPasswordFn>(
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepositoryImpl(
-    ref.watch(firestoreProvider),
+    ref.watch(supabaseClientProvider),
     ref.watch(loggerProvider),
   );
 });
@@ -137,9 +137,9 @@ final googleNewUserProvider = StateProvider<bool>((_) => false);
 /// sempre que o `authStateProvider` muda — esse é o gatilho de refetch.
 /// Também invalidar manualmente após `setRole`.
 final currentUserRoleProvider = FutureProvider<UserRole?>((ref) async {
-  final fbUser = ref.read(firebaseAuthProvider).currentUser;
-  if (fbUser == null) return null;
+  final user = ref.read(supabaseClientProvider).auth.currentUser;
+  if (user == null) return null;
 
-  final result = await ref.read(userRepositoryProvider).getRole(fbUser.uid);
+  final result = await ref.read(userRepositoryProvider).getRole(user.id);
   return result.fold((_) => null, (role) => role);
 });
