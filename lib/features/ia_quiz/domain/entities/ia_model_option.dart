@@ -1,7 +1,7 @@
 /// Modelos de IA que o professor pode escolher para gerar questões.
 ///
 /// O valor de [key] casa exatamente com a whitelist `ALLOWED_MODELS`
-/// em `firebase/functions/openrouter.js`. Adicionar um modelo aqui
+/// em `supabase/functions/_shared/openrouter.ts`. Adicionar um modelo aqui
 /// sem espelhar no backend faz o backend rejeitar a chamada.
 enum IaModelOption {
   geminiFlash(

@@ -2,15 +2,13 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Datasource que invoca a Edge Function `generate-questions` (Supabase).
 ///
-/// Substitui a antiga Cloud Function `generateQuestionsAI`. O nome da classe é
-/// mantido durante a migração para não rippar repository/providers; será
-/// renomeado na limpeza final (Fase 8).
+/// Substitui a antiga Cloud Function `generateQuestionsAI`.
 ///
 /// `functions.invoke` lança [FunctionException] em respostas não-2xx
 /// (401 não-autenticado, 403 não-professor, 400 input inválido, 500 falha da
 /// IA com `{ error, attempts }`). O repository converte para [Failure].
-class FirebaseFunctionsIaDatasource {
-  FirebaseFunctionsIaDatasource(this._client);
+class SupabaseIaDatasource {
+  SupabaseIaDatasource(this._client);
 
   final SupabaseClient _client;
 

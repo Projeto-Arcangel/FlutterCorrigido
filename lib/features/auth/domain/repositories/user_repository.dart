@@ -3,10 +3,10 @@ import '../../../../core/errors/failure.dart';
 import '../entities/user.dart';
 
 abstract class UserRepository {
-  /// Cria o documento do usuário no Firestore se ainda não existir.
+  /// Cria o registro do usuário (tabela `profiles`) se ainda não existir.
   Future<Either<Failure, void>> createProfileIfAbsent(User user);
 
-  /// Verifica se o documento do usuário já existe no Firestore.
+  /// Verifica se o registro do usuário já existe (tabela `profiles`).
   /// Usado para detectar se é a primeira vez que o usuário entra via Google.
   Future<Either<Failure, bool>> hasProfile(String userId);
 

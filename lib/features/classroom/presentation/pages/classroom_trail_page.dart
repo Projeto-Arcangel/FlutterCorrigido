@@ -35,7 +35,7 @@ class ClassroomTrailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     // Se já temos o objeto classroom (navegação normal), usamos direto.
-    // Caso contrário, buscamos do Firestore via provider.
+    // Caso contrário, buscamos do Supabase via provider.
     if (classroom != null) {
       return _ClassroomTrailContent(classroom: classroom!);
     }

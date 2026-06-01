@@ -80,7 +80,7 @@ class CustomizeQuizPage extends ConsumerStatefulWidget {
   final String difficulty;
 
   /// ID da sala de aula do professor. Se preenchido, o quiz será salvo
-  /// como uma fase (Phase) vinculada a essa sala no Firestore.
+  /// como uma fase (Phase) vinculada a essa sala no Supabase.
   final String? classroomId;
 
   /// ID da fase existente em que as questões serão anexadas.
@@ -119,7 +119,7 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
   List<Question> _buildQuestionEntities() {
     return _questions.map((q) {
       return Question(
-        id: '', // gerado pelo Firestore
+        id: '', // gerado pelo banco (Supabase)
         text: q.textCtrl.text.trim(),
         options: q.altCtrls.map((c) => c.text.trim()).toList(),
         correctAnswer: q.correctIndex!,

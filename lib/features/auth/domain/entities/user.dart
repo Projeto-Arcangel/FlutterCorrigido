@@ -4,11 +4,11 @@ import 'package:equatable/equatable.dart';
 ///
 /// Tudo o que vier depois do MVP de aluno (painel do professor, criação
 /// de turmas, criação de conteúdo) depende deste discriminante existir
-/// na entidade. Persistido em `Users/{uid}.role` no Firestore como
+/// na entidade. Persistido em `profiles.role` no Supabase como
 /// string ("student" | "teacher").
 enum UserRole { student, teacher }
 
-/// Converte uma string vinda do Firestore em `UserRole`.
+/// Converte uma string vinda do banco em `UserRole`.
 /// Retorna `null` quando o valor é desconhecido ou ausente — usado pelo
 /// gate de role no router para decidir se o usuário precisa passar pela
 /// `RoleSelectionPage`.

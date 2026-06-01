@@ -3,19 +3,19 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Configuração do Supabase.
 ///
-/// Os defaults apontam para o stack LOCAL (`npx supabase start`). Para apontar
-/// para outro ambiente (ex.: projeto cloud), passe `--dart-define` no build/run:
+/// Os valores vêm de `--dart-define-from-file` (veja `env/local.json` e
+/// `env/prod.json`). Rode sempre passando o arquivo do ambiente desejado:
 ///
 /// ```
-/// flutter run \
-///   --dart-define=SUPABASE_URL=https://SEU-PROJ.supabase.co \
-///   --dart-define=SUPABASE_ANON_KEY=eyJ...
+/// flutter run   -d edge --dart-define-from-file=env/local.json  # dev (local)
+/// flutter build web     --dart-define-from-file=env/prod.json   # produção (cloud)
 /// ```
 ///
-/// ⚠️ Emulador Android: `127.0.0.1` aponta para o próprio emulador. Use
-/// `--dart-define=SUPABASE_URL=http://10.0.2.2:54321` para alcançar o host.
-/// A anon key default abaixo é a chave pública padrão do Supabase local
-/// (idêntica em qualquer instalação local) — não é segredo.
+/// Os defaults abaixo (stack local) são apenas um fallback caso nenhum arquivo
+/// seja passado. A anon key é pública (a RLS protege os dados) — não é segredo.
+///
+/// ⚠️ Emulador Android: `127.0.0.1` é o próprio emulador. Use um env com
+/// `SUPABASE_URL=http://10.0.2.2:54321` para alcançar o host.
 const supabaseUrl = String.fromEnvironment(
   'SUPABASE_URL',
   defaultValue: 'http://127.0.0.1:54321',
@@ -30,7 +30,7 @@ const supabaseAnonKey = String.fromEnvironment(
 /// Cliente Supabase global.
 ///
 /// Disponível após `Supabase.initialize(...)` no `main()`. Fica em
-/// `core/infrastructure` pelo mesmo motivo do [firestoreProvider]: é uma
+/// `core/infrastructure` por ser uma
 /// dependência de plataforma; features importam daqui em vez de tocar
 /// `Supabase.instance` diretamente (facilita override em testes).
 final supabaseClientProvider = Provider<SupabaseClient>(

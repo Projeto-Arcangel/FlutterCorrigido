@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../../lesson/domain/entities/question.dart';
-import '../../data/datasources/firebase/classroom_firestore_datasource.dart';
+import '../../data/datasources/supabase/classroom_supabase_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
 import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
@@ -29,8 +29,8 @@ import '../../domain/usecases/update_question_in_classroom.dart';
 // ─── Infraestrutura ────────────────────────────────────────────
 
 final classroomDatasourceProvider =
-    Provider<ClassroomFirestoreDatasource>((ref) {
-  return ClassroomFirestoreDatasource(ref.watch(supabaseClientProvider));
+    Provider<ClassroomSupabaseDatasource>((ref) {
+  return ClassroomSupabaseDatasource(ref.watch(supabaseClientProvider));
 });
 
 final classroomRepositoryProvider = Provider<ClassroomRepository>((ref) {

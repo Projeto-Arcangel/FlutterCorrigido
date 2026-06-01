@@ -13,8 +13,8 @@ class UserProgress extends Equatable {
   /// acesso foi exatamente no dia anterior.
   final int streak;
 
-  /// Último dia de acesso registrado. Persistido como Timestamp no
-  /// Firestore. Usado em conjunto com [streak] para decidir se o
+  /// Último dia de acesso registrado. Persistido como timestamp no
+  /// Supabase. Usado em conjunto com [streak] para decidir se o
   /// streak deve incrementar, manter ou zerar.
   final DateTime? lastLoginDate;
 

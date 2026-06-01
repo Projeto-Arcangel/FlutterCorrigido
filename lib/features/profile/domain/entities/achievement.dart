@@ -49,8 +49,8 @@ class Achievement extends Equatable {
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Catálogo estático — fonte única de verdade para conquistas baseadas em XP.
-// Quando houver persistência no Firestore, este catálogo servirá como fallback
-// e template para a coleção remota.
+// Espelha a tabela `achievements` no Supabase (populada via migration de seed);
+// serve de fallback local e fonte de verdade do catálogo.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const List<Achievement> achievementCatalog = [

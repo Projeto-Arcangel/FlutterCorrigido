@@ -107,13 +107,13 @@ abstract class ClassroomRepository {
     String classroomId,
   );
 
-  // ─── Fases (quiz → fase no Firestore) ─────────────────────────
+  // ─── Fases (quiz → fase no Supabase) ─────────────────────────
 
-  /// Cria uma fase (Phase) no Firestore vinculada a uma sala de aula.
+  /// Cria uma fase (Phase) no Supabase vinculada a uma sala de aula.
   ///
   /// A fase fica acessível somente para os alunos daquela sala.
-  /// As questões são criadas na coleção `Questions` com `phase_ref`
-  /// apontando para o documento da fase criada.
+  /// As questões são criadas na tabela `questions` com `phase_id`
+  /// apontando para a fase criada.
   Future<Either<Failure, ClassroomPhase>> saveQuizAsPhase({
     required String classroomId,
     required String title,

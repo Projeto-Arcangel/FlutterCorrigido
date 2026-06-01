@@ -6,13 +6,13 @@ import '../../../../core/errors/failure.dart';
 import '../../domain/entities/ia_generation_result.dart';
 import '../../domain/entities/ia_model_option.dart';
 import '../../domain/repositories/ia_quiz_repository.dart';
-import '../datasources/firebase_functions_ia_datasource.dart';
+import '../datasources/supabase_ia_datasource.dart';
 import '../models/ia_question_response_model.dart';
 
 class IaQuizRepositoryImpl implements IaQuizRepository {
   IaQuizRepositoryImpl(this._datasource, this._logger);
 
-  final FirebaseFunctionsIaDatasource _datasource;
+  final SupabaseIaDatasource _datasource;
   final Logger _logger;
 
   @override

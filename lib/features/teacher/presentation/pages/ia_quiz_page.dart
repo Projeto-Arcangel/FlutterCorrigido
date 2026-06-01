@@ -118,7 +118,7 @@ enum _Difficulty {
   const _Difficulty(this.stars, this.label, this.key);
   final int stars;
   final String label;
-  // [key] casa com `DIFFICULTY_LABELS` em firebase/functions/openrouter.js.
+  // [key] casa com `DIFFICULTY_LABELS` em supabase/functions/_shared/openrouter.ts.
   final String key;
 }
 

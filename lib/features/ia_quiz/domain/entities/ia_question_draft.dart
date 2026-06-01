@@ -5,7 +5,7 @@ import '../../../lesson/domain/entities/question.dart';
 /// Rascunho de uma questão gerada pela IA, antes do professor decidir
 /// se mantém ou descarta.
 ///
-/// Não é persistido no Firestore — vive apenas no estado da tela de
+/// Não é persistido no banco — vive apenas no estado da tela de
 /// revisão. Quando o professor confirma, as questões com [isAccepted]
 /// `true` são convertidas de volta para [Question] e passadas ao
 /// `SaveClassroomQuiz`.

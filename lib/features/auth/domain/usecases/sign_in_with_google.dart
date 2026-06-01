@@ -9,9 +9,9 @@ import '../repositories/user_repository.dart';
 ///
 /// [user]           → usuário autenticado.
 /// [isNewGoogleUser] → `true` quando é a primeira vez que este usuário
-///                     entra via Google (perfil ainda não existe no Firestore).
+///                     entra via Google (perfil ainda não existe na tabela `profiles`).
 ///                     O router usa essa flag para exibir a tela de completar
-///                     perfil (Nome + Prontuário) antes de criar o documento.
+///                     perfil (Nome + Prontuário) antes de criar o registro.
 typedef SignInWithGoogleResult = ({User user, bool isNewGoogleUser});
 
 class SignInWithGoogle {

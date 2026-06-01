@@ -1,5 +1,4 @@
 import 'package:dartz/dartz.dart';
-import 'package:firebase_auth/firebase_auth.dart' hide User;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
@@ -15,10 +14,6 @@ import '../../domain/usecases/register_user.dart';
 import '../../domain/usecases/sign_in_with_email.dart';
 import '../../domain/usecases/sign_in_with_google.dart';
 import '../../domain/usecases/sign_out.dart';
-
-final firebaseAuthProvider = Provider<FirebaseAuth>(
-  (ref) => FirebaseAuth.instance,
-);
 
 final googleSignInProvider = Provider<GoogleSignIn>(
   (ref) => GoogleSignIn(),
@@ -123,7 +118,7 @@ final updateProfileProvider = Provider<UpdateProfileFn>(
 /// Limpo (false) após o perfil ser criado com sucesso.
 final googleNewUserProvider = StateProvider<bool>((_) => false);
 
-/// Role do usuário autenticado, lido de `Users/{uid}.role` no Firestore.
+/// Role do usuário autenticado, lido de `profiles.role` no Supabase.
 ///
 /// • `null`             = logado mas ainda não escolheu role
 ///                        (router força a `RoleSelectionPage`).
@@ -131,7 +126,7 @@ final googleNewUserProvider = StateProvider<bool>((_) => false);
 /// • `AsyncLoading`     = fetch em andamento — o router evita redirecionar
 ///                        durante esse estado para não causar flicker.
 ///
-/// Este provider NÃO observa o stream do Firebase Auth diretamente (para
+/// Este provider NÃO observa o stream do Supabase Auth diretamente (para
 /// não acoplar a `login_controller.dart`, criando ciclo de imports).
 /// O `_AuthRefreshNotifier` em `app_router.dart` invalida este provider
 /// sempre que o `authStateProvider` muda — esse é o gatilho de refetch.

@@ -9,15 +9,12 @@ import '../../models/classroom_result_model.dart';
 
 /// Acesso ao Supabase para a feature `classroom`.
 ///
-/// Mantém o nome legado (`...FirestoreDatasource`) para não ripple no
-/// repository/providers durante a migração; será renomeado na limpeza final.
-///
 /// Leituras que precisam de nomes de outros usuários (listas de salas,
 /// resultados/ranking) passam por RPCs `SECURITY DEFINER` que devolvem JSON
 /// pronto — contornam a RLS de `profiles`. As escritas de conteúdo (fases,
 /// questões) vão direto pela tabela (gated pela RLS de dono).
-class ClassroomFirestoreDatasource {
-  ClassroomFirestoreDatasource(this._client);
+class ClassroomSupabaseDatasource {
+  ClassroomSupabaseDatasource(this._client);
 
   final SupabaseClient _client;
 

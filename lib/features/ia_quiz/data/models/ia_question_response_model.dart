@@ -8,7 +8,7 @@ import '../../../lesson/domain/entities/question.dart';
 /// fora do esperado, a exceção sobe naturalmente para o repository.
 class IaQuestionResponseModel {
   /// Mapeia uma única questão crua para [Question].
-  /// O `id` fica vazio: será atribuído pelo Firestore quando o professor
+  /// O `id` fica vazio: será atribuído pelo banco quando o professor
   /// confirmar e salvar a fase via `SaveClassroomQuiz`.
   static Question questionFromJson(Map<String, dynamic> json) {
     final rawOptions = json['options'] as List;

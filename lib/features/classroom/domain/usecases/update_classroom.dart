@@ -6,7 +6,7 @@ import '../repositories/classroom_repository.dart';
 /// Atualiza o nome e/ou descrição de uma sala.
 ///
 /// Somente o professor dono da sala deve chamar este use case.
-/// A validação de ownership é feita na camada de segurança do Firestore.
+/// A validação de ownership é feita pela camada de segurança (RLS) do Supabase.
 class UpdateClassroom {
   final ClassroomRepository _repository;
   const UpdateClassroom(this._repository);

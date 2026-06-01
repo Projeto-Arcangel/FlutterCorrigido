@@ -8,7 +8,7 @@ import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
-import '../datasources/firebase/classroom_firestore_datasource.dart';
+import '../datasources/supabase/classroom_supabase_datasource.dart';
 import '../models/classroom_result_model.dart';
 
 /// Implementação concreta do [ClassroomRepository].
@@ -18,7 +18,7 @@ import '../models/classroom_result_model.dart';
 class ClassroomRepositoryImpl implements ClassroomRepository {
   ClassroomRepositoryImpl(this._datasource, this._logger);
 
-  final ClassroomFirestoreDatasource _datasource;
+  final ClassroomSupabaseDatasource _datasource;
   final Logger _logger;
 
   // ─── Sala ──────────────────────────────────────────────────────
@@ -277,7 +277,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     }
   }
 
-  // ─── Fases (quiz → fase no Firestore) ─────────────────────────
+  // ─── Fases (quiz → fase no Supabase) ─────────────────────────
 
   @override
   Future<Either<Failure, ClassroomPhase>> saveQuizAsPhase({
