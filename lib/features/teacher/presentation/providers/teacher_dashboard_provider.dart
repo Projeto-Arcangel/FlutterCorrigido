@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/domain/entities/classroom_result.dart';
@@ -9,13 +9,13 @@ import '../../domain/entities/teacher_dashboard_data.dart';
 
 final teacherDashboardProvider =
     FutureProvider.autoDispose<TeacherDashboardData?>((ref) async {
-  final user = ref.watch(firebaseAuthProvider).currentUser;
+  final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return null;
   final classroomRepository = ref.read(classroomRepositoryProvider);
 
   // 1. Usa a primeira sala como resumo principal do dashboard do professor.
   final classroomsResult = await classroomRepository.getTeacherClassrooms(
-    user.uid,
+    user.id,
   );
 
   final classrooms = classroomsResult.fold<List<Classroom>>(

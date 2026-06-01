@@ -1,7 +1,4 @@
-import 'dart:async';
-import 'dart:math';
-
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
@@ -10,685 +7,390 @@ import '../../models/classroom_model.dart';
 import '../../models/classroom_phase_model.dart';
 import '../../models/classroom_result_model.dart';
 
-/// Camada de acesso ao Firestore para a feature `classroom`.
+/// Acesso ao Supabase para a feature `classroom`.
 ///
-/// Segue o mesmo padrão de `LessonFirestoreDataSource`:
-/// isola o SDK do Firestore para que domain/ e presentation/
-/// não conheçam detalhes de persistência.
+/// Mantém o nome legado (`...FirestoreDatasource`) para não ripple no
+/// repository/providers durante a migração; será renomeado na limpeza final.
 ///
-/// **Coleções:**
-/// - `Classrooms` — documentos de sala
-/// - `Classrooms/{id}/questions` — subcoleção de questões
-/// - `Classrooms/{id}/results` — subcoleção de resultados
+/// Leituras que precisam de nomes de outros usuários (listas de salas,
+/// resultados/ranking) passam por RPCs `SECURITY DEFINER` que devolvem JSON
+/// pronto — contornam a RLS de `profiles`. As escritas de conteúdo (fases,
+/// questões) vão direto pela tabela (gated pela RLS de dono).
 class ClassroomFirestoreDatasource {
-  ClassroomFirestoreDatasource(this._firestore);
+  ClassroomFirestoreDatasource(this._client);
 
-  final FirebaseFirestore _firestore;
-
-  CollectionReference<Map<String, dynamic>> get _classrooms =>
-      _firestore.collection('Classrooms');
+  final SupabaseClient _client;
 
   // ─── Sala ──────────────────────────────────────────────────────
 
-  /// Cria uma sala com código único de 6 caracteres.
   Future<ClassroomModel> createClassroom({
     required String name,
     required String description,
     required String teacherId,
     required String teacherName,
   }) async {
-    final code = await _generateUniqueCode();
-    final now = DateTime.now();
-
-    final docRef = await _classrooms.add({
-      'code': code,
-      'name': name,
-      'description': description,
-      'teacherId': teacherId,
-      'teacherName': teacherName,
-      'studentIds': <String>[],
-      'createdAt': Timestamp.fromDate(now),
-      'isActive': true,
-    });
-
+    final data = await _client.rpc<dynamic>(
+      'create_classroom',
+      params: {'p_name': name, 'p_description': description},
+    );
+    final row = (data is List ? data.first : data) as Map<String, dynamic>;
     return ClassroomModel(
-      id: docRef.id,
-      code: code,
+      id: row['id'].toString(),
+      code: (row['code'] as String?) ?? '',
       name: name,
       description: description,
-      teacherId: teacherId,
+      teacherId: (row['teacher_id'] as String?) ?? teacherId,
       teacherName: teacherName,
-      studentIds: const <String>[],
-      createdAt: now,
-      isActive: true,
-      questions: const <QuestionModel>[],
+      studentIds: const [],
+      createdAt: DateTime.tryParse(row['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+      isActive: (row['is_active'] as bool?) ?? true,
+      questions: const [],
     );
   }
 
-  /// Atualiza nome e descrição de uma sala.
   Future<void> updateClassroom({
     required String classroomId,
     required String name,
     required String description,
   }) async {
-    await _classrooms.doc(classroomId).update({
-      'name': name,
-      'description': description,
-    });
+    await _client.from('classrooms').update(
+        {'name': name, 'description': description},).eq('id', classroomId);
   }
 
-  /// Atualiza o campo `teacherName` em todas as salas do professor.
-  ///
-  /// Chamado após o professor alterar o próprio nome na tela de conta,
-  /// para manter o banner da trilha dos alunos sempre sincronizado.
+  /// No Supabase o nome do professor vem por join (RPCs de leitura), então
+  /// não há `teacher_name` desnormalizado para sincronizar. No-op.
   Future<void> updateTeacherName({
     required String teacherId,
     required String newName,
-  }) async {
-    final snap = await _classrooms
-        .where('teacherId', isEqualTo: teacherId)
-        .get();
-    if (snap.docs.isEmpty) return;
+  }) async {}
 
-    final batch = _firestore.batch();
-    for (final doc in snap.docs) {
-      batch.update(doc.reference, {'teacherName': newName});
-    }
-    await batch.commit();
-  }
-
-  /// Apaga a sala e todas as suas subcoleções (questions, results,
-  /// phases e as questões aninhadas em cada phase).
-  ///
-  /// O Firestore não cascateia delete automaticamente — sem essa
-  /// limpeza manual, os documentos ficariam órfãos consumindo storage
-  /// e poderiam ser lidos por queries cross-collection.
-  ///
-  /// Estratégia: coleta todos os refs, particiona em batches de até
-  /// 500 operações (limite do Firestore) e commita em sequência.
   Future<void> deleteClassroom(String classroomId) async {
-    final classroomRef = _classrooms.doc(classroomId);
-    final refs = <DocumentReference<Map<String, dynamic>>>[];
-
-    // Subcoleções planas: questions, results
-    final flatSubcollections = ['questions', 'results'];
-    for (final name in flatSubcollections) {
-      final snap = await classroomRef.collection(name).get();
-      refs.addAll(snap.docs.map((d) => d.reference));
-    }
-
-    // Subcoleção phases (cada uma com sua subcoleção questions)
-    final phasesSnap = await classroomRef.collection('phases').get();
-    for (final phaseDoc in phasesSnap.docs) {
-      final phaseQuestionsSnap =
-          await phaseDoc.reference.collection('questions').get();
-      refs.addAll(phaseQuestionsSnap.docs.map((d) => d.reference));
-      refs.add(phaseDoc.reference);
-    }
-
-    // Documento da própria sala — por último.
-    refs.add(classroomRef);
-
-    // Commita em chunks de 500 (limite do WriteBatch).
-    const chunkSize = 500;
-    for (var i = 0; i < refs.length; i += chunkSize) {
-      final end = (i + chunkSize) > refs.length ? refs.length : i + chunkSize;
-      final batch = _firestore.batch();
-      for (final ref in refs.sublist(i, end)) {
-        batch.delete(ref);
-      }
-      await batch.commit();
-    }
+    // ON DELETE CASCADE apaga members, phases, questions, results e activities.
+    await _client.from('classrooms').delete().eq('id', classroomId);
   }
 
-  /// Busca uma sala pelo código de 6 caracteres.
   Future<ClassroomModel?> fetchByCode(String code) async {
-    final snap = await _classrooms
-        .where('code', isEqualTo: code)
-        .limit(1)
-        .get();
-
-    if (snap.docs.isEmpty) return null;
-
-    final doc = snap.docs.first;
-    List<QuestionModel> questions = [];
-    try {
-      questions = await _fetchQuestions(doc.id);
-    } catch (_) {}
-    return ClassroomModel.fromSnapshot(doc, questions);
+    final data = await _client.rpc<dynamic>(
+      'get_classroom_by_code',
+      params: {'p_code': code},
+    );
+    if (data == null) return null;
+    return ClassroomModel.fromMap(Map<String, dynamic>.from(data as Map));
   }
 
-  /// Lista todas as salas de um professor.
   Future<List<ClassroomModel>> fetchTeacherClassrooms(String teacherId) async {
-    final snap = await _classrooms
-        .where('teacherId', isEqualTo: teacherId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
-    final classrooms = <ClassroomModel>[];
-    for (final doc in snap.docs) {
-      final questions = await _fetchQuestions(doc.id);
-      classrooms.add(ClassroomModel.fromSnapshot(doc, questions));
-    }
-    return classrooms;
+    final data = await _client.rpc<dynamic>('get_teacher_classrooms');
+    return _mapClassrooms(data);
   }
 
-  /// Retorna todas as salas em que o aluno está matriculado.
   Future<List<ClassroomModel>> fetchStudentClassrooms(String studentId) async {
-    final snap = await _classrooms
-        .where('studentIds', arrayContains: studentId)
-        .get();
+    final data = await _client.rpc<dynamic>('get_student_classrooms');
+    return _mapClassrooms(data);
+  }
 
-    if (snap.docs.isEmpty) return [];
-
-    final result = <ClassroomModel>[];
-    for (final doc in snap.docs) {
-      List<QuestionModel> questions = [];
-      try {
-        questions = await _fetchQuestions(doc.id);
-      } catch (_) {}
-      result.add(ClassroomModel.fromSnapshot(doc, questions));
-    }
-    return result;
+  List<ClassroomModel> _mapClassrooms(dynamic data) {
+    final list = (data as List?) ?? const [];
+    return list
+        .map((e) => ClassroomModel.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   // ─── Aluno entra/sai ──────────────────────────────────────────
 
-  /// Adiciona o uid do aluno ao array `studentIds` e regista a actividade.
   Future<void> joinClassroom({
     required String classroomId,
     required String studentId,
     String? studentName,
   }) async {
-    await _classrooms.doc(classroomId).update({
-      'studentIds': FieldValue.arrayUnion([studentId]),
-    });
-    final name = (studentName != null && studentName.trim().isNotEmpty)
-        ? studentName.trim()
-        : 'Um aluno';
-    _writeActivity(classroomId, 'student_joined', '$name entrou na turma');
+    await _client
+        .rpc<void>('join_classroom', params: {'p_classroom': classroomId});
   }
 
-  /// Remove o uid do aluno do array `studentIds`.
   Future<void> leaveClassroom({
     required String classroomId,
     required String studentId,
   }) async {
-    await _classrooms.doc(classroomId).update({
-      'studentIds': FieldValue.arrayRemove([studentId]),
-    });
+    await _client
+        .from('classroom_members')
+        .delete()
+        .eq('classroom_id', classroomId)
+        .eq('student_id', studentId);
   }
 
-  // ─── Questões (subcoleção) ────────────────────────────────────
+  // ─── Questões soltas de sala — não existem no schema Supabase ──
+  // O conteúdo vive em fases. Métodos mantidos por contrato; getQuestions
+  // devolve vazio e os mutadores são no-op.
 
-  CollectionReference<Map<String, dynamic>> _questionsRef(
-    String classroomId,
-  ) =>
-      _classrooms.doc(classroomId).collection('questions');
+  Future<List<QuestionModel>> fetchQuestions(String classroomId) async =>
+      const [];
 
-  /// Busca todas as questões de uma sala, ordenadas por `order`.
-  Future<List<QuestionModel>> _fetchQuestions(String classroomId) async {
-    final snap = await _questionsRef(classroomId)
-        .orderBy('order')
-        .get();
-    return snap.docs.map<QuestionModel>(QuestionModel.fromSnapshot).toList();
-  }
-
-  /// Busca pública de questões (usada pelo repository).
-  Future<List<QuestionModel>> fetchQuestions(String classroomId) {
-    return _fetchQuestions(classroomId);
-  }
-
-  /// Adiciona uma questão à subcoleção.
   Future<void> addQuestion({
     required String classroomId,
     required Question question,
-  }) async {
-    // Calcula a próxima ordem.
-    final existing = await _questionsRef(classroomId).count().get();
-    final nextOrder = (existing.count ?? 0) + 1;
+  }) async {}
 
-    await _questionsRef(classroomId).add({
-      'text': question.text,
-      'options': question.options,
-      'correct_answer': question.correctAnswer,
-      'explanation': question.explanation,
-      'type': _questionTypeToInt(question.type),
-      'image_url': question.imageUrl,
-      'image_author': question.imageAuthor,
-      'image_source': question.imageSource,
-      'order': nextOrder,
-    });
-  }
-
-  /// Atualiza uma questão existente.
   Future<void> updateQuestion({
     required String classroomId,
     required Question question,
-  }) async {
-    await _questionsRef(classroomId).doc(question.id).update({
-      'text': question.text,
-      'options': question.options,
-      'correct_answer': question.correctAnswer,
-      'explanation': question.explanation,
-      'type': _questionTypeToInt(question.type),
-      'image_url': question.imageUrl,
-      'image_author': question.imageAuthor,
-      'image_source': question.imageSource,
-    });
-  }
+  }) async {}
 
-  /// Exclui uma questão.
   Future<void> deleteQuestion({
     required String classroomId,
     required String questionId,
-  }) async {
-    await _questionsRef(classroomId).doc(questionId).delete();
-  }
+  }) async {}
 
-  // ─── Resultados (subcoleção) ──────────────────────────────────
+  // ─── Resultados ───────────────────────────────────────────────
 
-  CollectionReference<Map<String, dynamic>> _resultsRef(
-    String classroomId,
-  ) =>
-      _classrooms.doc(classroomId).collection('results');
-
-  /// Salva (ou sobrescreve) o resultado de um aluno e regista a actividade.
-  /// O document ID é o uid do aluno — garante 1 resultado por aluno.
   Future<void> submitResult({
     required String classroomId,
     required ClassroomResultModel result,
     String? phaseTitle,
   }) async {
-    await _resultsRef(classroomId)
-        .doc(result.studentId)
-        .set(result.toFirestore());
-    final name = result.studentName.isNotEmpty ? result.studentName : 'Um aluno';
-    final phase = (phaseTitle != null && phaseTitle.trim().isNotEmpty)
-        ? ' na fase "${phaseTitle.trim()}"'
-        : '';
-    _writeActivity(classroomId, 'student_completed', '$name concluiu$phase');
+    await _client.rpc<void>('submit_result', params: {
+      'p_classroom': classroomId,
+      'p_total': result.totalQuestions,
+      'p_correct': result.correctAnswers,
+      'p_phase_title': phaseTitle,
+    },);
   }
 
-  /// Retorna todos os resultados de uma sala.
   Future<List<ClassroomResultModel>> fetchResults(String classroomId) async {
-    final snap = await _resultsRef(classroomId).get();
-    return snap.docs.map<ClassroomResultModel>(ClassroomResultModel.fromSnapshot).toList();
+    final data = await _client.rpc<dynamic>(
+      'get_classroom_results',
+      params: {'p_classroom': classroomId},
+    );
+    final list = (data as List?) ?? const [];
+    return list
+        .map((e) =>
+            ClassroomResultModel.fromMap(Map<String, dynamic>.from(e as Map)),)
+        .toList();
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────
+  // ─── Fases ────────────────────────────────────────────────────
 
-  /// Gera um código de 6 caracteres sem ambiguidades e verifica
-  /// no Firestore se já existe. Repete até encontrar um único.
-  Future<String> _generateUniqueCode() async {
-    const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-    final rand = Random.secure();
+  SupabaseQueryBuilder get _phases => _client.from('classroom_phases');
+  SupabaseQueryBuilder get _questions => _client.from('questions');
 
-    while (true) {
-      final code = List.generate(
-        6,
-        (_) => chars[rand.nextInt(chars.length)],
-      ).join();
+  Map<String, dynamic> _questionRow(Question q, String phaseId, int order) => {
+        'phase_id': phaseId,
+        'text': q.text,
+        'options': q.options,
+        'correct_answer': q.correctAnswer,
+        'explanation': q.explanation,
+        'type': QuestionModel.questionTypeToDb(q.type),
+        'image_url': q.imageUrl,
+        'image_author': q.imageAuthor,
+        'image_source': q.imageSource,
+        'sort_order': order,
+      };
 
-      final exists = await _classrooms
-          .where('code', isEqualTo: code)
-          .limit(1)
-          .get();
-
-      if (exists.docs.isEmpty) return code;
-    }
+  Future<int> _nextPhaseOrder(String classroomId) async {
+    final rows = await _phases.select('id').eq('classroom_id', classroomId);
+    return (rows as List).length + 1;
   }
 
-  int _questionTypeToInt(QuestionType type) {
-    switch (type) {
-      case QuestionType.multipleChoice:
-        return 0;
-      case QuestionType.fillBlanks:
-        return 1;
-      case QuestionType.trueFalse:
-        return 2;
-      case QuestionType.unknown:
-        return -1;
-    }
-  }
-
-  // ─── Fases de sala (subcoleção phases dentro de Classrooms) ────
-
-  /// Referência à subcoleção `phases` de uma sala.
-  CollectionReference<Map<String, dynamic>> _phasesRef(
-    String classroomId,
-  ) =>
-      _classrooms.doc(classroomId).collection('phases');
-
-  /// Referência à subcoleção `questions` de uma fase dentro de uma sala.
-  CollectionReference<Map<String, dynamic>> _phaseQuestionsRef(
-    String classroomId,
-    String phaseId,
-  ) =>
-      _phasesRef(classroomId).doc(phaseId).collection('questions');
-
-  /// Cria uma fase vinculada a uma sala de aula e salva todas as questões
-  /// como subcoleção da fase.
-  ///
-  /// Estrutura: `Classrooms/{classroomId}/phases/{phaseId}/questions/{qId}`
-  ///
-  /// Usa batch write para garantir atomicidade: ou tudo é criado,
-  /// ou nada.
   Future<ClassroomPhaseModel> saveQuizAsPhase({
     required String classroomId,
     required String title,
     required String description,
     required List<Question> questions,
   }) async {
-    // Calcula a próxima ordem para fases desta sala.
-    final existingSnap = await _phasesRef(classroomId).get();
-    final nextOrder = existingSnap.docs.length + 1;
+    final order = await _nextPhaseOrder(classroomId);
+    final phaseRow = await _phases
+        .insert({
+          'classroom_id': classroomId,
+          'title': title,
+          'description': description,
+          'sort_order': order,
+        })
+        .select()
+        .single();
+    final phaseId = phaseRow['id'].toString();
 
-    final now = DateTime.now();
-    final batch = _firestore.batch();
-
-    // 1. Cria o documento da fase na subcoleção.
-    final phaseRef = _phasesRef(classroomId).doc();
-    batch.set(phaseRef, {
-      'name': title,
-      'description': description,
-      'order': nextOrder,
-      'createdAt': Timestamp.fromDate(now),
-    });
-
-    // 2. Cria cada questão como subdocumento da fase.
-    for (var i = 0; i < questions.length; i++) {
-      final q = questions[i];
-      final questionRef = phaseRef.collection('questions').doc();
-      batch.set(questionRef, {
-        'text': q.text,
-        'options': q.options,
-        'correct_answer': q.correctAnswer,
-        'explanation': q.explanation,
-        'type': _questionTypeToInt(q.type),
-        'image_url': q.imageUrl,
-        'image_author': q.imageAuthor,
-        'image_source': q.imageSource,
-        'order': i + 1,
-      });
+    if (questions.isNotEmpty) {
+      final rows = <Map<String, dynamic>>[
+        for (var i = 0; i < questions.length; i++)
+          _questionRow(questions[i], phaseId, i + 1),
+      ];
+      await _questions.insert(rows);
     }
 
-    await batch.commit();
-
-    _writeActivity(classroomId, 'phase_created', 'Fase "$title" criada');
-
-    // Retorna o model com as questões incluídas.
-    return ClassroomPhaseModel(
-      id: phaseRef.id,
-      classroomId: classroomId,
-      title: title,
-      description: description,
-      order: nextOrder,
-      createdAt: now,
-      questions: questions,
-    );
+    return ClassroomPhaseModel.fromMap(
+        phaseRow, questions.map(_toModel).toList(),);
   }
 
-  /// Retorna todas as fases vinculadas a uma sala de aula,
-  /// ordenadas por `order`.
   Future<List<ClassroomPhaseModel>> fetchClassroomPhases(
     String classroomId,
   ) async {
-    final snap = await _phasesRef(classroomId)
-        .orderBy('order')
-        .get();
+    final rows = await _phases
+        .select('*, questions(*)')
+        .eq('classroom_id', classroomId)
+        .order('sort_order');
 
     final phases = <ClassroomPhaseModel>[];
-    for (final doc in snap.docs) {
-      // Busca as questões da subcoleção desta fase.
-      final questionsSnap = await doc.reference
-          .collection('questions')
-          .orderBy('order')
-          .get();
-      final questions =
-          questionsSnap.docs.map(QuestionModel.fromSnapshot).toList();
-      phases.add(ClassroomPhaseModel.fromSnapshot(doc, questions));
+    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+      final qRaw = ((row['questions'] as List?) ?? const [])
+          .cast<Map<String, dynamic>>()
+        ..sort((a, b) => ((a['sort_order'] as num?) ?? 0)
+            .compareTo((b['sort_order'] as num?) ?? 0),);
+      final questions = qRaw.map(QuestionModel.fromMap).toList();
+      phases.add(ClassroomPhaseModel.fromMap(row, questions));
     }
     return phases;
   }
 
-  /// Cria uma fase vazia (sem questões) com `order` igual ao final da
-  /// lista — assim a fase nova aparece no fim da trilha.
   Future<ClassroomPhaseModel> createEmptyPhase({
     required String classroomId,
     required String title,
     required String description,
   }) async {
-    final existingSnap = await _phasesRef(classroomId).get();
-    final nextOrder = existingSnap.docs.length + 1;
-    final now = DateTime.now();
-
-    final phaseRef = await _phasesRef(classroomId).add({
-      'name': title,
-      'description': description,
-      'order': nextOrder,
-      'createdAt': Timestamp.fromDate(now),
-    });
-
-    _writeActivity(classroomId, 'phase_created', 'Fase "$title" criada');
-
-    return ClassroomPhaseModel(
-      id: phaseRef.id,
-      classroomId: classroomId,
-      title: title,
-      description: description,
-      order: nextOrder,
-      createdAt: now,
-      questions: const [],
-    );
+    final order = await _nextPhaseOrder(classroomId);
+    final phaseRow = await _phases
+        .insert({
+          'classroom_id': classroomId,
+          'title': title,
+          'description': description,
+          'sort_order': order,
+        })
+        .select()
+        .single();
+    return ClassroomPhaseModel.fromMap(phaseRow, const []);
   }
 
-  /// Atualiza apenas o nome e a descrição de uma fase existente.
   Future<void> updatePhase({
     required String classroomId,
     required String phaseId,
     required String title,
     required String description,
   }) async {
-    await _phasesRef(classroomId).doc(phaseId).update({
-      'name': title,
-      'description': description,
-    });
+    await _phases
+        .update({'title': title, 'description': description}).eq('id', phaseId);
   }
 
-  /// Apaga uma fase e todas as questões dela. Renumera o `order` das
-  /// fases restantes para manter a sequência contínua (1..N).
   Future<void> deletePhase({
     required String classroomId,
     required String phaseId,
   }) async {
-    final phaseRef = _phasesRef(classroomId).doc(phaseId);
-
-    // 1. Coleta refs das questões aninhadas.
-    final questionsSnap = await phaseRef.collection('questions').get();
-
-    // 2. Apaga em batches de 500.
-    final refs = <DocumentReference<Map<String, dynamic>>>[
-      ...questionsSnap.docs.map((d) => d.reference),
-      phaseRef,
-    ];
-    const chunkSize = 500;
-    for (var i = 0; i < refs.length; i += chunkSize) {
-      final end = (i + chunkSize) > refs.length ? refs.length : i + chunkSize;
-      final batch = _firestore.batch();
-      for (final ref in refs.sublist(i, end)) {
-        batch.delete(ref);
-      }
-      await batch.commit();
-    }
-
-    // 3. Renumera as fases restantes.
+    await _phases.delete().eq('id', phaseId); // cascade apaga as questões
     await _renumberPhases(classroomId);
   }
 
-  /// Renumera o campo `order` das fases para garantir uma sequência
-  /// contínua começando em 1.
   Future<void> _renumberPhases(String classroomId) async {
-    final snap = await _phasesRef(classroomId).orderBy('order').get();
-    final batch = _firestore.batch();
-    for (var i = 0; i < snap.docs.length; i++) {
-      batch.update(snap.docs[i].reference, {'order': i + 1});
+    final rows = await _phases
+        .select('id')
+        .eq('classroom_id', classroomId)
+        .order('sort_order');
+    var order = 1;
+    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+      await _phases
+          .update({'sort_order': order}).eq('id', row['id'].toString());
+      order++;
     }
-    await batch.commit();
   }
 
-  /// Reordena fases conforme a nova lista de IDs (do topo para o fim).
-  ///
-  /// O índice do ID na lista vira o novo `order` (1-based).
   Future<void> reorderPhases({
     required String classroomId,
     required List<String> orderedPhaseIds,
   }) async {
-    final batch = _firestore.batch();
     for (var i = 0; i < orderedPhaseIds.length; i++) {
-      batch.update(
-        _phasesRef(classroomId).doc(orderedPhaseIds[i]),
-        {'order': i + 1},
-      );
+      await _phases.update({'sort_order': i + 1}).eq('id', orderedPhaseIds[i]);
     }
-    await batch.commit();
   }
 
-  /// Adiciona novas questões a uma fase JÁ existente, preservando as
-  /// que já estão lá. O `order` das novas continua a partir do maior
-  /// `order` atual.
   Future<void> addQuestionsToPhase({
     required String classroomId,
     required String phaseId,
     required List<Question> questions,
   }) async {
     if (questions.isEmpty) return;
-
-    final existingSnap = await _phaseQuestionsRef(classroomId, phaseId).get();
-    var nextOrder = existingSnap.docs.length;
-
-    final batch = _firestore.batch();
-    for (final q in questions) {
-      nextOrder += 1;
-      final qRef = _phaseQuestionsRef(classroomId, phaseId).doc();
-      batch.set(qRef, {
-        'text': q.text,
-        'options': q.options,
-        'correct_answer': q.correctAnswer,
-        'explanation': q.explanation,
-        'type': _questionTypeToInt(q.type),
-        'image_url': q.imageUrl,
-        'image_author': q.imageAuthor,
-        'image_source': q.imageSource,
-        'order': nextOrder,
-      });
-    }
-    await batch.commit();
+    final existing = await _questions.select('id').eq('phase_id', phaseId);
+    var order = (existing as List).length;
+    final rows = <Map<String, dynamic>>[
+      for (final q in questions) _questionRow(q, phaseId, ++order),
+    ];
+    await _questions.insert(rows);
   }
 
-  /// Reordena as questões dentro de uma fase, conforme a nova lista
-  /// ordenada de IDs.
   Future<void> reorderQuestionsInPhase({
     required String classroomId,
     required String phaseId,
     required List<String> orderedQuestionIds,
   }) async {
-    final batch = _firestore.batch();
     for (var i = 0; i < orderedQuestionIds.length; i++) {
-      batch.update(
-        _phaseQuestionsRef(classroomId, phaseId).doc(orderedQuestionIds[i]),
-        {'order': i + 1},
-      );
+      await _questions
+          .update({'sort_order': i + 1}).eq('id', orderedQuestionIds[i]);
     }
-    await batch.commit();
   }
 
-  /// Atualiza uma questão dentro de uma fase específica.
   Future<void> updateQuestionInPhase({
     required String classroomId,
     required String phaseId,
     required Question question,
   }) async {
-    await _phaseQuestionsRef(classroomId, phaseId).doc(question.id).update({
+    await _questions.update({
       'text': question.text,
       'options': question.options,
       'correct_answer': question.correctAnswer,
       'explanation': question.explanation,
-      'type': _questionTypeToInt(question.type),
+      'type': QuestionModel.questionTypeToDb(question.type),
       'image_url': question.imageUrl,
       'image_author': question.imageAuthor,
       'image_source': question.imageSource,
-    });
+    }).eq('id', question.id);
   }
 
-  /// Apaga uma questão de uma fase e renumera as restantes.
   Future<void> deleteQuestionFromPhase({
     required String classroomId,
     required String phaseId,
     required String questionId,
   }) async {
-    await _phaseQuestionsRef(classroomId, phaseId).doc(questionId).delete();
-
-    // Renumera para manter sequência contínua.
-    final snap = await _phaseQuestionsRef(classroomId, phaseId)
-        .orderBy('order')
-        .get();
-    final batch = _firestore.batch();
-    for (var i = 0; i < snap.docs.length; i++) {
-      batch.update(snap.docs[i].reference, {'order': i + 1});
+    await _questions.delete().eq('id', questionId);
+    // Renumera as questões restantes da fase.
+    final rows = await _questions
+        .select('id')
+        .eq('phase_id', phaseId)
+        .order('sort_order');
+    var order = 1;
+    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
+      await _questions
+          .update({'sort_order': order}).eq('id', row['id'].toString());
+      order++;
     }
-    await batch.commit();
   }
 
-  // ─── Actividades recentes ─────────────────────────────────────
+  // ─── Atividades ───────────────────────────────────────────────
 
-  CollectionReference<Map<String, dynamic>> _activitiesRef(
-    String classroomId,
-  ) =>
-      _classrooms.doc(classroomId).collection('activities');
-
-  /// Grava um evento na subcoleção `activities` da sala.
-  /// Fire-and-forget: não bloqueia a operação principal.
-  void _writeActivity(String classroomId, String type, String description) {
-    unawaited(
-      _activitiesRef(classroomId).add({
-        'type': type,
-        'description': description,
-        'createdAt': Timestamp.fromDate(DateTime.now()),
-      }),
-    );
-  }
-
-  /// Devolve as [limit] actividades mais recentes de todas as salas
-  /// do professor, ordenadas da mais recente para a mais antiga.
   Future<List<ClassroomActivity>> fetchRecentActivities(
     String teacherId, {
     int limit = 3,
   }) async {
-    final classroomsSnap = await _classrooms
-        .where('teacherId', isEqualTo: teacherId)
-        .get();
+    // A RLS já restringe às salas do professor logado.
+    final rows = await _client
+        .from('classroom_activities')
+        .select('type, description, created_at')
+        .order('created_at', ascending: false)
+        .limit(limit);
 
-    if (classroomsSnap.docs.isEmpty) return [];
-
-    final all = <ClassroomActivity>[];
-    for (final classroomDoc in classroomsSnap.docs) {
-      final activitiesSnap = await _activitiesRef(classroomDoc.id)
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-      for (final doc in activitiesSnap.docs) {
-        final data = doc.data();
-        all.add(ClassroomActivity(
-          type: (data['type'] as String?) ?? '',
-          description: (data['description'] as String?) ?? '',
-          createdAt:
-              (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-        ),);
-      }
-    }
-
-    all.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-    return all.take(limit).toList();
+    return (rows as List).cast<Map<String, dynamic>>().map((data) {
+      return ClassroomActivity(
+        type: (data['type'] as String?) ?? '',
+        description: (data['description'] as String?) ?? '',
+        createdAt: DateTime.tryParse(data['created_at']?.toString() ?? '') ??
+            DateTime.now(),
+      );
+    }).toList();
   }
+
+  QuestionModel _toModel(Question q) => QuestionModel(
+        id: q.id,
+        text: q.text,
+        options: q.options,
+        correctAnswer: q.correctAnswer,
+        explanation: q.explanation,
+        type: q.type,
+        imageUrl: q.imageUrl,
+        imageAuthor: q.imageAuthor,
+        imageSource: q.imageSource,
+      );
 }

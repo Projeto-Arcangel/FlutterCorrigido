@@ -1,10 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../domain/entities/classroom_result.dart';
 
-/// Model que converte dados do Firestore para [ClassroomResult].
-///
-/// Armazenado em `Classrooms/{classroomId}/results/{studentId}`.
+/// Model que converte um resultado (tabela `classroom_results`) para
+/// [ClassroomResult]. O `student_name` vem da RPC `get_classroom_results`.
 class ClassroomResultModel extends ClassroomResult {
   const ClassroomResultModel({
     required super.studentId,
@@ -14,24 +11,14 @@ class ClassroomResultModel extends ClassroomResult {
     required super.completedAt,
   });
 
-  factory ClassroomResultModel.fromSnapshot(DocumentSnapshot snap) {
-    final data = snap.data()! as Map<String, dynamic>;
+  factory ClassroomResultModel.fromMap(Map<String, dynamic> map) {
     return ClassroomResultModel(
-      studentId: snap.id,
-      studentName: (data['studentName'] as String?) ?? '',
-      totalQuestions: (data['totalQuestions'] as num?)?.toInt() ?? 0,
-      correctAnswers: (data['correctAnswers'] as num?)?.toInt() ?? 0,
-      completedAt:
-          (data['completedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      studentId: (map['student_id'] as String?) ?? '',
+      studentName: (map['student_name'] as String?) ?? '',
+      totalQuestions: (map['total_questions'] as num?)?.toInt() ?? 0,
+      correctAnswers: (map['correct_answers'] as num?)?.toInt() ?? 0,
+      completedAt: DateTime.tryParse(map['completed_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
-  }
-
-  Map<String, dynamic> toFirestore() {
-    return {
-      'studentName': studentName,
-      'totalQuestions': totalQuestions,
-      'correctAnswers': correctAnswers,
-      'completedAt': Timestamp.fromDate(completedAt),
-    };
   }
 }

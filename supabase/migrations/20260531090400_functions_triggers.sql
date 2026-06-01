@@ -246,47 +246,118 @@ begin
 end;
 $$;
 
--- Aluno entra numa sala pelo código (resolve o chicken-and-egg da RLS:
--- ele ainda não é membro, então não conseguiria ler a sala via SELECT).
-create or replace function public.join_classroom(p_code text)
-returns public.classrooms
+-- Atividade 'phase_created' é gravada por trigger (o cliente não tem
+-- permissão de INSERT em classroom_activities — só leitura via RLS).
+create or replace function public.on_phase_created()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  insert into public.classroom_activities (classroom_id, type, description)
+  values (new.classroom_id, 'phase_created', 'Fase "' || new.title || '" criada');
+  return new;
+end;
+$$;
+
+create trigger phases_activity_after_insert
+  after insert on public.classroom_phases
+  for each row execute function public.on_phase_created();
+
+-- Monta o JSON de uma sala (com teacher_name e student_ids). SECURITY
+-- DEFINER para resolver nomes/membros sem esbarrar na RLS de profiles
+-- (que só permite ler o próprio perfil). Usado pelas RPCs de leitura.
+create or replace function public.classroom_to_json(p_id uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'id', c.id,
+    'code', c.code,
+    'name', c.name,
+    'description', c.description,
+    'teacher_id', c.teacher_id,
+    'teacher_name', coalesce(p.display_name, ''),
+    'is_active', c.is_active,
+    'created_at', c.created_at,
+    'student_ids', coalesce(
+      (select jsonb_agg(m.student_id)
+         from public.classroom_members m where m.classroom_id = c.id),
+      '[]'::jsonb)
+  )
+  from public.classrooms c
+  left join public.profiles p on p.id = c.teacher_id
+  where c.id = p_id;
+$$;
+
+-- Busca uma sala pelo código (read-only). Resolve o chicken-and-egg da
+-- RLS: o aluno ainda não é membro, então não conseguiria ler via SELECT.
+create or replace function public.get_classroom_by_code(p_code text)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select public.classroom_to_json(c.id)
+  from public.classrooms c
+  where upper(c.code) = upper(p_code)
+  limit 1;
+$$;
+
+-- Salas do professor logado (array JSON).
+create or replace function public.get_teacher_classrooms()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(
+    jsonb_agg(public.classroom_to_json(c.id) order by c.created_at desc),
+    '[]'::jsonb)
+  from public.classrooms c
+  where c.teacher_id = auth.uid();
+$$;
+
+-- Salas em que o aluno logado é membro (array JSON).
+create or replace function public.get_student_classrooms()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(
+    jsonb_agg(public.classroom_to_json(c.id) order by c.created_at desc),
+    '[]'::jsonb)
+  from public.classrooms c
+  join public.classroom_members m on m.classroom_id = c.id
+  where m.student_id = auth.uid();
+$$;
+
+-- Aluno entra numa sala (por id, já resolvido via get_classroom_by_code).
+create or replace function public.join_classroom(p_classroom uuid)
+returns void
 language plpgsql security definer set search_path = public as $$
 declare v_room public.classrooms; v_count int;
 begin
-  select * into v_room from public.classrooms
-   where upper(code) = upper(p_code) and is_active = true;
-  if v_room.id is null then
+  select * into v_room from public.classrooms where id = p_classroom;
+  if v_room.id is null or not v_room.is_active then
     raise exception 'Sala não encontrada ou inativa' using errcode = 'P0002';
   end if;
-
-  select count(*) into v_count from public.classroom_members where classroom_id = v_room.id;
+  if exists (select 1 from public.classroom_members
+               where classroom_id = p_classroom and student_id = auth.uid()) then
+    return;  -- já é membro: idempotente
+  end if;
+  select count(*) into v_count from public.classroom_members
+   where classroom_id = p_classroom;
   if v_count >= v_room.max_students then
     raise exception 'Sala lotada' using errcode = 'P0001';
   end if;
 
   insert into public.classroom_members (classroom_id, student_id)
-  values (v_room.id, auth.uid())
-  on conflict do nothing;
+  values (p_classroom, auth.uid());
 
   insert into public.classroom_activities (classroom_id, type, description)
-  select v_room.id, 'student_joined',
-         coalesce((select display_name from public.profiles where id = auth.uid()), 'Um aluno')
-         || ' entrou na turma';
-
-  return v_room;
+  values (p_classroom, 'student_joined',
+    coalesce((select display_name from public.profiles where id = auth.uid()), 'Um aluno')
+    || ' entrou na turma');
 end;
 $$;
 
--- Registra (ou atualiza) o resultado do aluno numa fase + grava a atividade.
+-- Registra (ou atualiza) o resultado do aluno na sala + grava a atividade.
+-- Um resultado por aluno por sala (o último sobrescreve). p_phase_title é
+-- só para a mensagem da atividade.
 create or replace function public.submit_result(
-  p_classroom uuid,
-  p_phase     uuid,
-  p_total     int,
-  p_correct   int
+  p_classroom   uuid,
+  p_total       int,
+  p_correct     int,
+  p_phase_title text default null
 )
-returns public.classroom_results
+returns void
 language plpgsql security definer set search_path = public as $$
-declare v_row public.classroom_results; v_name text; v_phase_title text;
+declare v_name text;
 begin
   if not public.is_member(p_classroom) then
     raise exception 'Você não é membro desta sala' using errcode = '42501';
@@ -296,26 +367,39 @@ begin
   end if;
 
   insert into public.classroom_results
-    (classroom_id, student_id, phase_id, total_questions, correct_answers)
-  values (p_classroom, auth.uid(), p_phase, p_total, p_correct)
-  on conflict (classroom_id, student_id, phase_id) do update
+    (classroom_id, student_id, total_questions, correct_answers)
+  values (p_classroom, auth.uid(), p_total, p_correct)
+  on conflict (classroom_id, student_id) do update
     set total_questions = excluded.total_questions,
         correct_answers = excluded.correct_answers,
-        completed_at     = now()
-  returning * into v_row;
+        completed_at     = now();
 
   select display_name into v_name from public.profiles where id = auth.uid();
-  select title into v_phase_title from public.classroom_phases where id = p_phase;
 
   insert into public.classroom_activities (classroom_id, type, description)
   values (
     p_classroom, 'student_completed',
     coalesce(v_name, 'Um aluno') || ' concluiu'
-      || coalesce(' a fase "' || v_phase_title || '"', '')
+      || coalesce(' a fase "' || p_phase_title || '"', '')
   );
-
-  return v_row;
 end;
+$$;
+
+-- Resultados de uma sala (com student_name), para professor (todos) ou
+-- aluno (ranking). Gate de acesso explícito (definer ignora a RLS).
+create or replace function public.get_classroom_results(p_classroom uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'student_id',      r.student_id,
+    'student_name',    coalesce(p.display_name, ''),
+    'total_questions', r.total_questions,
+    'correct_answers', r.correct_answers,
+    'completed_at',    r.completed_at
+  )), '[]'::jsonb)
+  from public.classroom_results r
+  left join public.profiles p on p.id = r.student_id
+  where r.classroom_id = p_classroom
+    and (public.owns_classroom(p_classroom) or public.is_member(p_classroom));
 $$;
 
 -- Exclui a própria conta (auth.users → cascade apaga profile/progresso).
@@ -342,8 +426,12 @@ begin
     'public.advance_phase(integer)',
     'public.register_login()',
     'public.create_classroom(text, text)',
-    'public.join_classroom(text)',
-    'public.submit_result(uuid, uuid, integer, integer)',
+    'public.join_classroom(uuid)',
+    'public.submit_result(uuid, integer, integer, text)',
+    'public.get_classroom_by_code(text)',
+    'public.get_teacher_classrooms()',
+    'public.get_student_classrooms()',
+    'public.get_classroom_results(uuid)',
     'public.delete_account()'
   ] loop
     execute format('revoke all on function %s from public, anon;', fn);

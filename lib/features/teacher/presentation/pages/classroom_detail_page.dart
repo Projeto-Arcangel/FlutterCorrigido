@@ -3,8 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/domain/entities/classroom_result.dart';
@@ -71,10 +71,10 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
   /// Lê o Classroom atual: prefere a versão do provider (caso tenha
   /// sido editado) e cai para o que veio via construtor.
   Classroom _currentClassroom() {
-    final user = ref.read(firebaseAuthProvider).currentUser;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return widget.classroom;
     final list = ref
-        .read(teacherClassroomsProvider(user.uid))
+        .read(teacherClassroomsProvider(user.id))
         .valueOrNull
         ?.cast<Classroom>();
     return list?.firstWhere(
@@ -85,14 +85,16 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
   }
 
   Future<void> _onEdit() async {
-    final user = ref.read(firebaseAuthProvider).currentUser;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return;
     final classroom = _currentClassroom();
 
     await ClassroomFormSheet.show(
       context: context,
-      userId: user.uid,
-      displayName: user.displayName ?? user.email ?? 'Professor',
+      userId: user.id,
+      displayName: (user.userMetadata?['display_name'] as String?) ??
+          user.email ??
+          'Professor',
       classroom: classroom,
     );
   }
@@ -125,9 +127,9 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
         ),
       ),
       (_) {
-        final user = ref.read(firebaseAuthProvider).currentUser;
+        final user = ref.read(supabaseClientProvider).auth.currentUser;
         if (user != null) {
-          ref.invalidate(teacherClassroomsProvider(user.uid));
+          ref.invalidate(teacherClassroomsProvider(user.id));
         }
         ref.invalidate(teacherDashboardProvider);
         Navigator.of(context).pop(); // volta para a listagem
@@ -137,11 +139,11 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(firebaseAuthProvider).currentUser;
+    final user = ref.watch(supabaseClientProvider).auth.currentUser;
     if (user == null) return const SizedBox.shrink();
 
     // Observa a lista de turmas para reagir a edições/deleções.
-    final asyncList = ref.watch(teacherClassroomsProvider(user.uid));
+    final asyncList = ref.watch(teacherClassroomsProvider(user.id));
     final classroom = asyncList.valueOrNull?.cast<Classroom>().firstWhere(
           (c) => c.id == widget.classroom.id,
           orElse: () => widget.classroom,

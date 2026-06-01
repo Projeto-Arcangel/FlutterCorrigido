@@ -1,6 +1,6 @@
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:dartz/dartz.dart';
 import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/errors/failure.dart';
 import '../../domain/entities/ia_generation_result.dart';
@@ -43,13 +43,13 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
           usedFallback: modelUsed != model,
         ),
       );
-    } on FirebaseFunctionsException catch (e, st) {
+    } on FunctionException catch (e, st) {
       _logger.e(
-        'generateQuestions firebase error: ${e.code} - ${e.message}',
+        'generateQuestions edge function error: ${e.status} - ${e.details}',
         error: e,
         stackTrace: st,
       );
-      return Left(_mapFunctionsException(e));
+      return Left(_mapFunctionException(e));
     } catch (e, st) {
       _logger.e(
         'generateQuestions unknown error',
@@ -62,29 +62,33 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
     }
   }
 
-  Failure _mapFunctionsException(FirebaseFunctionsException e) {
-    switch (e.code) {
-      case 'unauthenticated':
+  /// A Edge Function devolve `{ error, attempts }` no corpo dos erros — daí
+  /// extraímos a mensagem real (ex.: o erro de cada modelo no fallback da IA).
+  Failure _mapFunctionException(FunctionException e) {
+    final detail =
+        e.details is Map ? (e.details as Map)['error']?.toString() : null;
+    switch (e.status) {
+      case 401:
         return const NetworkFailure(
           'Você precisa estar logado para gerar questões.',
         );
-      case 'permission-denied':
+      case 403:
         return const ValidationFailure(
           'Apenas professores podem usar este recurso.',
         );
-      case 'invalid-argument':
-        return ValidationFailure(e.message ?? 'Dados inválidos.');
-      case 'deadline-exceeded':
+      case 400:
+        return ValidationFailure(detail ?? 'Dados inválidos.');
+      case 504:
         return const NetworkFailure(
           'A IA demorou demais para responder. Tente novamente.',
         );
-      case 'unavailable':
+      case 503:
         return const NetworkFailure(
           'Serviço de IA indisponível no momento.',
         );
       default:
         return NetworkFailure(
-          e.message ??
+          detail ??
               'A IA não conseguiu gerar as questões. Tente outro modelo.',
         );
     }

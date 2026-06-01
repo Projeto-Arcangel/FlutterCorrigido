@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
@@ -94,8 +95,8 @@ class _TeacherAccountPageState extends ConsumerState<TeacherAccountPage>
   // ── helpers ──────────────────────────────────────────────────────────────
 
   bool get _isEmailUser {
-    final fbUser = ref.read(firebaseAuthProvider).currentUser;
-    return fbUser?.providerData.any((p) => p.providerId == 'password') ?? false;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
+    return user?.appMetadata['provider'] == 'email';
   }
 
   void _snack(String msg, {bool error = false}) {
@@ -126,7 +127,7 @@ class _TeacherAccountPageState extends ConsumerState<TeacherAccountPage>
               await ref.read(updateDisplayNameProvider)(name: name);
           if (either.isRight()) {
             // Sincroniza o novo nome em todas as turmas do professor
-            final uid = ref.read(firebaseAuthProvider).currentUser?.uid;
+            final uid = ref.read(supabaseClientProvider).auth.currentUser?.id;
             if (uid != null) {
               await ref.read(updateTeacherNameProvider)(
                 teacherId: uid,

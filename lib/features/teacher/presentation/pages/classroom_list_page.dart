@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../widgets/classroom_form_sheet.dart';
@@ -25,21 +25,23 @@ class ClassroomListPage extends ConsumerStatefulWidget {
 
 class _ClassroomListPageState extends ConsumerState<ClassroomListPage> {
   Future<void> _openCreateSheet() async {
-    final user = ref.read(firebaseAuthProvider).currentUser;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return;
     await ClassroomFormSheet.show(
       context: context,
-      userId: user.uid,
-      displayName: user.displayName ?? user.email ?? 'Professor',
+      userId: user.id,
+      displayName: (user.userMetadata?['display_name'] as String?) ??
+          user.email ??
+          'Professor',
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(firebaseAuthProvider).currentUser;
+    final user = ref.watch(supabaseClientProvider).auth.currentUser;
     if (user == null) return const SizedBox.shrink();
 
-    final asyncClassrooms = ref.watch(teacherClassroomsProvider(user.uid));
+    final asyncClassrooms = ref.watch(teacherClassroomsProvider(user.id));
 
     return Scaffold(
       appBar: _buildAppBar(),
@@ -51,7 +53,7 @@ class _ClassroomListPageState extends ConsumerState<ClassroomListPage> {
           error: (e, _) => _ErrorView(
             message: 'Não foi possível carregar suas turmas.',
             onRetry: () =>
-                ref.invalidate(teacherClassroomsProvider(user.uid)),
+                ref.invalidate(teacherClassroomsProvider(user.id)),
           ),
           data: (classrooms) => classrooms.isEmpty
               ? _EmptyState(onCreate: _openCreateSheet)

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_result.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
@@ -8,10 +8,10 @@ import '../../../classroom/presentation/providers/classroom_providers.dart';
 /// Todas as turmas do professor logado.
 final teacherAllClassroomsProvider =
     FutureProvider.autoDispose<List<Classroom>>((ref) async {
-  final user = ref.watch(firebaseAuthProvider).currentUser;
+  final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return [];
   final repo = ref.read(classroomRepositoryProvider);
-  final result = await repo.getTeacherClassrooms(user.uid);
+  final result = await repo.getTeacherClassrooms(user.id);
   return result.fold((_) => [], (list) => list);
 });
 

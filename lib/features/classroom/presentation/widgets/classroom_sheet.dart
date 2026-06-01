@@ -4,9 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/classroom.dart';
 import '../providers/classroom_providers.dart';
 
@@ -438,11 +438,11 @@ class _ClassroomCard extends ConsumerWidget {
 
     if (confirmed != true || !context.mounted) return;
 
-    final firebaseUser = ref.read(firebaseAuthProvider).currentUser;
-    if (firebaseUser == null) return;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
+    if (user == null) return;
 
     final useCase = ref.read(leaveClassroomProvider);
-    await useCase(classroomId: classroom.id, studentId: firebaseUser.uid);
+    await useCase(classroomId: classroom.id, studentId: user.id);
     ref.invalidate(userClassroomsProvider);
   }
 

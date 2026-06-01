@@ -1,20 +1,21 @@
-import 'package:cloud_functions/cloud_functions.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-/// Datasource que invoca a Cloud Function `generateQuestionsAI`.
+/// Datasource que invoca a Edge Function `generate-questions` (Supabase).
 ///
-/// A region precisa casar com a configurada no deploy
-/// (`southamerica-east1` em `firebase/functions/index.js`).
-/// Se divergir, o SDK aponta para `us-central1` e a chamada falha com 404.
+/// Substitui a antiga Cloud Function `generateQuestionsAI`. O nome da classe é
+/// mantido durante a migração para não rippar repository/providers; será
+/// renomeado na limpeza final (Fase 8).
+///
+/// `functions.invoke` lança [FunctionException] em respostas não-2xx
+/// (401 não-autenticado, 403 não-professor, 400 input inválido, 500 falha da
+/// IA com `{ error, attempts }`). O repository converte para [Failure].
 class FirebaseFunctionsIaDatasource {
-  FirebaseFunctionsIaDatasource(this._functions);
+  FirebaseFunctionsIaDatasource(this._client);
 
-  final FirebaseFunctions _functions;
+  final SupabaseClient _client;
 
-  /// Invoca a Cloud Function e retorna o payload bruto
+  /// Invoca a função e retorna o payload bruto
   /// (`{ questions: [...], modelUsed: '...', attempts: [...] }`).
-  ///
-  /// Lança [FirebaseFunctionsException] em erros (auth, permission,
-  /// internal). O repository converte para [Failure].
   Future<Map<String, dynamic>> generateQuestions({
     required String topic,
     required String difficulty,
@@ -23,22 +24,25 @@ class FirebaseFunctionsIaDatasource {
     required String modelKey,
     String subject = 'História do Brasil',
   }) async {
-    final callable = _functions.httpsCallable(
-      'generateQuestionsAI',
-      options: HttpsCallableOptions(
-        timeout: const Duration(seconds: 90),
-      ),
+    final res = await _client.functions.invoke(
+      'generate-questions',
+      body: {
+        'subject': subject,
+        'topic': topic,
+        'difficulty': difficulty,
+        'quantity': quantity,
+        'description': description,
+        'modelKey': modelKey,
+      },
     );
 
-    final response = await callable.call<Map<Object?, Object?>>({
-      'subject': subject,
-      'topic': topic,
-      'difficulty': difficulty,
-      'quantity': quantity,
-      'description': description,
-      'modelKey': modelKey,
-    });
-
-    return Map<String, dynamic>.from(response.data);
+    final data = res.data;
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    throw const FunctionException(
+      status: 500,
+      details: 'Resposta inesperada da função generate-questions.',
+    );
   }
 }

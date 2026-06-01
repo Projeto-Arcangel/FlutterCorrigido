@@ -1,11 +1,12 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../lesson/data/models/question_model.dart';
 import '../../domain/entities/classroom.dart';
 
-/// Model que converte dados do Firestore para a entidade [Classroom].
+/// Model que converte uma sala do Supabase para a entidade [Classroom].
 ///
-/// Segue o mesmo padrão de `LessonModel` (extends da entity).
+/// O JSON vem das RPCs `classroom_to_json` / `get_*_classrooms`
+/// (com `teacher_name` e `student_ids` já resolvidos). As questões soltas
+/// de sala não existem no schema Supabase — o conteúdo vive em fases — então
+/// `questions` é sempre vazio aqui.
 class ClassroomModel extends Classroom {
   const ClassroomModel({
     required super.id,
@@ -33,46 +34,25 @@ class ClassroomModel extends Classroom {
         questions: const [],
       );
 
-  /// Constrói a partir de um `DocumentSnapshot` do Firestore.
-  ///
-  /// As questões são passadas separadamente porque estão em subcoleção.
-  factory ClassroomModel.fromSnapshot(
-    DocumentSnapshot snap,
-    List<QuestionModel> questions,
-  ) {
-    final data = snap.data()! as Map<String, dynamic>;
+  factory ClassroomModel.fromMap(
+    Map<String, dynamic> map, {
+    List<QuestionModel> questions = const [],
+  }) {
     return ClassroomModel(
-      id: snap.id,
-      code: (data['code'] as String?) ?? '',
-      name: (data['name'] as String?) ?? '',
-      description: (data['description'] as String?) ?? '',
-      teacherId: (data['teacherId'] as String?) ?? '',
-      teacherName: (data['teacherName'] as String?) ?? '',
-      studentIds: List<String>.from(
-        (data['studentIds'] as List<dynamic>?) ?? [],
-      ),
-      createdAt: _parseDate(data['createdAt']),
-      isActive: (data['isActive'] as bool?) ?? true,
+      id: map['id'].toString(),
+      code: (map['code'] as String?) ?? '',
+      name: (map['name'] as String?) ?? '',
+      description: (map['description'] as String?) ?? '',
+      teacherId: (map['teacher_id'] as String?) ?? '',
+      teacherName: (map['teacher_name'] as String?) ?? '',
+      studentIds: (map['student_ids'] as List<dynamic>?)
+              ?.map((e) => e.toString())
+              .toList() ??
+          const [],
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+          DateTime.now(),
+      isActive: (map['is_active'] as bool?) ?? true,
       questions: questions,
     );
-  }
-
-  static DateTime _parseDate(dynamic value) {
-    if (value is Timestamp) return value.toDate();
-    if (value is String) return DateTime.tryParse(value) ?? DateTime.now();
-    return DateTime.now();
-  }
-
-  /// Converte para Map para gravar no Firestore.
-  Map<String, dynamic> toFirestore() {
-    return {
-      'code': code,
-      'name': name,
-      'description': description,
-      'teacherId': teacherId,
-      'studentIds': studentIds,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'isActive': isActive,
-    };
   }
 }

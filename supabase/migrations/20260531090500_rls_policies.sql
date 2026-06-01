@@ -39,7 +39,8 @@ create policy classrooms_delete on public.classrooms
 
 -- ── classroom_members ─────────────────────────────────────────────────
 create policy members_select on public.classroom_members
-  for select to authenticated using (public.owns_classroom(classroom_id) or student_id = auth.uid());
+  for select to authenticated
+  using (public.owns_classroom(classroom_id) or public.is_member(classroom_id));
 create policy members_insert_self on public.classroom_members
   for insert to authenticated with check (student_id = auth.uid());
 create policy members_delete on public.classroom_members

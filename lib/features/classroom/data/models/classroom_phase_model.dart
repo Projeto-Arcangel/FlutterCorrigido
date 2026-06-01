@@ -1,12 +1,7 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 import '../../../lesson/data/models/question_model.dart';
 import '../../domain/entities/classroom_phase.dart';
 
-/// Model que converte dados do Firestore para [ClassroomPhase].
-///
-/// Armazenado em `Classrooms/{classroomId}/phases/{phaseId}`.
-/// As questões ficam em `Classrooms/{classroomId}/phases/{phaseId}/questions/{qId}`.
+/// Model que converte uma fase (tabela `classroom_phases`) para [ClassroomPhase].
 class ClassroomPhaseModel extends ClassroomPhase {
   const ClassroomPhaseModel({
     required super.id,
@@ -18,41 +13,19 @@ class ClassroomPhaseModel extends ClassroomPhase {
     required super.questions,
   });
 
-  /// Constrói a partir de um `DocumentSnapshot` do Firestore.
-  ///
-  /// As questões são passadas separadamente porque estão em subcoleção.
-  /// O `classroomId` é extraído do path do documento:
-  /// `Classrooms/{classroomId}/phases/{phaseId}`
-  factory ClassroomPhaseModel.fromSnapshot(
-    DocumentSnapshot snap,
+  factory ClassroomPhaseModel.fromMap(
+    Map<String, dynamic> map,
     List<QuestionModel> questions,
   ) {
-    final data = snap.data()! as Map<String, dynamic>;
-    // Path: Classrooms/{classroomId}/phases/{phaseId}
-    // snap.reference.parent = CollectionReference para 'phases'
-    // snap.reference.parent.parent = DocumentReference para Classrooms/{classroomId}
-    final classroomId = snap.reference.parent.parent?.id ?? '';
     return ClassroomPhaseModel(
-      id: snap.id,
-      classroomId: classroomId,
-      title: (data['name'] as String?) ?? '',
-      description: (data['description'] as String?) ?? '',
-      order: (data['order'] as num?)?.toInt() ?? 0,
-      createdAt:
-          (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      id: map['id'].toString(),
+      classroomId: (map['classroom_id'] as String?) ?? '',
+      title: (map['title'] as String?) ?? '',
+      description: (map['description'] as String?) ?? '',
+      order: (map['sort_order'] as num?)?.toInt() ?? 0,
+      createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+          DateTime.now(),
       questions: questions,
     );
-  }
-
-  /// Converte para Map para gravar no Firestore.
-  /// O `classroomId` NÃO é incluído no documento — é implícito
-  /// pelo path: `Classrooms/{classroomId}/phases/{phaseId}`.
-  Map<String, dynamic> toFirestore() {
-    return {
-      'name': title,
-      'description': description,
-      'order': order,
-      'createdAt': Timestamp.fromDate(createdAt),
-    };
   }
 }

@@ -78,7 +78,9 @@ create table public.classroom_results (
   total_questions int not null check (total_questions >= 0),
   correct_answers int not null check (correct_answers >= 0),
   completed_at    timestamptz not null default now(),
-  unique (classroom_id, student_id, phase_id),
+  -- Um resultado por aluno por sala (o último sobrescreve), espelhando o
+  -- comportamento original (resultado chaveado pelo uid do aluno).
+  unique (classroom_id, student_id),
   constraint results_correct_lte_total check (correct_answers <= total_questions)
 );
 

@@ -1,6 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/datasources/firebase_functions_ia_datasource.dart';
 import '../../data/repositories/ia_quiz_repository_impl.dart';
@@ -12,7 +12,7 @@ import '../../domain/usecases/generate_questions_with_ia.dart';
 // ─── Infraestrutura ────────────────────────────────────────────
 
 final iaQuizDatasourceProvider = Provider<FirebaseFunctionsIaDatasource>((ref) {
-  return FirebaseFunctionsIaDatasource(ref.watch(firebaseFunctionsProvider));
+  return FirebaseFunctionsIaDatasource(ref.watch(supabaseClientProvider));
 });
 
 final iaQuizRepositoryProvider = Provider<IaQuizRepository>((ref) {
@@ -34,7 +34,7 @@ final generateQuestionsWithIaProvider = Provider<GenerateQuestionsWithIa>(
 ///
 /// Estados:
 /// - `AsyncData(null)`  → idle (tela acabou de abrir).
-/// - `AsyncLoading()`   → chamando a Cloud Function.
+/// - `AsyncLoading()`   → chamando a Edge Function.
 /// - `AsyncData(result)`→ geração concluída.
 /// - `AsyncError(...)`  → falhou (mensagem fica no error).
 class IaGenerationNotifier extends AsyncNotifier<IaGenerationResult?> {

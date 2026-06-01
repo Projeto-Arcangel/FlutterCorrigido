@@ -27,7 +27,8 @@ class ProgressRepositoryImpl implements ProgressRepository {
           .eq('user_id', userId)
           .maybeSingle();
       if (row == null) {
-        return const Left(NetworkFailure('Progresso do usuário não encontrado.'));
+        return const Left(
+            NetworkFailure('Progresso do usuário não encontrado.'),);
       }
       return Right(UserProgressModel.fromMap(row));
     } catch (e, st) {

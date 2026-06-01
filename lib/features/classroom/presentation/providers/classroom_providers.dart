@@ -1,8 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../../core/infrastructure/firebase_providers.dart';
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
-import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../../data/datasources/firebase/classroom_firestore_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
@@ -31,7 +30,7 @@ import '../../domain/usecases/update_question_in_classroom.dart';
 
 final classroomDatasourceProvider =
     Provider<ClassroomFirestoreDatasource>((ref) {
-  return ClassroomFirestoreDatasource(ref.watch(firestoreProvider));
+  return ClassroomFirestoreDatasource(ref.watch(supabaseClientProvider));
 });
 
 final classroomRepositoryProvider = Provider<ClassroomRepository>((ref) {
@@ -232,7 +231,7 @@ class JoinClassroomNotifier extends AsyncNotifier<void> {
 
   /// Retorna (mensagem de erro, sala) — erro é null no sucesso, sala é null no erro.
   Future<(String?, Classroom?)> join(String code) async {
-    final user = ref.read(firebaseAuthProvider).currentUser;
+    final user = ref.read(supabaseClientProvider).auth.currentUser;
     if (user == null) return ('Usuário não autenticado.', null);
 
     state = const AsyncLoading();
@@ -240,8 +239,8 @@ class JoinClassroomNotifier extends AsyncNotifier<void> {
     final useCase = ref.read(joinClassroomProvider);
     final result = await useCase(
       code: code,
-      studentId: user.uid,
-      studentName: user.displayName ?? '',
+      studentId: user.id,
+      studentName: (user.userMetadata?['display_name'] as String?) ?? '',
     );
 
     return result.fold(
@@ -264,15 +263,15 @@ final joinClassroomNotifierProvider =
 );
 
 /// Turmas do aluno logado (sem parâmetro).
-/// Lê o uid internamente via firebaseAuthProvider.
+/// Lê o id internamente via supabaseClientProvider.
 /// Usado pelo _ClassroomList no classroom_sheet.dart.
 final userClassroomsProvider =
     FutureProvider.autoDispose<List<Classroom>>((ref) async {
-  final user = ref.watch(firebaseAuthProvider).currentUser;
+  final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return [];
 
   final useCase = ref.watch(getStudentClassroomProvider);
-  final result = await useCase(user.uid);
+  final result = await useCase(user.id);
 
   return result.fold((_) => [], (classrooms) => classrooms);
 });
@@ -284,11 +283,11 @@ final userClassroomsProvider =
 /// authStateChanges). Retorna `null` se o aluno não está nessa sala.
 final classroomByIdProvider = FutureProvider.autoDispose
     .family<Classroom?, String>((ref, classroomId) async {
-  final user = ref.watch(firebaseAuthProvider).currentUser;
+  final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return null;
 
   final useCase = ref.watch(getStudentClassroomProvider);
-  final result = await useCase(user.uid);
+  final result = await useCase(user.id);
 
   return result.fold(
     (_) => null,
@@ -299,9 +298,9 @@ final classroomByIdProvider = FutureProvider.autoDispose
 /// Últimas [limit] actividades recentes de todas as salas do professor logado.
 final recentActivitiesProvider =
     FutureProvider.autoDispose<List<ClassroomActivity>>((ref) async {
-  final user = ref.watch(firebaseAuthProvider).currentUser;
+  final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return [];
 
   final repo = ref.read(classroomRepositoryProvider);
-  return repo.fetchRecentActivities(user.uid);
+  return repo.fetchRecentActivities(user.id);
 });
