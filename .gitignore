@@ -92,3 +92,7 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Node.js — dependências instaladas localmente (Supabase CLI etc.).
+# Reproduzível via `npm install`; binários grandes NÃO vão para o git.
+node_modules/
