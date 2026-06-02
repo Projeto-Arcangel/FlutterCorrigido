@@ -1,0 +1,10 @@
+{
+  "name": "enem-import",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Importa o dataset enem.dev (questões + imagens) para o Supabase.",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}
