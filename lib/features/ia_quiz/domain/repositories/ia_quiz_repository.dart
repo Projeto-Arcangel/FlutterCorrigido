@@ -14,6 +14,7 @@ abstract class IaQuizRepository {
     required String topic,
     required String difficulty,
     required int quantity,
+    required int alternatives,
     required String description,
     required IaModelOption model,
   });

@@ -151,19 +151,25 @@ async function main() {
         }
       }
 
+      const contextImages = (j.files ?? []).map(rewrite);
+      const alternatives = (j.alternatives ?? []).map((a) => ({
+        ...a,
+        file: rewrite(a.file),
+      }));
       yearRows.push({
         year: j.year,
         index: j.index,
         discipline: j.discipline ?? '',
         language: j.language ?? '',
         context: rewrite(j.context ?? ''),
-        context_images: (j.files ?? []).map(rewrite),
+        context_images: contextImages,
         alternatives_introduction: j.alternativesIntroduction ?? '',
         correct_alternative: j.correctAlternative ?? '',
-        alternatives: (j.alternatives ?? []).map((a) => ({
-          ...a,
-          file: rewrite(a.file),
-        })),
+        alternatives,
+        has_image: contextImages.length > 0 ||
+          alternatives.some(
+            (a) => typeof a.file === 'string' && a.file.length > 0,
+          ),
       });
     }
 

@@ -45,6 +45,7 @@ class IaGenerationNotifier extends AsyncNotifier<IaGenerationResult?> {
     required String topic,
     required String difficulty,
     required int quantity,
+    required int alternatives,
     required String description,
     required IaModelOption model,
   }) async {
@@ -54,6 +55,7 @@ class IaGenerationNotifier extends AsyncNotifier<IaGenerationResult?> {
       topic: topic,
       difficulty: difficulty,
       quantity: quantity,
+      alternatives: alternatives,
       description: description,
       model: model,
     );

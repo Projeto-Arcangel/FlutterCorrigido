@@ -33,17 +33,43 @@ abstract class _C {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _QuestionData {
-  _QuestionData()
+  _QuestionData({int initial = 4})
       : textCtrl = TextEditingController(),
-        altCtrls = List.generate(4, (_) => TextEditingController()),
+        altCtrls = List.generate(initial, (_) => TextEditingController()),
         correctIndex = null;
+
+  static const int minAlternatives = 2;
+  static const int maxAlternatives = 5;
 
   final TextEditingController textCtrl;
   final List<TextEditingController> altCtrls;
   int? correctIndex;
 
+  bool get canAdd => altCtrls.length < maxAlternatives;
+  bool get canRemove => altCtrls.length > minAlternatives;
+
+  void addAlternative() {
+    if (!canAdd) return;
+    altCtrls.add(TextEditingController());
+  }
+
+  /// Remove a alternativa [i] e reajusta a resposta correta:
+  /// se a removida era a correta → limpa; se vinha antes → decrementa o índice.
+  void removeAlternative(int i) {
+    if (!canRemove || i < 0 || i >= altCtrls.length) return;
+    altCtrls.removeAt(i).dispose();
+    if (correctIndex != null) {
+      if (correctIndex == i) {
+        correctIndex = null;
+      } else if (correctIndex! > i) {
+        correctIndex = correctIndex! - 1;
+      }
+    }
+  }
+
   bool get isComplete =>
       textCtrl.text.trim().isNotEmpty &&
+      altCtrls.length >= minAlternatives &&
       altCtrls.every((c) => c.text.trim().isNotEmpty) &&
       correctIndex != null;
 
@@ -546,7 +572,7 @@ class _QuestionCard extends StatelessWidget {
   final int index;
   final VoidCallback onChanged;
 
-  static const _letters = ['A', 'B', 'C', 'D'];
+  static const _letters = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   Widget build(BuildContext context) {
@@ -687,8 +713,8 @@ class _QuestionCard extends StatelessWidget {
             ),
           ),
 
-          // ── Alternativas A-D ──────────────────────────────────────────
-          for (var i = 0; i < 4; i++) ...[
+          // ── Alternativas (2–5, dinâmicas) ─────────────────────────────
+          for (var i = 0; i < data.altCtrls.length; i++) ...[
             if (i > 0)
               const Divider(
                 height: 1,
@@ -705,8 +731,23 @@ class _QuestionCard extends StatelessWidget {
                 onChanged();
               },
               onChanged: onChanged,
+              onRemove: data.canRemove
+                  ? () {
+                      data.removeAlternative(i);
+                      onChanged();
+                    }
+                  : null,
             ),
           ],
+
+          // Adicionar alternativa (até o máximo de 5).
+          if (data.canAdd)
+            _AddAlternativeButton(
+              onTap: () {
+                data.addAlternative();
+                onChanged();
+              },
+            ),
 
           const SizedBox(height: 6),
         ],
@@ -727,6 +768,7 @@ class _AlternativeTile extends StatelessWidget {
     required this.isCorrect,
     required this.onSelectCorrect,
     required this.onChanged,
+    this.onRemove,
   });
 
   final String letter;
@@ -734,6 +776,9 @@ class _AlternativeTile extends StatelessWidget {
   final bool isCorrect;
   final VoidCallback onSelectCorrect;
   final VoidCallback onChanged;
+
+  /// Quando não-nulo, exibe o botão de remover esta alternativa.
+  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) {
@@ -837,7 +882,71 @@ class _AlternativeTile extends StatelessWidget {
               ),
             ),
           ),
+
+          // ── Remover alternativa (some quando no mínimo) ───────────────
+          if (onRemove != null) ...[
+            const SizedBox(width: 4),
+            GestureDetector(
+              onTap: onRemove,
+              behavior: HitTestBehavior.opaque,
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Icon(
+                  Icons.close_rounded,
+                  size: 16,
+                  color: _C.textMuted.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add Alternative Button — adiciona uma alternativa (até o máximo).
+// Heurística #7 (flexibilidade): o professor escolhe quantas alternativas quer.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AddAlternativeButton extends StatelessWidget {
+  const _AddAlternativeButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 2, 12, 4),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            borderRadius: BorderRadius.circular(8),
+            splashColor: _C.accentSubtle,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.add_rounded, size: 16, color: _C.accent),
+                  const SizedBox(width: 6),
+                  Text(
+                    'Adicionar alternativa',
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _C.accent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

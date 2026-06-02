@@ -485,7 +485,7 @@ class _QuestionReviewCard extends StatelessWidget {
   final VoidCallback onToggleAccept;
   final VoidCallback onEdit;
 
-  static const _letters = ['A', 'B', 'C', 'D'];
+  static const _letters = ['A', 'B', 'C', 'D', 'E'];
 
   @override
   Widget build(BuildContext context) {
@@ -946,7 +946,7 @@ class _EditQuestionSheetState extends State<_EditQuestionSheet> {
                     const SizedBox(height: 6),
                     for (var i = 0; i < _optionCtrls.length; i++) ...[
                       _OptionEditRow(
-                        letter: ['A', 'B', 'C', 'D'][i],
+                        letter: ['A', 'B', 'C', 'D', 'E'][i],
                         controller: _optionCtrls[i],
                         isCorrect: i == _correctIndex,
                         onSelectCorrect: () =>

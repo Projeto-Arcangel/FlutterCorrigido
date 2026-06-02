@@ -166,6 +166,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
 
   _Difficulty _difficulty = _Difficulty.medium;
   double _quantity = 5;
+  int _alternatives = 4;
   IaModelOption _selectedModel = IaModelOption.defaultOption;
 
   bool get _canGenerate {
@@ -189,6 +190,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
           topic: _topicCtrl.text,
           difficulty: _difficulty.key,
           quantity: _quantity.round(),
+          alternatives: _alternatives,
           description: _descCtrl.text,
           model: _selectedModel,
         );
@@ -359,6 +361,15 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       _QuantitySlider(
                         value: _quantity,
                         onChanged: (v) => setState(() => _quantity = v),
+                      ),
+                      const SizedBox(height: 28),
+
+                      // Alternativas por questão
+                      _sectionLabel('ALTERNATIVAS POR QUESTÃO'),
+                      const SizedBox(height: 10),
+                      _AlternativesSelector(
+                        selected: _alternatives,
+                        onSelect: (n) => setState(() => _alternatives = n),
                       ),
                       const SizedBox(height: 28),
 
@@ -812,6 +823,88 @@ class _QuantitySlider extends StatelessWidget {
         max: 20,
         divisions: 19,
         onChanged: onChanged,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Alternatives Selector — quantas alternativas cada questão terá (2–5).
+// Heurística #4: mesmo padrão visual do _DifficultySelector.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AlternativesSelector extends StatelessWidget {
+  const _AlternativesSelector({
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final int selected;
+  final ValueChanged<int> onSelect;
+
+  static const _options = [2, 3, 4, 5];
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: _options.asMap().entries.map((entry) {
+        final isLast = entry.key == _options.length - 1;
+        final n = entry.value;
+        return Expanded(
+          child: Padding(
+            padding: EdgeInsets.only(right: isLast ? 0 : 8),
+            child: _AlternativesOption(
+              count: n,
+              isSelected: selected == n,
+              onTap: () => onSelect(n),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _AlternativesOption extends StatelessWidget {
+  const _AlternativesOption({
+    required this.count,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        curve: Curves.easeOut,
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: isSelected ? _C.accentSubtle : _C.cardBg(isDark),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? _C.accent.withValues(alpha: 0.55)
+                : _C.adaptiveBorder(isDark),
+            width: isSelected ? 1.5 : 1.0,
+          ),
+        ),
+        child: Center(
+          child: Text(
+            '$count',
+            style: GoogleFonts.nunito(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: isSelected ? _C.accent : _C.textMuted,
+            ),
+          ),
+        ),
       ),
     );
   }

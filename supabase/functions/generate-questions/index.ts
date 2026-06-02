@@ -108,6 +108,7 @@ Deno.serve(async (req: Request) => {
       topic: body.topic,
       difficulty: body.difficulty as string | undefined,
       quantity: Number(body.quantity),
+      alternatives: body.alternatives != null ? Number(body.alternatives) : undefined,
       description: body.description as string | undefined,
       modelKey: body.modelKey as string | undefined,
     }, apiKey);

@@ -20,6 +20,7 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
     required String topic,
     required String difficulty,
     required int quantity,
+    required int alternatives,
     required String description,
     required IaModelOption model,
   }) async {
@@ -28,6 +29,7 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
         topic: topic,
         difficulty: difficulty,
         quantity: quantity,
+        alternatives: alternatives,
         description: description,
         modelKey: model.key,
       );

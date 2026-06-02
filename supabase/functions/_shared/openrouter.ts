@@ -26,6 +26,7 @@ export interface GenerateInput {
   topic: string;
   difficulty?: string;
   quantity?: number;
+  alternatives?: number; // nº de alternativas por questão (2–5, default 4)
   description?: string;
   modelKey?: string;
 }
@@ -60,14 +61,19 @@ export class GenerationError extends Error {
 }
 
 function buildPrompt(
-  { subject, topic, difficulty, quantity, description }: Required<
+  { subject, topic, difficulty, quantity, description, alternatives }: Required<
     Pick<GenerateInput, "subject" | "topic" | "quantity">
-  > & { difficulty: string; description: string },
+  > & { difficulty: string; description: string; alternatives: number },
 ): string {
   const difficultyLabel = DIFFICULTY_LABELS[difficulty] ?? difficulty;
   const extraInstructions = description && description.trim().length > 0
     ? `\n\nInstruções adicionais do professor:\n${description.trim()}`
     : "";
+
+  const exampleOptions = ["A", "B", "C", "D", "E"]
+    .slice(0, alternatives)
+    .map((l) => `"alternativa ${l}"`)
+    .join(", ");
 
   return `Você é um professor especialista em ${subject} para o ensino fundamental e médio brasileiro.
 
@@ -76,9 +82,9 @@ Gere exatamente ${quantity} questões de múltipla escolha sobre o tema: "${topi
 Nível de dificuldade: ${difficultyLabel}.${extraInstructions}
 
 Regras obrigatórias:
-- Cada questão deve ter exatamente 4 alternativas.
+- Cada questão deve ter exatamente ${alternatives} alternativas.
 - Apenas 1 alternativa correta por questão.
-- O índice da resposta correta vai de 0 a 3 (0 = primeira alternativa).
+- O índice da resposta correta vai de 0 a ${alternatives - 1} (0 = primeira alternativa).
 - A explicação deve justificar a resposta correta de forma pedagógica, em até 2 frases.
 - Todo o conteúdo deve estar em português do Brasil.
 - Evite ambiguidades e questões com mais de uma resposta defensável.
@@ -88,7 +94,7 @@ Responda APENAS com um JSON válido no formato exato:
   "questions": [
     {
       "text": "enunciado da questão",
-      "options": ["alternativa A", "alternativa B", "alternativa C", "alternativa D"],
+      "options": [${exampleOptions}],
       "correctAnswer": 0,
       "explanation": "justificativa pedagógica da resposta correta"
     }
@@ -135,7 +141,7 @@ async function callOpenRouter(
   }
 }
 
-function parseAndValidate(raw: string): GeneratedQuestion[] {
+function parseAndValidate(raw: string, expected: number): GeneratedQuestion[] {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -152,15 +158,15 @@ function parseAndValidate(raw: string): GeneratedQuestion[] {
     if (typeof q.text !== "string" || q.text.trim().length === 0) {
       throw new Error(`Questão ${idx + 1} sem enunciado válido.`);
     }
-    if (!Array.isArray(q.options) || q.options.length !== 4) {
-      throw new Error(`Questão ${idx + 1} não tem exatamente 4 alternativas.`);
+    if (!Array.isArray(q.options) || q.options.length !== expected) {
+      throw new Error(`Questão ${idx + 1} não tem exatamente ${expected} alternativas.`);
     }
     if (q.options.some((o: unknown) => typeof o !== "string" || o.trim().length === 0)) {
       throw new Error(`Questão ${idx + 1} tem alternativa vazia.`);
     }
     const correct = Number(q.correctAnswer);
-    if (!Number.isInteger(correct) || correct < 0 || correct > 3) {
-      throw new Error(`Questão ${idx + 1} tem correctAnswer inválido (esperado 0-3).`);
+    if (!Number.isInteger(correct) || correct < 0 || correct > expected - 1) {
+      throw new Error(`Questão ${idx + 1} tem correctAnswer inválido (esperado 0-${expected - 1}).`);
     }
     return {
       text: q.text.trim(),
@@ -188,6 +194,7 @@ export async function generateQuestionsWithFallback(
     topic,
     difficulty = "medium",
     quantity = 5,
+    alternatives = 4,
     description = "",
     modelKey = "gemini-flash",
   } = input;
@@ -198,6 +205,9 @@ export async function generateQuestionsWithFallback(
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) {
     throw new Error("A quantidade deve ser um inteiro entre 1 e 20.");
   }
+  if (!Number.isInteger(alternatives) || alternatives < 2 || alternatives > 5) {
+    throw new Error("O número de alternativas deve ser um inteiro entre 2 e 5.");
+  }
   if (!ALLOWED_MODELS[modelKey]) {
     throw new Error(`Modelo "${modelKey}" não é permitido.`);
   }
@@ -207,6 +217,7 @@ export async function generateQuestionsWithFallback(
     topic: topic.trim(),
     difficulty,
     quantity,
+    alternatives,
     description,
   };
   const prompt = buildPrompt(promptArgs);
@@ -219,7 +230,7 @@ export async function generateQuestionsWithFallback(
     const modelId = ALLOWED_MODELS[candidate];
     try {
       const raw = await callOpenRouter({ modelId, prompt, apiKey });
-      const questions = parseAndValidate(raw);
+      const questions = parseAndValidate(raw, alternatives);
       attempts.push({ model: candidate, status: "success" });
       return { questions, modelUsed: candidate, modelIdUsed: modelId, attempts };
     } catch (err) {

@@ -9,6 +9,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
+import '../../../enem/presentation/pages/enem_bank_page.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../widgets/classroom_palette.dart';
 
@@ -141,10 +142,18 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
     ref.invalidate(classroomPhasesProvider(widget.classroom.id));
   }
 
-  void _showEnemSoon() {
-    _showSnack(
-      'A integração com questões do ENEM ainda está em desenvolvimento.',
+  Future<void> _openEnemBank() async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => EnemBankPage(
+          classroomId: widget.classroom.id,
+          phaseId: widget.phase.id,
+          phaseTitle: widget.phase.title,
+        ),
+      ),
     );
+    if (!mounted) return;
+    ref.invalidate(classroomPhasesProvider(widget.classroom.id));
   }
 
   Future<void> _onDeletePhase() async {
@@ -274,7 +283,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
             _AddQuestionsSection(
               onIa: _openIaFlow,
               onCustom: _openCustomFlow,
-              onEnem: _showEnemSoon,
+              onEnem: _openEnemBank,
             ),
             const SizedBox(height: 24),
             _QuestionsSection(
@@ -376,7 +385,7 @@ class _PhaseHeaderCard extends StatelessWidget {
                 Text(
                   '${classroom.name} · '
                   '${phase.totalQuestions} '
-                  'questõ${phase.totalQuestions == 1 ? 'ão' : 'es'}',
+                  'quest${phase.totalQuestions == 1 ? 'ão' : 'ões'}',
                   style: GoogleFonts.nunito(
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
@@ -719,9 +728,7 @@ class _AddQuestionsSection extends StatelessWidget {
                 iconBg: ClassroomPalette.goldSubtle,
                 title: 'Puxar questões do ENEM',
                 subtitle: 'Importe da base oficial do exame',
-                badge: 'Em breve',
                 onTap: onEnem,
-                disabled: true,
               ),
             ],
           ),
@@ -928,7 +935,7 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
                     _local.isEmpty
                         ? 'Adicione questões usando uma das opções acima'
                         : '${_local.length} '
-                            'questõ${_local.length == 1 ? 'ão' : 'es'} '
+                            'quest${_local.length == 1 ? 'ão' : 'ões'} '
                             'na fase',
                     style: GoogleFonts.nunito(
                       fontSize: 12,
@@ -1188,7 +1195,7 @@ class _DeletePhaseDialog extends StatelessWidget {
       content: Text(
         'Você vai apagar "${phase.title}" e suas '
         '${phase.totalQuestions} '
-        'questõ${phase.totalQuestions == 1 ? 'ão' : 'es'}.\n\n'
+        'quest${phase.totalQuestions == 1 ? 'ão' : 'ões'}.\n\n'
         'Esta ação é irreversível.',
         style: GoogleFonts.nunito(
           fontSize: 13,

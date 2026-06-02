@@ -19,12 +19,15 @@ class GenerateQuestionsWithIa {
 
   static const int _minQuantity = 1;
   static const int _maxQuantity = 20;
+  static const int _minAlternatives = 2;
+  static const int _maxAlternatives = 5;
   static const int _maxDescriptionLength = 500;
 
   Future<Either<Failure, IaGenerationResult>> call({
     required String topic,
     required String difficulty,
     required int quantity,
+    required int alternatives,
     required String description,
     required IaModelOption model,
   }) {
@@ -39,6 +42,16 @@ class GenerateQuestionsWithIa {
       return Future.value(
         const Left(
           ValidationFailure('A quantidade deve estar entre 1 e 20.'),
+        ),
+      );
+    }
+
+    if (alternatives < _minAlternatives || alternatives > _maxAlternatives) {
+      return Future.value(
+        const Left(
+          ValidationFailure(
+            'O número de alternativas deve estar entre 2 e 5.',
+          ),
         ),
       );
     }
@@ -58,6 +71,7 @@ class GenerateQuestionsWithIa {
       topic: trimmedTopic,
       difficulty: difficulty,
       quantity: quantity,
+      alternatives: alternatives,
       description: trimmedDescription,
       model: model,
     );
