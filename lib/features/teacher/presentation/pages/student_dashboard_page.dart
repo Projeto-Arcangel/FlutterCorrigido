@@ -948,7 +948,7 @@ class _StudentCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${result.totalQuestions} questões  ·  '
+                          '${result.totalQuestions} quest${result.totalQuestions == 1 ? 'ão' : 'ões'}  ·  '
                           '${result.correctAnswers} corretas',
                           style: GoogleFonts.nunito(
                             fontSize: 11,

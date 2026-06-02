@@ -18,7 +18,7 @@ import '../widgets/classroom_palette.dart';
 /// Permite ao professor:
 ///   - editar o nome e a descrição da fase;
 ///   - adicionar questões à fase via IA ou manualmente;
-///   - puxar questões do ENEM (em breve);
+///   - puxar questões do ENEM;
 ///   - reorganizar a ordem das questões;
 ///   - excluir a fase.
 ///
@@ -1040,6 +1040,80 @@ class _QuestionTile extends StatelessWidget {
   final bool reordering;
   final VoidCallback onDelete;
 
+  void _openImage(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => GestureDetector(
+        onTap: () => Navigator.of(ctx).pop(),
+        child: Scaffold(
+          backgroundColor: isDark
+              ? Colors.black.withValues(alpha: 0.92)
+              : Colors.black87,
+          body: Stack(
+            children: [
+              Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: InteractiveViewer(
+                    maxScale: 4.0,
+                    child: Image.network(
+                      question.imageUrl!,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (_, child, progress) {
+                        if (progress == null) return child;
+                        return const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.white54,
+                            strokeWidth: 2,
+                          ),
+                        );
+                      },
+                      errorBuilder: (_, __, ___) => Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.broken_image_outlined,
+                              color: Colors.white38, size: 48),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Imagem indisponível',
+                            style: GoogleFonts.nunito(
+                              color: Colors.white38,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: SafeArea(
+                  child: Material(
+                    color: Colors.white.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(24),
+                    child: InkWell(
+                      onTap: () => Navigator.of(ctx).pop(),
+                      borderRadius: BorderRadius.circular(24),
+                      child: const Padding(
+                        padding: EdgeInsets.all(10),
+                        child: Icon(Icons.close_rounded,
+                            color: Colors.white70, size: 22),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1078,11 +1152,81 @@ class _QuestionTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
+                // Miniatura da imagem (se houver)
+                if (question.hasImage) ...[
+                  GestureDetector(
+                    onTap: () => _openImage(context),
+                    child: Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: ClassroomPalette.border(isDark),
+                        ),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          Image.network(
+                            question.imageUrl!,
+                            fit: BoxFit.cover,
+                            loadingBuilder: (_, child, progress) {
+                              if (progress == null) return child;
+                              return Center(
+                                child: SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 1.5,
+                                    color: AppColors.primary
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                              );
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: isDark
+                                  ? Colors.white10
+                                  : Colors.black.withValues(alpha: 0.05),
+                              child: Icon(
+                                Icons.broken_image_outlined,
+                                color: isDark
+                                    ? Colors.white24
+                                    : Colors.black26,
+                                size: 18,
+                              ),
+                            ),
+                          ),
+                          // Ícone de expandir
+                          Positioned(
+                            bottom: 2,
+                            right: 2,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: const Icon(
+                                Icons.zoom_in_rounded,
+                                color: Colors.white70,
+                                size: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                ],
                 Expanded(
                   child: Text(
                     question.text.isEmpty
                         ? 'Questão sem enunciado'
-                        : question.text,
+                        : _stripUrls(question.text),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.nunito(
@@ -1341,4 +1485,15 @@ class _SmallLabel extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Remove URLs soltas do texto de questões (Supabase storage etc.)
+/// para exibição limpa na listagem.
+String _stripUrls(String text) {
+  var out = text.replaceAll(
+    RegExp(r'https?://\S+', caseSensitive: false),
+    '',
+  );
+  out = out.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+  return out.trim();
 }

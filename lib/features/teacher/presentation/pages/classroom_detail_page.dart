@@ -1021,7 +1021,7 @@ class _PhaseTile extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   '${phase.totalQuestions} '
-                  'questõ${phase.totalQuestions == 1 ? 'ão' : 'es'}'
+                  'quest${phase.totalQuestions == 1 ? 'ão' : 'ões'}'
                   '${phase.description.isEmpty ? '' : ' · ${phase.description}'}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,

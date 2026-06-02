@@ -97,7 +97,7 @@ class _EnemBankPageState extends ConsumerState<EnemBankPage> {
       (failure) => _snack(failure.message, isError: true),
       (_) {
         ref.invalidate(classroomPhasesProvider(widget.classroomId));
-        _snack('${questions.length} questão(ões) adicionada(s) à fase!');
+        _snack('${questions.length} quest${questions.length == 1 ? 'ão adicionada' : 'ões adicionadas'} à fase!');
         Navigator.of(context).pop();
       },
     );
@@ -498,6 +498,83 @@ class _NoImageToggle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Dialog de imagem em tela cheia
+// ─────────────────────────────────────────────────────────────────────────────
+
+void _openEnemImage(BuildContext context, String url, bool isDark) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => GestureDetector(
+      onTap: () => Navigator.of(ctx).pop(),
+      child: Scaffold(
+        backgroundColor: isDark
+            ? Colors.black.withValues(alpha: 0.92)
+            : Colors.black87,
+        body: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: InteractiveViewer(
+                  maxScale: 4.0,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white54,
+                          strokeWidth: 2,
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.broken_image_outlined,
+                            color: Colors.white38, size: 48),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Imagem indisponível',
+                          style: GoogleFonts.nunito(
+                            color: Colors.white38,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: SafeArea(
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(24),
+                  child: InkWell(
+                    onTap: () => Navigator.of(ctx).pop(),
+                    borderRadius: BorderRadius.circular(24),
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(Icons.close_rounded,
+                          color: Colors.white70, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Card de questão
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -568,31 +645,85 @@ class _EnemCard extends StatelessWidget {
               ),
               const SizedBox(height: 10),
 
-              // Aviso de imagem
-              if (q.hasImage) ...[
-                Row(
-                  children: [
-                    const Icon(Icons.image_outlined, size: 13, color: _C.warn),
-                    const SizedBox(width: 5),
-                    Expanded(
-                      child: Text(
-                        'Contém imagem — a do enunciado é incluída; imagens de alternativa não.',
-                        style: GoogleFonts.nunito(
-                          fontSize: 10.5,
-                          fontWeight: FontWeight.w600,
-                          color: _C.warn,
+              // Miniaturas de imagens do enunciado
+              if (q.hasImage && q.contextImages.isNotEmpty) ...[
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: q.contextImages.map((url) {
+                    return GestureDetector(
+                      onTap: () => _openEnemImage(context, url, isDark),
+                      child: Container(
+                        width: 56,
+                        height: 56,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: _C.adaptiveBorder(isDark),
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              url,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (_, child, progress) {
+                                if (progress == null) return child;
+                                return Center(
+                                  child: SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: _C.accent.withValues(alpha: 0.5),
+                                    ),
+                                  ),
+                                );
+                              },
+                              errorBuilder: (_, __, ___) => Container(
+                                color: isDark
+                                    ? Colors.white10
+                                    : Colors.black.withValues(alpha: 0.05),
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color: isDark
+                                      ? Colors.white24
+                                      : Colors.black26,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              bottom: 2,
+                              right: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.zoom_in_rounded,
+                                  color: Colors.white70,
+                                  size: 10,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ],
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 8),
               ],
 
               // Enunciado
-              if (q.context.trim().isNotEmpty)
+              if (q.cleanContext.isNotEmpty)
                 Text(
-                  q.context.trim(),
+                  q.cleanContext,
                   maxLines: 5,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.nunito(
@@ -701,7 +832,7 @@ class _ResultFooter extends StatelessWidget {
         child: Text(
           capped
               ? 'Mostrando as primeiras $count questões — refine os filtros.'
-              : '$count questão(ões) encontrada(s).',
+              : '$count quest${count == 1 ? 'ão encontrada' : 'ões encontradas'}.',
           textAlign: TextAlign.center,
           style: GoogleFonts.nunito(
             fontSize: 11,

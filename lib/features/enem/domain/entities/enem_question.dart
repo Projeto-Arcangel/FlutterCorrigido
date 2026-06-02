@@ -110,13 +110,25 @@ class EnemQuestion extends Equatable {
       ];
 }
 
-/// Remove imagens `![](...)` e troca links `[txt](url)` pelo texto, deixando
-/// apenas o conteúdo legível do enunciado do ENEM (markdown).
+/// Remove imagens `![](...)`, links `[txt](url)` e URLs soltas do markdown
+/// do ENEM, deixando apenas o conteúdo legível do enunciado.
 String stripEnemMarkdown(String input) {
+  // 1. Remove imagens markdown: ![alt](url)
   var out = input.replaceAll(RegExp(r'!\[[^\]]*\]\([^)]*\)'), '');
+
+  // 2. Troca links markdown [texto](url) pelo texto apenas
   out = out.replaceAllMapped(
     RegExp(r'\[([^\]]*)\]\([^)]*\)'),
     (m) => m.group(1) ?? '',
   );
+
+  // 3. Remove URLs soltas (bare URLs — comum em dados do Supabase storage)
+  out = out.replaceAll(
+    RegExp(r'https?://\S+', caseSensitive: false),
+    '',
+  );
+
+  // 4. Limpa linhas em branco consecutivas e espaços extras
+  out = out.replaceAll(RegExp(r'\n{3,}'), '\n\n');
   return out.trim();
 }

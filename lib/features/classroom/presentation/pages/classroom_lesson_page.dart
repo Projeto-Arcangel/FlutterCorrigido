@@ -146,56 +146,169 @@ class _ClassroomQuiz extends ConsumerWidget {
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    question.text,
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w600,
-                      height: 1.55,
-                      color: isDark
-                          ? AppColors.textOnDark
-                          : AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  ...List.generate(question.options.length, (i) {
-                    final OptionState optState;
-                    if (!confirmed) {
-                      optState = selected == i
-                          ? OptionState.selected
-                          : OptionState.idle;
-                    } else {
-                      if (i == question.correctAnswer) {
-                        optState = OptionState.correct;
-                      } else if (i == selected) {
-                        optState = OptionState.wrong;
-                      } else {
-                        optState = OptionState.idle;
-                      }
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: OptionTile(
-                        index: i,
-                        label: question.options[i],
-                        optionState: optState,
-                        onTap: confirmed ? null : () => controller.answer(i),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 600),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        _cleanQuestionText(question.text),
+                        style: TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          height: 1.55,
+                          color: isDark
+                              ? AppColors.textOnDark
+                              : AppColors.textPrimary,
+                        ),
                       ),
-                    );
-                  }),
-                  if (confirmed && question.explanation.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    _ExplanationCard(
-                      explanation: question.explanation,
-                      isCorrect: selected == question.correctAnswer,
-                      isDark: isDark,
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                ],
+                      if (question.hasImage) ...[
+                        const SizedBox(height: 16),
+                        Center(
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxWidth: 420,
+                              maxHeight: 240,
+                            ),
+                            child: GestureDetector(
+                              onTap: () => _showImageDialog(
+                                context,
+                                question.imageUrl!,
+                                isDark,
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  question.imageUrl!,
+                                  fit: BoxFit.contain,
+                                  loadingBuilder: (_, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(
+                                      height: 120,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? Colors.white10
+                                            : Colors.black
+                                                .withValues(alpha: 0.05),
+                                        borderRadius:
+                                            BorderRadius.circular(12),
+                                      ),
+                                      child: CircularProgressIndicator(
+                                        value:
+                                            progress.expectedTotalBytes != null
+                                                ? progress
+                                                        .cumulativeBytesLoaded /
+                                                    progress
+                                                        .expectedTotalBytes!
+                                                : null,
+                                        strokeWidth: 2,
+                                        color: AppColors.primary,
+                                      ),
+                                    );
+                                  },
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 80,
+                                    alignment: Alignment.center,
+                                    decoration: BoxDecoration(
+                                      color: isDark
+                                          ? Colors.white10
+                                          : Colors.black
+                                              .withValues(alpha: 0.05),
+                                      borderRadius:
+                                          BorderRadius.circular(12),
+                                    ),
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.broken_image_outlined,
+                                          color: isDark
+                                              ? Colors.white38
+                                              : Colors.black38,
+                                          size: 28,
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          'Imagem indisponível',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? Colors.white38
+                                                : Colors.black38,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        if (question.imageAuthor != null &&
+                            question.imageAuthor!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: Text(
+                              question.imageSource != null &&
+                                      question.imageSource!.isNotEmpty
+                                  ? '${question.imageAuthor} — ${question.imageSource}'
+                                  : question.imageAuthor!,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontStyle: FontStyle.italic,
+                                color: isDark
+                                    ? AppColors.textOnDark
+                                        .withValues(alpha: 0.45)
+                                    : AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                      ],
+                      const SizedBox(height: 24),
+                      ...List.generate(question.options.length, (i) {
+                        final OptionState optState;
+                        if (!confirmed) {
+                          optState = selected == i
+                              ? OptionState.selected
+                              : OptionState.idle;
+                        } else {
+                          if (i == question.correctAnswer) {
+                            optState = OptionState.correct;
+                          } else if (i == selected) {
+                            optState = OptionState.wrong;
+                          } else {
+                            optState = OptionState.idle;
+                          }
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: OptionTile(
+                            index: i,
+                            label: question.options[i],
+                            optionState: optState,
+                            onTap: confirmed
+                                ? null
+                                : () => controller.answer(i),
+                          ),
+                        );
+                      }),
+                      if (confirmed &&
+                          question.explanation.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        _ExplanationCard(
+                          explanation: question.explanation,
+                          isCorrect: selected == question.correctAnswer,
+                          isDark: isDark,
+                        ),
+                      ],
+                      const SizedBox(height: 8),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
@@ -369,6 +482,89 @@ class _ClassroomResultView extends StatelessWidget {
       ),
     );
   }
+}
+// ─── Dialog de imagem em tela cheia ───────────────────────────────────────────
+
+void _showImageDialog(BuildContext context, String url, bool isDark) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => GestureDetector(
+      onTap: () => Navigator.of(ctx).pop(),
+      child: Scaffold(
+        backgroundColor: isDark
+            ? Colors.black.withValues(alpha: 0.92)
+            : Colors.black87,
+        body: Stack(
+          children: [
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: InteractiveViewer(
+                  maxScale: 4.0,
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (_, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: Colors.white54,
+                          strokeWidth: 2,
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => const Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.broken_image_outlined,
+                            color: Colors.white38, size: 48),
+                        SizedBox(height: 8),
+                        Text('Imagem indisponível',
+                            style: TextStyle(
+                                color: Colors.white38, fontSize: 14)),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 16,
+              right: 16,
+              child: SafeArea(
+                child: Material(
+                  color: Colors.white.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(24),
+                  child: InkWell(
+                    onTap: () => Navigator.of(ctx).pop(),
+                    borderRadius: BorderRadius.circular(24),
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(Icons.close_rounded,
+                          color: Colors.white70, size: 22),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// ─── Limpeza de URLs do texto de questão ──────────────────────────────────────
+
+/// Remove URLs soltas (bare URLs do Supabase storage etc.) que ficaram
+/// embutidas no texto da questão após importação do ENEM.
+String _cleanQuestionText(String text) {
+  var out = text.replaceAll(
+    RegExp(r'https?://\S+', caseSensitive: false),
+    '',
+  );
+  out = out.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+  return out.trim();
 }
 
 // ─── Helpers (copiados do quiz_view.dart para manter o visual idêntico) ───────
