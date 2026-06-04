@@ -29,6 +29,22 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
   static const Duration _kTotal = Duration(milliseconds: 700);
   static const Duration _kStagger = Duration(milliseconds: 150);
 
+  /// Limite inicial de atividades carregadas.
+  static const int _kInitialLimit = 3;
+
+  /// Quantidade de atividades adicionais por clique em "Ver mais".
+  static const int _kPageSize = 5;
+
+  /// Quantas atividades estão sendo requisitadas no momento.
+  int _activityLimit = _kInitialLimit;
+
+  /// Flag visual enquanto carrega mais atividades.
+  bool _isLoadingMore = false;
+
+  /// Indica se todas as atividades foram carregadas (servidor retornou
+  /// menos do que o pedido).
+  bool _allLoaded = false;
+
   @override
   void initState() {
     super.initState();
@@ -88,6 +104,20 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         child: SlideTransition(position: _slides[slot], child: child),
       );
 
+  /// Carrega mais atividades recentes.
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || _allLoaded) return;
+    setState(() => _isLoadingMore = true);
+
+    final newLimit = _activityLimit + _kPageSize;
+    setState(() => _activityLimit = newLimit);
+
+    // Aguarda o provider resolver os dados novos.
+    // Como o provider é autoDispose.family, ele será invalidado e
+    // o novo limite será aplicado no próximo build.
+    // O estado de isLoadingMore será desligado quando os dados novos chegarem.
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = ref.watch(authStateProvider).valueOrNull;
@@ -95,12 +125,26 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
         user?.displayName ?? user?.email.split('@').first ?? 'Professor';
 
     final asyncDashboard = ref.watch(teacherDashboardProvider);
-    final asyncActivities = ref.watch(recentActivitiesProvider);
+    final asyncActivities = ref.watch(recentActivitiesProvider(_activityLimit));
 
     final activities = asyncActivities.when(
       loading: () => <TeacherActivityItem>[],
       error: (_, __) => <TeacherActivityItem>[],
-      data: _mapActivities,
+      data: (events) {
+        // Se o provider retornou menos do que pedimos, todas já foram carregadas.
+        if (events.length < _activityLimit && !_allLoaded) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _allLoaded = true);
+          });
+        }
+        // Desliga o loading quando dados chegam.
+        if (_isLoadingMore) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _isLoadingMore = false);
+          });
+        }
+        return _mapActivities(events);
+      },
     );
 
     return Scaffold(
@@ -146,6 +190,9 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
               activities: activities.isNotEmpty
                   ? activities
                   : _placeholderActivities(),
+              onLoadMore: activities.isNotEmpty ? _loadMore : null,
+              allLoaded: _allLoaded || activities.isEmpty,
+              isLoadingMore: _isLoadingMore,
             ),
           ),
         ),
@@ -217,4 +264,4 @@ class _TeacherPageState extends ConsumerState<TeacherPage>
     if (diff.inDays < 7) return 'há ${diff.inDays} dias';
     return 'há ${diff.inDays ~/ 7} sem';
   }
-}
+}

@@ -296,11 +296,13 @@ final classroomByIdProvider = FutureProvider.autoDispose
 });
 
 /// Últimas [limit] actividades recentes de todas as salas do professor logado.
+/// O parâmetro [limit] controla quantas atividades são carregadas.
 final recentActivitiesProvider =
-    FutureProvider.autoDispose<List<ClassroomActivity>>((ref) async {
+    FutureProvider.autoDispose.family<List<ClassroomActivity>, int>(
+        (ref, limit) async {
   final user = ref.watch(supabaseClientProvider).auth.currentUser;
   if (user == null) return [];
 
   final repo = ref.read(classroomRepositoryProvider);
-  return repo.fetchRecentActivities(user.id);
+  return repo.fetchRecentActivities(user.id, limit: limit);
 });

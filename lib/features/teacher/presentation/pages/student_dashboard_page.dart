@@ -468,6 +468,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         filtered.isEmpty
             ? SliverToBoxAdapter(child: _buildEmptyResults())
             : SliverList.separated(
+                key: ValueKey('sort_${_sortByScore}_${_filter.name}_${_query}'),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => Padding(

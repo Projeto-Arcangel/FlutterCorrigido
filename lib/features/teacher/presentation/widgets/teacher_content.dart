@@ -55,10 +55,16 @@ class TeacherContent extends StatelessWidget {
     super.key,
     required this.actions,
     required this.activities,
+    this.onLoadMore,
+    this.allLoaded = false,
+    this.isLoadingMore = false,
   });
 
   final List<TeacherQuickAction> actions;
   final List<TeacherActivityItem> activities;
+  final VoidCallback? onLoadMore;
+  final bool allLoaded;
+  final bool isLoadingMore;
 
   @override
   Widget build(BuildContext context) {
@@ -70,7 +76,12 @@ class TeacherContent extends StatelessWidget {
           padding: EdgeInsets.fromLTRB(20, 28, 20, 12),
         ),
         _QuickActionsList(actions: actions),
-        _RecentActivitySection(activities: activities),
+        _RecentActivitySection(
+          activities: activities,
+          onLoadMore: onLoadMore,
+          allLoaded: allLoaded,
+          isLoadingMore: isLoadingMore,
+        ),
       ],
     );
   }
@@ -235,50 +246,104 @@ class _ActionIcon extends StatelessWidget {
 }
 
 class _RecentActivitySection extends StatelessWidget {
-  const _RecentActivitySection({required this.activities});
+  const _RecentActivitySection({
+    required this.activities,
+    this.onLoadMore,
+    this.allLoaded = false,
+    this.isLoadingMore = false,
+  });
 
   final List<TeacherActivityItem> activities;
+  final VoidCallback? onLoadMore;
+  final bool allLoaded;
+  final bool isLoadingMore;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _SectionLabel(label: 'ATIVIDADE RECENTE'),
-        Builder(
-          builder: (context) {
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              decoration: BoxDecoration(
-                color: _TeacherColors.cardBg(isDark),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: _TeacherColors.cardBorder(isDark)),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: activities.asMap().entries.map((entry) {
-                    final isLast = entry.key == activities.length - 1;
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ActivityTile(item: entry.value),
-                        if (!isLast)
-                          Divider(
-                            height: 1,
-                            color: _TeacherColors.divider(isDark),
-                            indent: 20,
-                            endIndent: 20,
-                          ),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
-            );
-          },
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          decoration: BoxDecoration(
+            color: _TeacherColors.cardBg(isDark),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _TeacherColors.cardBorder(isDark)),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ...activities.asMap().entries.map((entry) {
+                  final showDivider =
+                      entry.key < activities.length - 1 ||
+                      (onLoadMore != null && !allLoaded);
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _ActivityTile(item: entry.value),
+                      if (showDivider)
+                        Divider(
+                          height: 1,
+                          color: _TeacherColors.divider(isDark),
+                          indent: 20,
+                          endIndent: 20,
+                        ),
+                    ],
+                  );
+                }),
+                // ── Botão "Ver mais" ─────────────────────────────
+                if (onLoadMore != null && !allLoaded)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: isLoadingMore ? null : onLoadMore,
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(20),
+                        bottomRight: Radius.circular(20),
+                      ),
+                      splashColor: const Color(0xFF72D082).withValues(alpha: 0.08),
+                      highlightColor: const Color(0xFF72D082).withValues(alpha: 0.04),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (isLoadingMore)
+                              const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Color(0xFF72D082),
+                                ),
+                              )
+                            else
+                              Icon(
+                                Icons.expand_more_rounded,
+                                size: 16,
+                                color: _TeacherColors.textMuted(isDark),
+                              ),
+                            const SizedBox(width: 6),
+                            Text(
+                              isLoadingMore ? 'Carregando…' : 'Ver mais',
+                              style: GoogleFonts.nunito(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: _TeacherColors.textMuted(isDark),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         ),
       ],
     );
