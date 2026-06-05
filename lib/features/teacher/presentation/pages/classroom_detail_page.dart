@@ -7,7 +7,6 @@ import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
-import '../../../classroom/domain/entities/classroom_result.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../providers/teacher_dashboard_provider.dart';
 import '../widgets/classroom_form_sheet.dart';
@@ -35,7 +34,7 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
   late final List<Animation<double>> _fades;
   late final List<Animation<Offset>> _slides;
 
-  static const int _n = 3;
+  static const int _n = 2;
   static const Duration _dur = Duration(milliseconds: 700);
   static const Duration _stagger = Duration(milliseconds: 80);
 
@@ -166,12 +165,6 @@ class _ClassroomDetailPageState extends ConsumerState<ClassroomDetailPage>
               fade: _fades[1],
               slide: _slides[1],
               child: _PhasesSection(classroom: classroom),
-            ),
-            const SizedBox(height: 28),
-            _Animated(
-              fade: _fades[2],
-              slide: _slides[2],
-              child: _ResultsSection(classroomId: classroom.id),
             ),
           ],
         ),
@@ -1612,188 +1605,6 @@ class _SubjectDropdown extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Seção de resultados
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _ResultsSection extends ConsumerWidget {
-  const _ResultsSection({required this.classroomId});
-  final String classroomId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final asyncResults = ref.watch(classroomResultsProvider(classroomId));
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const _SectionLabel(text: 'RESULTADOS'),
-        const SizedBox(height: 10),
-        asyncResults.when(
-          loading: () => Container(
-            height: 80,
-            decoration: BoxDecoration(
-              color: ClassroomPalette.cardBg(isDark),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ClassroomPalette.border(isDark)),
-            ),
-            child: const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-          ),
-          error: (_, __) => Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: ClassroomPalette.cardBg(isDark),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: ClassroomPalette.border(isDark)),
-            ),
-            child: const _EmptyHint(
-              icon: Icons.cloud_off_outlined,
-              text: 'Não foi possível carregar os resultados.',
-            ),
-          ),
-          data: (results) {
-            if (results.isEmpty) {
-              return Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: ClassroomPalette.cardBg(isDark),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: ClassroomPalette.border(isDark)),
-                ),
-                child: const _EmptyHint(
-                  icon: Icons.bar_chart_outlined,
-                  text:
-                      'Nenhum aluno completou atividades ainda.\nCrie questões para começar!',
-                ),
-              );
-            }
-
-            final sorted = [...results]
-              ..sort((a, b) => b.percentage.compareTo(a.percentage));
-
-            return Container(
-              decoration: BoxDecoration(
-                color: ClassroomPalette.cardBg(isDark),
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: ClassroomPalette.border(isDark)),
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: Column(
-                children: [
-                  for (int i = 0; i < sorted.length; i++) ...[
-                    _ResultTile(result: sorted[i]),
-                    if (i < sorted.length - 1)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
-                        child: Divider(
-                          color: ClassroomPalette.divider(isDark),
-                          height: 1,
-                        ),
-                      ),
-                  ],
-                ],
-              ),
-            );
-          },
-        ),
-      ],
-    );
-  }
-}
-
-class _ResultTile extends StatelessWidget {
-  const _ResultTile({required this.result});
-  final ClassroomResult result;
-
-  Color get _scoreColor {
-    if (result.percentage >= 0.7) return ClassroomPalette.success;
-    if (result.percentage >= 0.4) return ClassroomPalette.gold;
-    return ClassroomPalette.danger;
-  }
-
-  String get _initials {
-    final parts = result.studentName.trim().split(' ');
-    if (parts.length == 1) return parts[0][0].toUpperCase();
-    return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-      child: Row(
-        children: [
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: AppColors.primary.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                _initials,
-                style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.primary,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  result.studentName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: GoogleFonts.nunito(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: ClassroomPalette.primaryText(isDark),
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  '${result.correctAnswers} / ${result.totalQuestions} acertos',
-                  style: GoogleFonts.nunito(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: ClassroomPalette.textMuted,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 10),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-            decoration: BoxDecoration(
-              color: _scoreColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: _scoreColor.withValues(alpha: 0.4)),
-            ),
-            child: Text(
-              result.percentageFormatted,
-              style: GoogleFonts.nunito(
-                fontSize: 13,
-                fontWeight: FontWeight.w800,
-                color: _scoreColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Utilitários

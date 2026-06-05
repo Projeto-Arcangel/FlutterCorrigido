@@ -62,6 +62,19 @@ extension _FilterLabel on _Filter {
       };
 }
 
+// ─── Ordenação ─────────────────────────────────────────────────────────────────
+
+enum _Sort { nameAsc, nameDesc, gradeDesc, gradeAsc }
+
+extension _SortLabel on _Sort {
+  String get label => switch (this) {
+        _Sort.nameAsc   => 'Nome (A–Z)',
+        _Sort.nameDesc  => 'Nome (Z–A)',
+        _Sort.gradeDesc => 'Maior nota',
+        _Sort.gradeAsc  => 'Menor nota',
+      };
+}
+
 // ─── Situação do aluno ────────────────────────────────────────────────────────
 
 enum _Situation { approved, recovery, failed }
@@ -100,7 +113,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
   String? _classroomId;
   String  _query     = '';
   _Filter _filter    = _Filter.all;
-  bool    _sortByScore = false;
+  _Sort   _sort      = _Sort.nameAsc;
   bool    _exporting = false;
 
   final _searchCtrl = TextEditingController();
@@ -137,9 +150,22 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
       }).toList();
     }
 
-    list.sort((a, b) => _sortByScore
-        ? b.percentage.compareTo(a.percentage)
-        : a.studentName.compareTo(b.studentName),);
+    list.sort((a, b) {
+      switch (_sort) {
+        case _Sort.nameAsc:
+          return a.studentName
+              .toLowerCase()
+              .compareTo(b.studentName.toLowerCase());
+        case _Sort.nameDesc:
+          return b.studentName
+              .toLowerCase()
+              .compareTo(a.studentName.toLowerCase());
+        case _Sort.gradeDesc:
+          return b.percentage.compareTo(a.percentage);
+        case _Sort.gradeAsc:
+          return a.percentage.compareTo(b.percentage);
+      }
+    });
 
     return list;
   }
@@ -198,7 +224,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         final nota = (r.percentage * 10).toStringAsFixed(1);
 
         final rowData = [
-          '',            // Prontuário — preenchido manualmente pelo professor
+          r.studentRegistration, // Prontuário (profiles.student_id); vazio se o aluno não preencheu
           r.studentName,
           nota,
         ];
@@ -339,20 +365,6 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         ),
       ),
       actions: [
-        // Ordenar
-        Tooltip(
-          message: _sortByScore ? 'Ordenar A–Z' : 'Ordenar por nota',
-          child: IconButton(
-            icon: FaIcon(
-              _sortByScore
-                  ? FontAwesomeIcons.arrowDownAZ
-                  : FontAwesomeIcons.arrowDownWideShort,
-              size: 16,
-              color: _C.accent,
-            ),
-            onPressed: () => setState(() => _sortByScore = !_sortByScore),
-          ),
-        ),
         // Exportar
         classroomsAsync.whenOrNull(
               data: (classrooms) {
@@ -449,17 +461,27 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
           ),
         ),
 
-        // ── Contagem ────────────────────────────────────────────────────────
+        // ── Contagem + ordenação ────────────────────────────────────────────
         SliverToBoxAdapter(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 4, 20, 8),
-            child: Text(
-              '${filtered.length} aluno${filtered.length != 1 ? 's' : ''} exibido${filtered.length != 1 ? 's' : ''}',
-              style: GoogleFonts.nunito(
-                fontSize: 12,
-                color: _C.textMuted(isDark),
-                fontWeight: FontWeight.w600,
-              ),
+            padding: const EdgeInsets.fromLTRB(20, 4, 16, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${filtered.length} aluno${filtered.length != 1 ? 's' : ''} exibido${filtered.length != 1 ? 's' : ''}',
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      color: _C.textMuted(isDark),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                _SortControl(
+                  sort: _sort,
+                  onChanged: (s) => setState(() => _sort = s),
+                ),
+              ],
             ),
           ),
         ),
@@ -468,7 +490,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         filtered.isEmpty
             ? SliverToBoxAdapter(child: _buildEmptyResults())
             : SliverList.separated(
-                key: ValueKey('sort_${_sortByScore}_${_filter.name}_${_query}'),
+                key: ValueKey('filter_${_filter.name}_${_sort.name}_$_query'),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => Padding(
@@ -869,6 +891,59 @@ class _SearchAndFilter extends StatelessWidget {
         ),
         const SizedBox(height: 12),
       ],
+    );
+  }
+}
+
+// ─── Controle de ordenação ────────────────────────────────────────────────────
+
+class _SortControl extends StatelessWidget {
+  const _SortControl({required this.sort, required this.onChanged});
+
+  final _Sort sort;
+  final ValueChanged<_Sort> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.only(left: 10, right: 4),
+      decoration: BoxDecoration(
+        color: _C.inputFill(isDark),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: _C.cardBorder(isDark)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(Icons.swap_vert_rounded, size: 16, color: _C.accent),
+          const SizedBox(width: 4),
+          DropdownButtonHideUnderline(
+            child: DropdownButton<_Sort>(
+              value: sort,
+              isDense: true,
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 18,
+                color: _C.textMuted(isDark),
+              ),
+              dropdownColor: _C.card(isDark),
+              borderRadius: BorderRadius.circular(12),
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: _C.primaryText(isDark),
+              ),
+              items: _Sort.values
+                  .map((s) => DropdownMenuItem(value: s, child: Text(s.label)))
+                  .toList(),
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

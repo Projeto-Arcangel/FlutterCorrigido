@@ -7,6 +7,11 @@ import 'package:equatable/equatable.dart';
 class ClassroomResult extends Equatable {
   final String studentId;
   final String studentName;
+
+  /// Prontuário institucional do aluno (ex.: PT3000000), vindo de
+  /// `profiles.student_id` via RPC `get_classroom_results`. Pode ser vazio
+  /// (aluno via Google que não preencheu, ou perfil incompleto).
+  final String studentRegistration;
   final int totalQuestions;
   final int correctAnswers;
   final DateTime completedAt;
@@ -14,6 +19,7 @@ class ClassroomResult extends Equatable {
   const ClassroomResult({
     required this.studentId,
     required this.studentName,
+    this.studentRegistration = '',
     required this.totalQuestions,
     required this.correctAnswers,
     required this.completedAt,
@@ -31,6 +37,7 @@ class ClassroomResult extends Equatable {
   List<Object?> get props => [
         studentId,
         studentName,
+        studentRegistration,
         totalQuestions,
         correctAnswers,
         completedAt,

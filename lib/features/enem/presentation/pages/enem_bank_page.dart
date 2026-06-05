@@ -293,26 +293,28 @@ class _EnemBankPageState extends ConsumerState<EnemBankPage> {
             ],
           ),
           const SizedBox(height: 8),
-          // Idioma + toggle "sem imagem"
+          // Idioma (somente p/ Linguagens, que tem as questões de língua
+          // estrangeira) + toggle "sem imagem"
           Row(
             children: [
-              Expanded(
-                child: _FilterDropdown<String?>(
-                  isDark: isDark,
-                  hint: 'Idioma',
-                  value: _query.language,
-                  items: const [
-                    DropdownMenuItem(value: null, child: Text('Qualquer idioma')),
-                    DropdownMenuItem(value: '', child: Text('Sem idioma')),
-                    DropdownMenuItem(value: 'ingles', child: Text('Inglês')),
-                    DropdownMenuItem(value: 'espanhol', child: Text('Espanhol')),
-                  ],
-                  onChanged: (v) => setState(() => v == null
-                      ? _query = _query.copyWith(clearLanguage: true)
-                      : _query = _query.copyWith(language: v),),
+              if (_query.discipline == 'linguagens') ...[
+                Expanded(
+                  child: _FilterDropdown<String?>(
+                    isDark: isDark,
+                    hint: 'Idioma',
+                    value: _query.language,
+                    items: const [
+                      DropdownMenuItem(value: null, child: Text('Todos os Idiomas')),
+                      DropdownMenuItem(value: 'ingles', child: Text('Inglês')),
+                      DropdownMenuItem(value: 'espanhol', child: Text('Espanhol')),
+                    ],
+                    onChanged: (v) => setState(() => v == null
+                        ? _query = _query.copyWith(clearLanguage: true)
+                        : _query = _query.copyWith(language: v),),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
+                const SizedBox(width: 8),
+              ],
               _NoImageToggle(
                 value: _query.onlyWithoutImages,
                 onChanged: (v) =>
