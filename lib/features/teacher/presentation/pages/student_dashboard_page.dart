@@ -11,7 +11,9 @@ import 'package:percent_indicator/percent_indicator.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/download_helper.dart';
 import '../../../classroom/domain/entities/classroom.dart';
+import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/domain/entities/classroom_result.dart';
+import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../providers/student_dashboard_provider.dart';
 
 // ─── Cores internas ──────────────────────────────────────────────────────────
@@ -79,9 +81,9 @@ extension _SortLabel on _Sort {
 
 enum _Situation { approved, recovery, failed }
 
-_Situation _situationOf(double pct) {
-  if (pct >= 0.70) return _Situation.approved;
-  if (pct >= 0.50) return _Situation.recovery;
+_Situation _situationOf(double pct, double approveT, double recoveryT) {
+  if (pct >= approveT) return _Situation.approved;
+  if (pct >= recoveryT) return _Situation.recovery;
   return _Situation.failed;
 }
 
@@ -111,6 +113,7 @@ class StudentDashboardPage extends ConsumerStatefulWidget {
 
 class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
   String? _classroomId;
+  String? _phaseFilter; // null = "Trilha geral" (média ponderada); senão phaseId
   String  _query     = '';
   _Filter _filter    = _Filter.all;
   _Sort   _sort      = _Sort.nameAsc;
@@ -130,9 +133,75 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     super.dispose();
   }
 
+  // ── Notas por escopo (fase específica ou trilha geral ponderada) ──────────
+
+  /// Constrói a lista de resultados conforme [_phaseFilter]:
+  /// - fase específica → as notas dos alunos naquela fase;
+  /// - "trilha geral" (null) → média ponderada por aluno sobre TODAS as fases
+  ///   com questões (fase não feita = 0), usando o peso de cada fase.
+  List<ClassroomResult> _scoresFor(
+    List<ClassroomPhase> phases,
+    List<ClassroomResult> phaseRows,
+  ) {
+    if (_phaseFilter != null) {
+      return phaseRows.where((r) => r.phaseId == _phaseFilter).toList();
+    }
+
+    final gradable = phases.where((p) => p.totalQuestions > 0).toList();
+    final totalWeight = gradable.fold<double>(0, (s, p) => s + p.weight);
+    if (gradable.isEmpty || totalWeight <= 0) return const [];
+
+    final byStudent = <String, List<ClassroomResult>>{};
+    for (final r in phaseRows) {
+      byStudent.putIfAbsent(r.studentId, () => []).add(r);
+    }
+
+    final out = <ClassroomResult>[];
+    byStudent.forEach((studentId, rows) {
+      final pctByPhase = <String?, double>{};
+      var sumTotal = 0;
+      var sumCorrect = 0;
+      DateTime? last;
+      for (final r in rows) {
+        pctByPhase[r.phaseId] = r.percentage;
+        sumTotal += r.totalQuestions;
+        sumCorrect += r.correctAnswers;
+        if (last == null || r.completedAt.isAfter(last)) last = r.completedAt;
+      }
+      var weighted = 0.0;
+      for (final p in gradable) {
+        weighted += (pctByPhase[p.id] ?? 0.0) * p.weight; // ausente = 0
+      }
+      final first = rows.first;
+      out.add(ClassroomResult(
+        studentId: studentId,
+        studentName: first.studentName,
+        studentRegistration: first.studentRegistration,
+        totalQuestions: sumTotal,
+        correctAnswers: sumCorrect,
+        completedAt: last ?? DateTime.now(),
+        finalScore: weighted / totalWeight,
+      ),);
+    });
+    return out;
+  }
+
+  /// Título da fase atualmente filtrada (ou `null` quando em "Trilha geral").
+  String? _selectedPhaseTitle(List<ClassroomPhase> phases) {
+    if (_phaseFilter == null) return null;
+    for (final p in phases) {
+      if (p.id == _phaseFilter) return p.title;
+    }
+    return null;
+  }
+
   // ── Filtro + busca ────────────────────────────────────────────────────────
 
-  List<ClassroomResult> _applyFilters(List<ClassroomResult> raw) {
+  List<ClassroomResult> _applyFilters(
+    List<ClassroomResult> raw,
+    double approveT,
+    double recoveryT,
+  ) {
     var list = raw.where((r) {
       if (_query.isEmpty) return true;
       return r.studentName.toLowerCase().contains(_query.toLowerCase());
@@ -140,7 +209,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
 
     if (_filter != _Filter.all) {
       list = list.where((r) {
-        final s = _situationOf(r.percentage);
+        final s = _situationOf(r.percentage, approveT, recoveryT);
         return switch (_filter) {
           _Filter.approved => s == _Situation.approved,
           _Filter.recovery => s == _Situation.recovery,
@@ -191,8 +260,9 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
 
   Future<void> _exportXlsx(
     Classroom classroom,
-    List<ClassroomResult> results,
-  ) async {
+    List<ClassroomResult> results, {
+    String? phaseTitle,
+  }) async {
     if (_exporting) return;
     setState(() => _exporting = true);
 
@@ -244,9 +314,12 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         sheet.setColumnWidth(c, widths[c]);
       }
 
+      final scopeSlug = (phaseTitle == null || phaseTitle.trim().isEmpty)
+          ? 'geral'
+          : phaseTitle.trim().replaceAll(' ', '_');
       final bytes = Uint8List.fromList(excel.encode()!);
       final filename =
-          'notas_${classroom.name.replaceAll(' ', '_')}_${DateFormat('ddMMyyyy').format(DateTime.now())}.xlsx';
+          'notas_${classroom.name.replaceAll(' ', '_')}_${scopeSlug}_${DateFormat('ddMMyyyy').format(DateTime.now())}.xlsx';
 
       await downloadXlsx(bytes, filename);
 
@@ -288,17 +361,60 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     }
   }
 
+  // ── Critérios de aprovação ──────────────────────────────────────────────────
+
+  Future<void> _openCriteriaEditor(GradeCriteria current) async {
+    final result = await showDialog<({int approve, int recovery})>(
+      context: context,
+      builder: (_) => _CriteriaDialog(
+        initialApprove: (current.approve * 100).round(),
+        initialRecovery: (current.recovery * 100).round(),
+      ),
+    );
+    if (result == null || !mounted) return;
+
+    try {
+      await saveTeacherGradeCriteria(
+        ref,
+        approvePct: result.approve.toDouble(),
+        recoveryPct: result.recovery.toDouble(),
+      );
+      if (!mounted) return;
+      _snack('Critérios de aprovação atualizados.', color: _C.good);
+    } catch (e) {
+      if (!mounted) return;
+      _snack('Erro ao salvar critérios: $e', color: AppColors.error);
+    }
+  }
+
+  void _snack(String msg, {required Color color}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          msg,
+          style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
+        ),
+        backgroundColor: color,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      ),
+    );
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final isDark         = Theme.of(context).brightness == Brightness.dark;
     final classroomsAsync = ref.watch(teacherAllClassroomsProvider);
+    final criteria = ref.watch(teacherGradeCriteriaProvider).valueOrNull ??
+        kDefaultGradeCriteria;
 
     return Scaffold(
       backgroundColor:
           isDark ? AppColors.backgroundDark : AppColors.background,
-      appBar: _buildAppBar(context, isDark, classroomsAsync),
+      appBar: _buildAppBar(context, isDark, classroomsAsync, criteria),
       body: classroomsAsync.when(
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
@@ -317,16 +433,39 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
 
           if (classroom == null) return _buildEmpty();
 
-          final resultsAsync = ref
-              .watch(classroomStudentResultsProvider(classroom.id));
+          final phasesAsync = ref.watch(classroomPhasesProvider(classroom.id));
+          final phaseResultsAsync =
+              ref.watch(classroomPhaseResultsProvider(classroom.id));
 
-          return resultsAsync.when(
-            loading: () => const Center(
+          if (phasesAsync.isLoading || phaseResultsAsync.isLoading) {
+            return const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
-            ),
-            error: (e, _) => _buildError(e),
-            data: (results) =>
-                _buildBody(context, isDark, classrooms, classroom, results),
+            );
+          }
+          if (phasesAsync.hasError) return _buildError(phasesAsync.error!);
+          if (phaseResultsAsync.hasError) {
+            return _buildError(phaseResultsAsync.error!);
+          }
+
+          final phases = phasesAsync.value ?? const <ClassroomPhase>[];
+          final phaseRows =
+              phaseResultsAsync.value ?? const <ClassroomResult>[];
+
+          // Se o filtro aponta para uma fase que não existe mais, volta p/ geral.
+          if (_phaseFilter != null &&
+              !phases.any((p) => p.id == _phaseFilter)) {
+            _phaseFilter = null;
+          }
+
+          final scoped = _scoresFor(phases, phaseRows);
+          return _buildBody(
+            context,
+            isDark,
+            classrooms,
+            classroom,
+            phases,
+            scoped,
+            criteria,
           );
         },
       ),
@@ -339,6 +478,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     BuildContext context,
     bool isDark,
     AsyncValue<List<Classroom>> classroomsAsync,
+    GradeCriteria criteria,
   ) {
     final bgColor =
         isDark ? AppColors.backgroundDark : AppColors.background;
@@ -365,6 +505,18 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         ),
       ),
       actions: [
+        // Critérios de aprovação
+        Tooltip(
+          message: 'Critérios de aprovação',
+          child: IconButton(
+            icon: Icon(
+              Icons.tune_rounded,
+              size: 20,
+              color: isDark ? Colors.white70 : AppColors.textSecondary,
+            ),
+            onPressed: () => _openCriteriaEditor(criteria),
+          ),
+        ),
         // Exportar
         classroomsAsync.whenOrNull(
               data: (classrooms) {
@@ -375,34 +527,43 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
                     );
                 if (classroom == null) return null;
 
-                final resultsAsync = ref
-                    .watch(classroomStudentResultsProvider(classroom.id));
-                return resultsAsync.whenOrNull(
-                  data: (results) => results.isEmpty
-                      ? null
-                      : Tooltip(
-                          message: 'Exportar notas (.xlsx)',
-                          child: _exporting
-                              ? const Padding(
-                                  padding: EdgeInsets.all(14),
-                                  child: SizedBox(
-                                    width: 18,
-                                    height: 18,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: _C.accent,
-                                    ),
-                                  ),
-                                )
-                              : IconButton(
-                                  icon: const FaIcon(
-                                    FontAwesomeIcons.fileExcel,
-                                    size: 18,
-                                    color: _C.good,
-                                  ),
-                                  onPressed: () =>
-                                      _exportXlsx(classroom, results),
-                                ),
+                final phases = ref
+                        .watch(classroomPhasesProvider(classroom.id))
+                        .value ??
+                    const <ClassroomPhase>[];
+                final phaseRows = ref
+                        .watch(classroomPhaseResultsProvider(classroom.id))
+                        .value ??
+                    const <ClassroomResult>[];
+                final scoped = _scoresFor(phases, phaseRows);
+                if (scoped.isEmpty) return null;
+
+                final phaseTitle = _selectedPhaseTitle(phases);
+                return Tooltip(
+                  message: 'Exportar notas (.xlsx)',
+                  child: _exporting
+                      ? const Padding(
+                          padding: EdgeInsets.all(14),
+                          child: SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: _C.accent,
+                            ),
+                          ),
+                        )
+                      : IconButton(
+                          icon: const FaIcon(
+                            FontAwesomeIcons.fileExcel,
+                            size: 18,
+                            color: _C.good,
+                          ),
+                          onPressed: () => _exportXlsx(
+                            classroom,
+                            scoped,
+                            phaseTitle: phaseTitle,
+                          ),
                         ),
                 );
               },
@@ -420,9 +581,11 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     bool isDark,
     List<Classroom> classrooms,
     Classroom classroom,
+    List<ClassroomPhase> phases,
     List<ClassroomResult> results,
+    GradeCriteria criteria,
   ) {
-    final filtered = _applyFilters(results);
+    final filtered = _applyFilters(results, criteria.approve, criteria.recovery);
     final avg      = _average(results);
     final part     = _participationRate(classroom, results);
     final top      = _topStudent(results);
@@ -436,9 +599,21 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
             child: _ClassroomSelector(
               classrooms: classrooms,
               selectedId: _classroomId ?? classroom.id,
-              onChanged: (id) => setState(() => _classroomId = id),
+              onChanged: (id) => setState(() {
+                _classroomId = id;
+                _phaseFilter = null; // ao trocar de turma, volta p/ geral
+              }),
             ),
           ),
+
+        // ── Filtro de fase (Trilha geral / fase específica) ──────────────────
+        SliverToBoxAdapter(
+          child: _PhaseFilter(
+            phases: phases,
+            selectedPhaseId: _phaseFilter,
+            onChanged: (id) => setState(() => _phaseFilter = id),
+          ),
+        ),
 
         // ── KPI cards ───────────────────────────────────────────────────────
         SliverToBoxAdapter(
@@ -448,6 +623,8 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
             avgPct: avg,
             participationRate: part,
             topName: top?.studentName,
+            approveT: criteria.approve,
+            recoveryT: criteria.recovery,
           ),
         ),
 
@@ -490,17 +667,24 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         filtered.isEmpty
             ? SliverToBoxAdapter(child: _buildEmptyResults())
             : SliverList.separated(
-                key: ValueKey('filter_${_filter.name}_${_sort.name}_$_query'),
+                key: ValueKey(
+                  'filter_${_filter.name}_${_sort.name}_${_phaseFilter ?? 'geral'}_$_query',
+                ),
                 itemCount: filtered.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 10),
                 itemBuilder: (_, i) => Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _StudentCard(result: filtered[i], rank: i + 1),
+                  child: _StudentCard(
+                    result: filtered[i],
+                    rank: i + 1,
+                    approveT: criteria.approve,
+                    recoveryT: criteria.recovery,
+                  ),
                 ),
               ),
 
-        // ── Alunos sem resultado ─────────────────────────────────────────────
-        if (_filter == _Filter.all && _query.isEmpty)
+        // ── Alunos sem resultado (só na visão geral da trilha) ───────────────
+        if (_phaseFilter == null && _filter == _Filter.all && _query.isEmpty)
           SliverToBoxAdapter(
             child: _NoResultsNote(
               withResults: results.length,
@@ -628,7 +812,7 @@ class _ClassroomSelector extends StatelessWidget {
           child: DropdownButton<String>(
             value: selectedId,
             dropdownColor: _C.card(isDark),
-            icon: Icon(Icons.keyboard_arrow_down_rounded,
+            icon: const Icon(Icons.keyboard_arrow_down_rounded,
                 color: _C.accent,),
             style: GoogleFonts.nunito(
                 fontSize: 14,
@@ -652,6 +836,85 @@ class _ClassroomSelector extends StatelessWidget {
   }
 }
 
+// ─── Filtro de fase ───────────────────────────────────────────────────────────
+
+class _PhaseFilter extends StatelessWidget {
+  const _PhaseFilter({
+    required this.phases,
+    required this.selectedPhaseId,
+    required this.onChanged,
+  });
+
+  final List<ClassroomPhase> phases;
+  final String? selectedPhaseId;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+        decoration: BoxDecoration(
+          color: _C.card(isDark),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: _C.cardBorder(isDark)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.layers_rounded, size: 18, color: _C.accent),
+            const SizedBox(width: 8),
+            Text(
+              'Fase:',
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: _C.textMuted(isDark),
+              ),
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String?>(
+                  value: selectedPhaseId,
+                  isExpanded: true,
+                  dropdownColor: _C.card(isDark),
+                  borderRadius: BorderRadius.circular(12),
+                  icon: const Icon(Icons.keyboard_arrow_down_rounded,
+                      color: _C.accent,),
+                  style: GoogleFonts.nunito(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _C.primaryText(isDark),
+                  ),
+                  items: [
+                    const DropdownMenuItem<String?>(
+                      value: null,
+                      child: Text('Trilha geral (média ponderada)'),
+                    ),
+                    for (final p in phases)
+                      DropdownMenuItem<String?>(
+                        value: p.id,
+                        child: Text(
+                          p.title.trim().isEmpty
+                              ? 'Fase ${p.order}'
+                              : p.title,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: onChanged,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 // ─── KPI Row ──────────────────────────────────────────────────────────────────
 
 class _KpiRow extends StatelessWidget {
@@ -661,6 +924,8 @@ class _KpiRow extends StatelessWidget {
     required this.avgPct,
     required this.participationRate,
     required this.topName,
+    required this.approveT,
+    required this.recoveryT,
   });
 
   final int    totalStudents;
@@ -668,12 +933,14 @@ class _KpiRow extends StatelessWidget {
   final double avgPct;
   final double participationRate;
   final String? topName;
+  final double approveT;
+  final double recoveryT;
 
   @override
   Widget build(BuildContext context) {
-    final avgColor = avgPct >= 0.70
+    final avgColor = avgPct >= approveT
         ? _C.good
-        : avgPct >= 0.50
+        : avgPct >= recoveryT
             ? _C.medium
             : _C.bad;
 
@@ -951,15 +1218,22 @@ class _SortControl extends StatelessWidget {
 // ─── Card do aluno ────────────────────────────────────────────────────────────
 
 class _StudentCard extends StatelessWidget {
-  const _StudentCard({required this.result, required this.rank});
+  const _StudentCard({
+    required this.result,
+    required this.rank,
+    required this.approveT,
+    required this.recoveryT,
+  });
 
   final ClassroomResult result;
   final int rank;
+  final double approveT;
+  final double recoveryT;
 
   @override
   Widget build(BuildContext context) {
     final isDark    = Theme.of(context).brightness == Brightness.dark;
-    final situation = _situationOf(result.percentage);
+    final situation = _situationOf(result.percentage, approveT, recoveryT);
     final color     = _situationColor(situation);
     final fmt       = DateFormat("dd 'de' MMM 'de' yyyy", 'pt_BR');
     final initials  = _initials(result.studentName);
@@ -1194,6 +1468,218 @@ class _NoResultsNote extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Diálogo: critérios de aprovação ──────────────────────────────────────────
+
+class _CriteriaDialog extends StatefulWidget {
+  const _CriteriaDialog({
+    required this.initialApprove,
+    required this.initialRecovery,
+  });
+
+  final int initialApprove;
+  final int initialRecovery;
+
+  @override
+  State<_CriteriaDialog> createState() => _CriteriaDialogState();
+}
+
+class _CriteriaDialogState extends State<_CriteriaDialog> {
+  late final TextEditingController _approveCtrl;
+  late final TextEditingController _recoveryCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _approveCtrl = TextEditingController(text: '${widget.initialApprove}');
+    _recoveryCtrl = TextEditingController(text: '${widget.initialRecovery}');
+  }
+
+  @override
+  void dispose() {
+    _approveCtrl.dispose();
+    _recoveryCtrl.dispose();
+    super.dispose();
+  }
+
+  int? get _approve => int.tryParse(_approveCtrl.text.trim());
+  int? get _recovery => int.tryParse(_recoveryCtrl.text.trim());
+
+  String? get _error {
+    final a = _approve;
+    final r = _recovery;
+    if (a == null || r == null) return 'Informe valores numéricos.';
+    if (a < 0 || a > 100 || r < 0 || r > 100) {
+      return 'Use porcentagens entre 0 e 100.';
+    }
+    if (a < r) return 'Aprovado deve ser maior ou igual à recuperação.';
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final err = _error;
+
+    return AlertDialog(
+      backgroundColor: _C.card(isDark),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Critérios de aprovação',
+        style: GoogleFonts.nunito(
+          fontWeight: FontWeight.w800,
+          color: _C.primaryText(isDark),
+        ),
+      ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Valem para todas as suas turmas. A nota do aluno (geral ou da '
+            'fase) define a situação.',
+            style: GoogleFonts.nunito(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              color: _C.textMuted(isDark),
+            ),
+          ),
+          const SizedBox(height: 16),
+          _CriteriaField(
+            controller: _approveCtrl,
+            label: 'Aprovado a partir de',
+            color: _C.good,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          _CriteriaField(
+            controller: _recoveryCtrl,
+            label: 'Recuperação a partir de',
+            color: _C.medium,
+            onChanged: () => setState(() {}),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Abaixo da recuperação = reprovado.',
+            style: GoogleFonts.nunito(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w500,
+              color: _C.textMuted(isDark),
+            ),
+          ),
+          if (err != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              err,
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.error,
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(
+            'Cancelar',
+            style: GoogleFonts.nunito(
+              fontWeight: FontWeight.w700,
+              color: _C.textMuted(isDark),
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(backgroundColor: _C.accent),
+          onPressed: err != null
+              ? null
+              : () => Navigator.of(context).pop(
+                    (approve: _approve!, recovery: _recovery!),
+                  ),
+          child: Text(
+            'Salvar',
+            style: GoogleFonts.nunito(
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CriteriaField extends StatelessWidget {
+  const _CriteriaField({
+    required this.controller,
+    required this.label,
+    required this.color,
+    required this.onChanged,
+  });
+
+  final TextEditingController controller;
+  final String label;
+  final Color color;
+  final VoidCallback onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      children: [
+        Container(width: 10, height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _C.primaryText(isDark),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: 78,
+          child: TextField(
+            controller: controller,
+            onChanged: (_) => onChanged(),
+            keyboardType: TextInputType.number,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.nunito(
+              fontSize: 14,
+              fontWeight: FontWeight.w800,
+              color: _C.primaryText(isDark),
+            ),
+            decoration: InputDecoration(
+              suffixText: '%',
+              isDense: true,
+              filled: true,
+              fillColor: _C.inputFill(isDark),
+              contentPadding:
+                  const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: _C.cardBorder(isDark)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: BorderSide(color: _C.cardBorder(isDark)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: _C.accent, width: 1.4),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

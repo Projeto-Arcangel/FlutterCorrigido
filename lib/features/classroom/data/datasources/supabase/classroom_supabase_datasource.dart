@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
 import '../../../domain/entities/classroom_activity.dart';
+import '../../../domain/entities/quiz_submission_result.dart';
 import '../../models/classroom_model.dart';
 import '../../models/classroom_phase_model.dart';
 import '../../models/classroom_result_model.dart';
@@ -139,22 +140,44 @@ class ClassroomSupabaseDatasource {
 
   // ─── Resultados ───────────────────────────────────────────────
 
-  Future<void> submitResult({
+  /// Envia as respostas para correção no servidor (RPC `submit_quiz`).
+  /// [answers] = `{ questionId: índiceEscolhido }`.
+  Future<QuizSubmissionResult> submitQuiz({
     required String classroomId,
-    required ClassroomResultModel result,
-    String? phaseTitle,
+    required String phaseId,
+    required Map<String, int> answers,
   }) async {
-    await _client.rpc<void>('submit_result', params: {
+    final data = await _client.rpc<dynamic>('submit_quiz', params: {
       'p_classroom': classroomId,
-      'p_total': result.totalQuestions,
-      'p_correct': result.correctAnswers,
-      'p_phase_title': phaseTitle,
+      'p_phase': phaseId,
+      'p_answers': answers,
     },);
+    final map = Map<String, dynamic>.from(data as Map);
+    return QuizSubmissionResult(
+      total: (map['total'] as num?)?.toInt() ?? 0,
+      correct: (map['correct'] as num?)?.toInt() ?? 0,
+      firstAttempt: (map['first_attempt'] as bool?) ?? false,
+    );
   }
 
   Future<List<ClassroomResultModel>> fetchResults(String classroomId) async {
     final data = await _client.rpc<dynamic>(
       'get_classroom_results',
+      params: {'p_classroom': classroomId},
+    );
+    final list = (data as List?) ?? const [];
+    return list
+        .map((e) =>
+            ClassroomResultModel.fromMap(Map<String, dynamic>.from(e as Map)),)
+        .toList();
+  }
+
+  /// Resultados POR FASE (cada item com `phaseId`) — para o dashboard.
+  Future<List<ClassroomResultModel>> fetchPhaseResults(
+    String classroomId,
+  ) async {
+    final data = await _client.rpc<dynamic>(
+      'get_classroom_phase_results',
       params: {'p_classroom': classroomId},
     );
     final list = (data as List?) ?? const [];
@@ -192,6 +215,7 @@ class ClassroomSupabaseDatasource {
     required String title,
     required String description,
     required List<Question> questions,
+    double weight = 1.0,
   }) async {
     final order = await _nextPhaseOrder(classroomId);
     final phaseRow = await _phases
@@ -200,6 +224,7 @@ class ClassroomSupabaseDatasource {
           'title': title,
           'description': description,
           'sort_order': order,
+          'weight': weight,
         })
         .select()
         .single();
@@ -241,6 +266,7 @@ class ClassroomSupabaseDatasource {
     required String classroomId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) async {
     final order = await _nextPhaseOrder(classroomId);
     final phaseRow = await _phases
@@ -249,6 +275,7 @@ class ClassroomSupabaseDatasource {
           'title': title,
           'description': description,
           'sort_order': order,
+          'weight': weight,
         })
         .select()
         .single();
@@ -260,9 +287,13 @@ class ClassroomSupabaseDatasource {
     required String phaseId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) async {
-    await _phases
-        .update({'title': title, 'description': description}).eq('id', phaseId);
+    await _phases.update({
+      'title': title,
+      'description': description,
+      'weight': weight,
+    }).eq('id', phaseId);
   }
 
   Future<void> deletePhase({

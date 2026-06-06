@@ -7,9 +7,9 @@ import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
+import '../../domain/entities/quiz_submission_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../datasources/supabase/classroom_supabase_datasource.dart';
-import '../models/classroom_result_model.dart';
 
 /// Implementação concreta do [ClassroomRepository].
 ///
@@ -240,27 +240,21 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   // ─── Resultados ───────────────────────────────────────────────
 
   @override
-  Future<Either<Failure, void>> submitResult({
+  Future<Either<Failure, QuizSubmissionResult>> submitQuiz({
     required String classroomId,
-    required ClassroomResult result,
-    String? phaseTitle,
+    required String phaseId,
+    required Map<String, int> answers,
   }) async {
     try {
-      await _datasource.submitResult(
+      final result = await _datasource.submitQuiz(
         classroomId: classroomId,
-        result: ClassroomResultModel(
-          studentId: result.studentId,
-          studentName: result.studentName,
-          totalQuestions: result.totalQuestions,
-          correctAnswers: result.correctAnswers,
-          completedAt: result.completedAt,
-        ),
-        phaseTitle: phaseTitle,
+        phaseId: phaseId,
+        answers: answers,
       );
-      return const Right(null);
+      return Right(result);
     } catch (e, st) {
-      _logger.e('submitResult failed', error: e, stackTrace: st);
-      return const Left(NetworkFailure('Falha ao salvar resultado'));
+      _logger.e('submitQuiz failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao enviar respostas'));
     }
   }
 
@@ -277,6 +271,19 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<ClassroomResult>>> getPhaseResults(
+    String classroomId,
+  ) async {
+    try {
+      final results = await _datasource.fetchPhaseResults(classroomId);
+      return Right(results);
+    } catch (e, st) {
+      _logger.e('getPhaseResults failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao carregar resultados por fase'));
+    }
+  }
+
   // ─── Fases (quiz → fase no Supabase) ─────────────────────────
 
   @override
@@ -285,6 +292,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required String title,
     required String description,
     required List<Question> questions,
+    double weight = 1.0,
   }) async {
     try {
       final phase = await _datasource.saveQuizAsPhase(
@@ -292,6 +300,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
         title: title,
         description: description,
         questions: questions,
+        weight: weight,
       );
       return Right(phase);
     } catch (e, st) {
@@ -320,12 +329,14 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required String classroomId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) async {
     try {
       final phase = await _datasource.createEmptyPhase(
         classroomId: classroomId,
         title: title,
         description: description,
+        weight: weight,
       );
       return Right(phase);
     } catch (e, st) {
@@ -340,6 +351,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     required String phaseId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) async {
     try {
       await _datasource.updatePhase(
@@ -347,6 +359,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
         phaseId: phaseId,
         title: title,
         description: description,
+        weight: weight,
       );
       return const Right(null);
     } catch (e, st) {

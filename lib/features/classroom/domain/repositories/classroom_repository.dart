@@ -6,6 +6,7 @@ import '../entities/classroom.dart';
 import '../entities/classroom_activity.dart';
 import '../entities/classroom_phase.dart';
 import '../entities/classroom_result.dart';
+import '../entities/quiz_submission_result.dart';
 
 /// Contrato do repositório de salas de aula.
 ///
@@ -95,15 +96,22 @@ abstract class ClassroomRepository {
 
   // ─── Resultados ───────────────────────────────────────────────
 
-  /// Salva o resultado do aluno após completar o quiz.
-  Future<Either<Failure, void>> submitResult({
+  /// Envia as respostas do aluno (mapa `questionId → índice escolhido`) para
+  /// correção NO SERVIDOR. O servidor calcula e grava a nota; devolve o resumo.
+  Future<Either<Failure, QuizSubmissionResult>> submitQuiz({
     required String classroomId,
-    required ClassroomResult result,
-    String? phaseTitle,
+    required String phaseId,
+    required Map<String, int> answers,
   });
 
-  /// Retorna os resultados de todos os alunos de uma sala (para o professor).
+  /// Retorna os resultados (agregados por aluno) de uma sala — para o ranking.
   Future<Either<Failure, List<ClassroomResult>>> getResults(
+    String classroomId,
+  );
+
+  /// Retorna os resultados POR FASE de uma sala (cada item com `phaseId`),
+  /// usado pelo dashboard do professor para filtrar/ponderar por fase.
+  Future<Either<Failure, List<ClassroomResult>>> getPhaseResults(
     String classroomId,
   );
 
@@ -132,14 +140,16 @@ abstract class ClassroomRepository {
     required String classroomId,
     required String title,
     required String description,
+    double weight = 1.0,
   });
 
-  /// Atualiza o título e a descrição de uma fase existente.
+  /// Atualiza o título, a descrição e o peso de uma fase existente.
   Future<Either<Failure, void>> updatePhase({
     required String classroomId,
     required String phaseId,
     required String title,
     required String description,
+    double weight = 1.0,
   });
 
   /// Apaga uma fase (e todas as questões dela). Renumera o `order` das

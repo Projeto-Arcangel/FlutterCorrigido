@@ -1,7 +1,5 @@
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
-import '../../../../features/auth/presentation/providers/login_controller.dart';
-import '../../../../features/progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/question.dart';
 
 part 'quiz_controller.g.dart';
@@ -71,41 +69,24 @@ class QuizController extends _$QuizController {
     state = state.copyWith(confirmed: true);
   }
 
-  Future<void> next() async {
+  void next() {
     if (state.currentIndex < _questions.length - 1) {
       state = state.copyWith(
         currentIndex: state.currentIndex + 1,
         confirmed: false,
       );
     } else {
+      // XP/gold NÃO são concedidos aqui: a correção e os prêmios acontecem no
+      // servidor (RPC submit_quiz), disparada pela tela de quiz da turma.
       final correct = state.answers.entries
           .where((e) => _questions[e.key].isCorrect(e.value))
           .length;
 
-      final xp = correct * 50.0; // ← calcula uma vez e guarda no estado
-
       state = state.copyWith(
         finished: true,
         correctCount: correct,
-        xpEarned: xp,  // ← NOVO: estado passa a carregar o valor
       );
-
-      await _saveXp(correct, xp); // ← passa xp calculado para evitar recalcular
     }
-  }
-
-  Future<void> _saveXp(int correct, double xpGained) async {
-    if (state.xpSaved) return;
-
-    final user = ref.read(authStateProvider).valueOrNull;
-    if (user == null) return;
-
-    if (xpGained <= 0) return;
-
-    final repo = ref.read(progressRepositoryProvider);
-    await repo.addXp(userId: user.id, amount: xpGained);
-
-    state = state.copyWith(xpSaved: true);
   }
 
   void reset() => state = const QuizState();

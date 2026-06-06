@@ -21,7 +21,7 @@ import '../../domain/usecases/join_classroom.dart';
 import '../../domain/usecases/leave_classroom.dart';
 import '../../domain/usecases/manage_classroom_phases.dart';
 import '../../domain/usecases/save_classroom_quiz.dart';
-import '../../domain/usecases/submit_classroom_result.dart';
+import '../../domain/usecases/submit_quiz.dart';
 import '../../domain/usecases/update_classroom.dart';
 import '../../domain/usecases/update_question_in_classroom.dart';
 
@@ -97,9 +97,8 @@ final deleteQuestionFromClassroomProvider =
   return DeleteQuestionFromClassroom(ref.watch(classroomRepositoryProvider));
 });
 
-final submitClassroomResultProvider =
-    Provider<SubmitClassroomResult>((ref) {
-  return SubmitClassroomResult(ref.watch(classroomRepositoryProvider));
+final submitQuizProvider = Provider<SubmitQuiz>((ref) {
+  return SubmitQuiz(ref.watch(classroomRepositoryProvider));
 });
 
 final getClassroomResultsProvider = Provider<GetClassroomResults>((ref) {
@@ -146,6 +145,18 @@ final classroomResultsProvider = FutureProvider.autoDispose
     .family<List<ClassroomResult>, String>((ref, classroomId) async {
   final useCase = ref.watch(getClassroomResultsProvider);
   final result = await useCase(classroomId);
+  return result.fold(
+    (failure) => throw Exception(failure.message),
+    (results) => results,
+  );
+});
+
+/// Resultados POR FASE de uma sala (cada item com `phaseId`). Usado pelo
+/// dashboard do professor para filtrar e ponderar as notas por fase.
+final classroomPhaseResultsProvider = FutureProvider.autoDispose
+    .family<List<ClassroomResult>, String>((ref, classroomId) async {
+  final repo = ref.watch(classroomRepositoryProvider);
+  final result = await repo.getPhaseResults(classroomId);
   return result.fold(
     (failure) => throw Exception(failure.message),
     (results) => results,

@@ -10,7 +10,7 @@ import '../../../lesson/presentation/widgets/option_tile.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_phase.dart';
-import '../../domain/entities/classroom_result.dart';
+import '../../domain/entities/quiz_submission_result.dart';
 import '../providers/classroom_providers.dart';
 
 /// Página de quiz para uma fase de sala de aula.
@@ -93,12 +93,15 @@ class _ClassroomQuiz extends ConsumerWidget {
     final controller = ref.read(quizControllerProvider(questions).notifier);
     final isDark     = Theme.of(context).brightness == Brightness.dark;
 
-    // ── Quiz terminou → salva resultado e mostra tela própria ──────
+    // ── Quiz terminou → envia respostas p/ correção no servidor ────
     if (state.finished) {
-      _saveResult(ref, state.correctCount);
-      return _ClassroomResultView(
-        total: questions.length,
-        correct: state.correctCount,
+      final answers = <String, int>{
+        for (final e in state.answers.entries) questions[e.key].id: e.value,
+      };
+      return _QuizResultGate(
+        classroom: classroom,
+        phase: phase,
+        answers: answers,
         onRestart: controller.reset,
       );
     }
@@ -334,33 +337,130 @@ class _ClassroomQuiz extends ConsumerWidget {
     );
   }
 
-  /// Salva resultado e XP. Chamado uma única vez quando o quiz termina.
-  /// Usa `didChangeDependencies`-safe: a chamada é fire-and-forget dentro
-  /// de build (idempotente porque o estado `finished` não muda depois).
-  void _saveResult(WidgetRef ref, int correctCount) {
-    // Agendar fora do build frame para não chamar setState durante build
-    Future.microtask(() async {
-      final user = ref.read(authStateProvider).valueOrNull;
-      if (user == null) return;
+}
 
-      final useCase = ref.read(submitClassroomResultProvider);
-      await useCase(
-        classroomId: classroom.id,
-        result: ClassroomResult(
-          studentId: user.id,
-          studentName: user.displayName ?? user.email,
-          totalQuestions: phase.questions.length,
-          correctAnswers: correctCount,
-          completedAt: DateTime.now(),
-        ),
-        phaseTitle: phase.title,
-      );
+// ─── Gate de submissão: corrige no servidor e mostra o resultado ─────────────
 
-      final repo = ref.read(progressRepositoryProvider);
-      await repo.addXp(userId: user.id, amount: 15);
-      await repo.addGold(userId: user.id, amount: 5);
-      ref.invalidate(userProgressProvider(user.id));
+/// Ao terminar o quiz, envia as respostas para a RPC `submit_quiz` (correção
+/// no servidor), exibe um loading e depois a tela de resultado com a nota
+/// **calculada pelo servidor**. Em erro de rede, permite reenviar.
+class _QuizResultGate extends ConsumerStatefulWidget {
+  const _QuizResultGate({
+    required this.classroom,
+    required this.phase,
+    required this.answers,
+    required this.onRestart,
+  });
+
+  final Classroom classroom;
+  final ClassroomPhase phase;
+  final Map<String, int> answers;
+  final VoidCallback onRestart;
+
+  @override
+  ConsumerState<_QuizResultGate> createState() => _QuizResultGateState();
+}
+
+class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
+  bool _loading = true;
+  String? _error;
+  QuizSubmissionResult? _result;
+
+  @override
+  void initState() {
+    super.initState();
+    _submit();
+  }
+
+  Future<void> _submit() async {
+    setState(() {
+      _loading = true;
+      _error = null;
     });
+
+    final user = ref.read(authStateProvider).valueOrNull;
+    if (user == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Sessão expirada. Entre novamente.';
+      });
+      return;
+    }
+
+    final result = await ref.read(submitQuizProvider)(
+      classroomId: widget.classroom.id,
+      phaseId: widget.phase.id,
+      answers: widget.answers,
+    );
+
+    if (!mounted) return;
+    result.fold(
+      (f) => setState(() {
+        _loading = false;
+        _error = f.message;
+      }),
+      (sub) {
+        ref.invalidate(userProgressProvider(user.id));
+        setState(() {
+          _loading = false;
+          _result = sub;
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppColors.primary),
+              SizedBox(height: 16),
+              Text('Corrigindo suas respostas...'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.cloud_off_rounded,
+                  size: 48, color: AppColors.error,),
+              const SizedBox(height: 12),
+              Text(
+                'Não foi possível enviar suas respostas.\n$_error',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+              AppButton(onPressed: _submit, label: 'Tentar enviar de novo'),
+              const SizedBox(height: 8),
+              OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text('Voltar à turma'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final r = _result!;
+    return _ClassroomResultView(
+      total: r.total,
+      correct: r.correct,
+      firstAttempt: r.firstAttempt,
+      onRestart: widget.onRestart,
+    );
   }
 }
 
@@ -370,11 +470,13 @@ class _ClassroomResultView extends StatelessWidget {
   const _ClassroomResultView({
     required this.total,
     required this.correct,
+    required this.firstAttempt,
     required this.onRestart,
   });
 
   final int total;
   final int correct;
+  final bool firstAttempt;
   final VoidCallback onRestart;
 
   int get _percent => total == 0 ? 0 : ((correct / total) * 100).round();
@@ -435,37 +537,68 @@ class _ClassroomResultView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 32),
-            // XP e moedas (badge visual)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              decoration: BoxDecoration(
-                color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.bolt_rounded, color: cs.onPrimaryContainer, size: 28),
-                  const SizedBox(width: 8),
-                  Text(
-                    '+15 XP  •  ',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.onPrimaryContainer,
+            // XP e moedas — concedidos pelo servidor só na 1ª conclusão.
+            if (firstAttempt)
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.bolt_rounded,
+                        color: cs.onPrimaryContainer, size: 28,),
+                    const SizedBox(width: 8),
+                    Text(
+                      '+15 XP  •  ',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onPrimaryContainer,
+                      ),
                     ),
-                  ),
-                  const Icon(FontAwesomeIcons.coins, color: Color(0xFFEAD47F), size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    '+5 moedas',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: cs.onPrimaryContainer,
+                    const Icon(FontAwesomeIcons.coins,
+                        color: Color(0xFFEAD47F), size: 18,),
+                    const SizedBox(width: 6),
+                    Text(
+                      '+5 moedas',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: cs.onPrimaryContainer,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
+              )
+            else
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  color: cs.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.check_circle_outline_rounded,
+                        color: cs.onSurfaceVariant, size: 20,),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Você já havia concluído esta fase — sua nota foi '
+                        'mantida.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
             const SizedBox(height: 24),
             AppButton(
               onPressed: onRestart,
@@ -517,11 +650,11 @@ void _showImageDialog(BuildContext context, String url, bool isDark) {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.broken_image_outlined,
-                            color: Colors.white38, size: 48),
+                            color: Colors.white38, size: 48,),
                         SizedBox(height: 8),
                         Text('Imagem indisponível',
                             style: TextStyle(
-                                color: Colors.white38, fontSize: 14)),
+                                color: Colors.white38, fontSize: 14,),),
                       ],
                     ),
                   ),
@@ -541,7 +674,7 @@ void _showImageDialog(BuildContext context, String url, bool isDark) {
                     child: const Padding(
                       padding: EdgeInsets.all(10),
                       child: Icon(Icons.close_rounded,
-                          color: Colors.white70, size: 22),
+                          color: Colors.white70, size: 22,),
                     ),
                   ),
                 ),

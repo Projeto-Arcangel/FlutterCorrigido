@@ -18,6 +18,7 @@ class CreateEmptyPhase {
     required String classroomId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) {
     if (classroomId.isEmpty) {
       return Future.value(
@@ -31,10 +32,16 @@ class CreateEmptyPhase {
         ),
       );
     }
+    if (weight <= 0) {
+      return Future.value(
+        const Left(ValidationFailure('O peso da fase deve ser maior que zero.')),
+      );
+    }
     return _repository.createEmptyPhase(
       classroomId: classroomId,
       title: title.trim(),
       description: description.trim(),
+      weight: weight,
     );
   }
 }
@@ -49,6 +56,7 @@ class UpdatePhase {
     required String phaseId,
     required String title,
     required String description,
+    double weight = 1.0,
   }) {
     if (title.trim().isEmpty) {
       return Future.value(
@@ -57,11 +65,17 @@ class UpdatePhase {
         ),
       );
     }
+    if (weight <= 0) {
+      return Future.value(
+        const Left(ValidationFailure('O peso da fase deve ser maior que zero.')),
+      );
+    }
     return _repository.updatePhase(
       classroomId: classroomId,
       phaseId: phaseId,
       title: title.trim(),
       description: description.trim(),
+      weight: weight,
     );
   }
 }

@@ -44,25 +44,74 @@ class PhaseManagementPage extends ConsumerStatefulWidget {
 class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _descCtrl;
+  late final TextEditingController _weightCtrl;
   bool _detailsExpanded = false;
   bool _savingDetails = false;
 
   String _initialName = '';
   String _initialDesc = '';
+  String _initialWeight = '1';
+
+  /// Formata o peso para edição: inteiro quando possível ("1"), senão "1.5".
+  static String _fmtWeight(double w) =>
+      w == w.roundToDouble() ? w.toInt().toString() : '$w';
+
+  /// Lê o peso digitado (aceita vírgula). `null` se inválido / ≤ 0.
+  double? get _parsedWeight {
+    final v = double.tryParse(_weightCtrl.text.trim().replaceAll(',', '.'));
+    if (v == null || v <= 0) return null;
+    return v;
+  }
+
+  /// Converte o peso (multiplicador) em "fatia da média": a % que cada fase
+  /// COM questões representa no total (peso ÷ soma dos pesos). Usa o peso
+  /// DIGITADO para a fase atual (preview ao vivo).
+  ///
+  /// - `pctForCurrent`: % desta fase; `null` se ela ainda não tem questões
+  ///   (não entra na média da trilha).
+  /// - `rows`: distribuição entre todas as fases com questões.
+  ({double? pctForCurrent, List<({String title, bool isCurrent, int pct})> rows})
+      _weightShare(List<ClassroomPhase> phases) {
+    final typed = _parsedWeight ?? widget.phase.weight;
+    final gradable = phases.where((p) => p.totalQuestions > 0).toList();
+    final currentGradable = gradable.any((p) => p.id == widget.phase.id);
+    final total = gradable.fold<double>(
+      0,
+      (s, p) => s + (p.id == widget.phase.id ? typed : p.weight),
+    );
+
+    final rows = <({String title, bool isCurrent, int pct})>[];
+    double? pctForCurrent;
+    for (final p in gradable) {
+      final w = p.id == widget.phase.id ? typed : p.weight;
+      final pct = total > 0 ? w / total * 100 : 0.0;
+      final isCurrent = p.id == widget.phase.id;
+      rows.add((
+        title: p.title.trim().isEmpty ? 'Fase ${p.order}' : p.title,
+        isCurrent: isCurrent,
+        pct: pct.round(),
+      ),);
+      if (isCurrent) pctForCurrent = pct;
+    }
+    return (pctForCurrent: currentGradable ? pctForCurrent : null, rows: rows);
+  }
 
   @override
   void initState() {
     super.initState();
     _initialName = widget.phase.title;
     _initialDesc = widget.phase.description;
+    _initialWeight = _fmtWeight(widget.phase.weight);
     _nameCtrl = TextEditingController(text: _initialName);
     _descCtrl = TextEditingController(text: _initialDesc);
+    _weightCtrl = TextEditingController(text: _initialWeight);
   }
 
   @override
   void dispose() {
     _nameCtrl.dispose();
     _descCtrl.dispose();
+    _weightCtrl.dispose();
     super.dispose();
   }
 
@@ -76,17 +125,26 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
     );
   }
 
+  bool get _weightDirty {
+    final p = _parsedWeight;
+    if (p == null) return _weightCtrl.text.trim() != _initialWeight;
+    return _fmtWeight(p) != _initialWeight;
+  }
+
   bool get _detailsDirty =>
       _nameCtrl.text.trim() != _initialName.trim() ||
-      _descCtrl.text.trim() != _initialDesc.trim();
+      _descCtrl.text.trim() != _initialDesc.trim() ||
+      _weightDirty;
 
   bool get _canSaveDetails =>
       _nameCtrl.text.trim().isNotEmpty &&
+      _parsedWeight != null &&
       _detailsDirty &&
       !_savingDetails;
 
   Future<void> _saveDetails() async {
     if (!_canSaveDetails) return;
+    final weight = _parsedWeight ?? widget.phase.weight;
     setState(() => _savingDetails = true);
 
     final useCase = ref.read(updatePhaseProvider);
@@ -95,6 +153,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
       phaseId: widget.phase.id,
       title: _nameCtrl.text,
       description: _descCtrl.text,
+      weight: weight,
     );
 
     if (!mounted) return;
@@ -107,6 +166,8 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
         setState(() {
           _initialName = _nameCtrl.text.trim();
           _initialDesc = _descCtrl.text.trim();
+          _initialWeight = _fmtWeight(weight);
+          _weightCtrl.text = _initialWeight;
           _detailsExpanded = false;
         });
         ref.invalidate(classroomPhasesProvider(widget.classroom.id));
@@ -253,6 +314,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
     final asyncPhases =
         ref.watch(classroomPhasesProvider(widget.classroom.id));
     final phase = _currentPhase(asyncPhases.valueOrNull);
+    final share = _weightShare(asyncPhases.valueOrNull ?? <ClassroomPhase>[phase]);
 
     return Scaffold(
       appBar: _buildAppBar(context, isDark),
@@ -265,6 +327,9 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
             _DetailsSection(
               nameCtrl: _nameCtrl,
               descCtrl: _descCtrl,
+              weightCtrl: _weightCtrl,
+              sharePctForCurrent: share.pctForCurrent,
+              shareRows: share.rows,
               expanded: _detailsExpanded,
               dirty: _detailsDirty,
               saving: _savingDetails,
@@ -276,6 +341,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
               onCancel: () => setState(() {
                 _nameCtrl.text = _initialName;
                 _descCtrl.text = _initialDesc;
+                _weightCtrl.text = _initialWeight;
                 _detailsExpanded = false;
               }),
             ),
@@ -414,6 +480,9 @@ class _DetailsSection extends StatelessWidget {
   const _DetailsSection({
     required this.nameCtrl,
     required this.descCtrl,
+    required this.weightCtrl,
+    required this.sharePctForCurrent,
+    required this.shareRows,
     required this.expanded,
     required this.dirty,
     required this.saving,
@@ -426,6 +495,13 @@ class _DetailsSection extends StatelessWidget {
 
   final TextEditingController nameCtrl;
   final TextEditingController descCtrl;
+  final TextEditingController weightCtrl;
+
+  /// % desta fase na média (peso ÷ soma); `null` se ela ainda não tem questões.
+  final double? sharePctForCurrent;
+
+  /// Distribuição das % entre as fases com questões (para mostrar o todo).
+  final List<({String title, bool isCurrent, int pct})> shareRows;
   final bool expanded;
   final bool dirty;
   final bool saving;
@@ -441,7 +517,7 @@ class _DetailsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionLabel(text: 'DETALHES DA FASE'),
+        const _SectionLabel(text: 'DETALHES DA FASE'),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
@@ -477,7 +553,7 @@ class _DetailsSection extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Nome e disciplina',
+                              'Nome, disciplina e peso',
                               style: GoogleFonts.nunito(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -489,7 +565,7 @@ class _DetailsSection extends StatelessWidget {
                             Text(
                               expanded
                                   ? 'Edite os dados e salve as alterações'
-                                  : 'Toque para editar o nome ou a disciplina',
+                                  : 'Toque para editar nome, disciplina ou peso',
                               style: GoogleFonts.nunito(
                                 fontSize: 12,
                                 fontWeight: FontWeight.w500,
@@ -527,7 +603,7 @@ class _DetailsSection extends StatelessWidget {
                         height: 1,
                       ),
                       const SizedBox(height: 14),
-                      _SmallLabel(text: 'NOME DA FASE'),
+                      const _SmallLabel(text: 'NOME DA FASE'),
                       const SizedBox(height: 6),
                       _PhaseField(
                         controller: nameCtrl,
@@ -536,13 +612,30 @@ class _DetailsSection extends StatelessWidget {
                         onChanged: onChanged,
                       ),
                       const SizedBox(height: 14),
-                      _SmallLabel(text: 'DISCIPLINA'),
+                      const _SmallLabel(text: 'DISCIPLINA'),
                       const SizedBox(height: 6),
                       _PhaseField(
                         controller: descCtrl,
                         hint: 'Ex: história, matemática, física...',
                         maxLines: 1,
                         onChanged: onChanged,
+                      ),
+                      const SizedBox(height: 14),
+                      const _SmallLabel(text: 'PESO NA MÉDIA DA TRILHA'),
+                      const SizedBox(height: 6),
+                      _PhaseField(
+                        controller: weightCtrl,
+                        hint: 'Ex: 1, 2, 1.5 (padrão 1)',
+                        maxLines: 1,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                        onChanged: onChanged,
+                      ),
+                      const SizedBox(height: 8),
+                      _WeightSharePreview(
+                        sharePctForCurrent: sharePctForCurrent,
+                        rows: shareRows,
                       ),
                       const SizedBox(height: 16),
                       Row(
@@ -624,11 +717,13 @@ class _PhaseField extends StatelessWidget {
     required this.hint,
     required this.maxLines,
     required this.onChanged,
+    this.keyboardType,
   });
   final TextEditingController controller;
   final String hint;
   final int maxLines;
   final VoidCallback onChanged;
+  final TextInputType? keyboardType;
 
   @override
   Widget build(BuildContext context) {
@@ -638,6 +733,7 @@ class _PhaseField extends StatelessWidget {
       onChanged: (_) => onChanged(),
       maxLines: maxLines,
       minLines: maxLines == 1 ? 1 : 2,
+      keyboardType: keyboardType,
       cursorColor: AppColors.primary,
       style: GoogleFonts.nunito(
         fontSize: 14,
@@ -673,6 +769,128 @@ class _PhaseField extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Preview do peso como % da média da trilha
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WeightSharePreview extends StatelessWidget {
+  const _WeightSharePreview({
+    required this.sharePctForCurrent,
+    required this.rows,
+  });
+
+  final double? sharePctForCurrent;
+  final List<({String title, bool isCurrent, int pct})> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Fase ainda sem questões: não entra na média.
+    if (sharePctForCurrent == null) {
+      return Text(
+        'Esta fase ainda não tem questões — por isso não entra na média da '
+        'trilha. O peso passa a valer quando você adicionar questões.',
+        style: GoogleFonts.nunito(
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+          color: ClassroomPalette.textMuted,
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.primary.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.pie_chart_outline_rounded,
+                  size: 15, color: AppColors.primary,),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: 'Esta fase vale ',
+                    style: GoogleFonts.nunito(
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w600,
+                      color: ClassroomPalette.primaryText(isDark),
+                    ),
+                    children: [
+                      TextSpan(
+                        text: '${sharePctForCurrent!.round()}%',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w900,
+                          color: AppColors.primary,
+                        ),
+                      ),
+                      const TextSpan(text: ' da média da trilha.'),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (rows.length >= 2) ...[
+            const SizedBox(height: 8),
+            for (final r in rows)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 3),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        r.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.nunito(
+                          fontSize: 11.5,
+                          fontWeight:
+                              r.isCurrent ? FontWeight.w800 : FontWeight.w500,
+                          color: r.isCurrent
+                              ? AppColors.primary
+                              : ClassroomPalette.textMuted,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${r.pct}%',
+                      style: GoogleFonts.nunito(
+                        fontSize: 11.5,
+                        fontWeight:
+                            r.isCurrent ? FontWeight.w900 : FontWeight.w700,
+                        color: r.isCurrent
+                            ? AppColors.primary
+                            : ClassroomPalette.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+          const SizedBox(height: 4),
+          Text(
+            'A % é o peso ÷ soma dos pesos das fases com questões. '
+            'Peso 1 em todas = fatias iguais.',
+            style: GoogleFonts.nunito(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w500,
+              color: ClassroomPalette.textMuted,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Seção "Adicionar questões" — três opções
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -693,7 +911,7 @@ class _AddQuestionsSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _SectionLabel(text: 'ADICIONAR QUESTÕES'),
+        const _SectionLabel(text: 'ADICIONAR QUESTÕES'),
         const SizedBox(height: 10),
         Container(
           decoration: BoxDecoration(
@@ -929,7 +1147,7 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SectionLabel(text: 'QUESTÕES DA FASE'),
+                  const _SectionLabel(text: 'QUESTÕES DA FASE'),
                   const SizedBox(height: 2),
                   Text(
                     _local.isEmpty
@@ -1073,7 +1291,7 @@ class _QuestionTile extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           const Icon(Icons.broken_image_outlined,
-                              color: Colors.white38, size: 48),
+                              color: Colors.white38, size: 48,),
                           const SizedBox(height: 8),
                           Text(
                             'Imagem indisponível',
@@ -1101,7 +1319,7 @@ class _QuestionTile extends StatelessWidget {
                       child: const Padding(
                         padding: EdgeInsets.all(10),
                         child: Icon(Icons.close_rounded,
-                            color: Colors.white70, size: 22),
+                            color: Colors.white70, size: 22,),
                       ),
                     ),
                   ),
