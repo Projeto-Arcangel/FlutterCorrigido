@@ -129,8 +129,15 @@ abstract class ClassroomRepository {
     required List<Question> questions,
   });
 
-  /// Lista as fases (phases) de uma sala de aula.
+  /// Lista as fases (phases) de uma sala de aula, COM gabarito.
+  /// Só o professor dono consegue ler (RLS de `questions` é só do dono).
   Future<Either<Failure, List<ClassroomPhase>>> getClassroomPhases(
+    String classroomId,
+  );
+
+  /// Lista as fases para o ALUNO, SEM gabarito (`get_student_phases`).
+  /// O `correct_answer`/`explanation` não saem do servidor antes do envio.
+  Future<Either<Failure, List<ClassroomPhase>>> getStudentPhases(
     String classroomId,
   );
 

@@ -80,6 +80,11 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
         );
       case 400:
         return ValidationFailure(detail ?? 'Dados inválidos.');
+      case 429:
+        return ValidationFailure(
+          detail ??
+              'Limite diário de geração por IA atingido. Tente novamente amanhã.',
+        );
       case 504:
         return const NetworkFailure(
           'A IA demorou demais para responder. Tente novamente.',

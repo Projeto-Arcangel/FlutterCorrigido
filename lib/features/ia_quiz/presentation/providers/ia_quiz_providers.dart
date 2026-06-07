@@ -22,6 +22,13 @@ final iaQuizRepositoryProvider = Provider<IaQuizRepository>((ref) {
   );
 });
 
+/// Cota diária de IA do professor logado — alimenta o indicador
+/// "X de N questões" na tela de criação. Invalidado após cada geração.
+final aiDailyQuotaProvider =
+    FutureProvider.autoDispose<({int used, int limit, int remaining})>((ref) {
+  return ref.watch(iaQuizDatasourceProvider).fetchDailyQuota();
+});
+
 // ─── Use Cases ─────────────────────────────────────────────────
 
 final generateQuestionsWithIaProvider = Provider<GenerateQuestionsWithIa>(

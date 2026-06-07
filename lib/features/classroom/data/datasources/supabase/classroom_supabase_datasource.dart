@@ -153,10 +153,14 @@ class ClassroomSupabaseDatasource {
       'p_answers': answers,
     },);
     final map = Map<String, dynamic>.from(data as Map);
+    final review = ((map['questions'] as List?) ?? const [])
+        .map((e) => QuizAnswerReview.fromMap(Map<String, dynamic>.from(e as Map)))
+        .toList();
     return QuizSubmissionResult(
       total: (map['total'] as num?)?.toInt() ?? 0,
       correct: (map['correct'] as num?)?.toInt() ?? 0,
       firstAttempt: (map['first_attempt'] as bool?) ?? false,
+      review: review,
     );
   }
 
@@ -242,6 +246,8 @@ class ClassroomSupabaseDatasource {
         phaseRow, questions.map(_toModel).toList(),);
   }
 
+  /// Fases + questões de uma sala, COM gabarito — só o professor dono lê
+  /// (a RLS de `questions` é só do dono). Usado pelas telas do professor.
   Future<List<ClassroomPhaseModel>> fetchClassroomPhases(
     String classroomId,
   ) async {
@@ -254,6 +260,31 @@ class ClassroomSupabaseDatasource {
     for (final row in (rows as List).cast<Map<String, dynamic>>()) {
       final qRaw = ((row['questions'] as List?) ?? const [])
           .cast<Map<String, dynamic>>()
+        ..sort((a, b) => ((a['sort_order'] as num?) ?? 0)
+            .compareTo((b['sort_order'] as num?) ?? 0),);
+      final questions = qRaw.map(QuestionModel.fromMap).toList();
+      phases.add(ClassroomPhaseModel.fromMap(row, questions));
+    }
+    return phases;
+  }
+
+  /// Fases + questões para o ALUNO, SEM gabarito (RPC `get_student_phases`,
+  /// `SECURITY DEFINER`). `correct_answer`/`explanation` não vêm no payload —
+  /// o feedback só chega pela correção do servidor (`submit_quiz`) após o envio.
+  Future<List<ClassroomPhaseModel>> fetchStudentPhases(
+    String classroomId,
+  ) async {
+    final data = await _client.rpc<dynamic>(
+      'get_student_phases',
+      params: {'p_classroom': classroomId},
+    );
+    final list = (data as List?) ?? const [];
+    final phases = <ClassroomPhaseModel>[];
+    for (final raw in list) {
+      final row = Map<String, dynamic>.from(raw as Map);
+      final qRaw = ((row['questions'] as List?) ?? const [])
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList()
         ..sort((a, b) => ((a['sort_order'] as num?) ?? 0)
             .compareTo((b['sort_order'] as num?) ?? 0),);
       final questions = qRaw.map(QuestionModel.fromMap).toList();

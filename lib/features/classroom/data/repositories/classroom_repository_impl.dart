@@ -325,6 +325,19 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
+  Future<Either<Failure, List<ClassroomPhase>>> getStudentPhases(
+    String classroomId,
+  ) async {
+    try {
+      final phases = await _datasource.fetchStudentPhases(classroomId);
+      return Right(phases);
+    } catch (e, st) {
+      _logger.e('getStudentPhases failed', error: e, stackTrace: st);
+      return const Left(NetworkFailure('Falha ao carregar fases da sala'));
+    }
+  }
+
+  @override
   Future<Either<Failure, ClassroomPhase>> createEmptyPhase({
     required String classroomId,
     required String title,

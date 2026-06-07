@@ -5,6 +5,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../../../lesson/presentation/providers/quiz_controller.dart';
 import '../../../lesson/presentation/widgets/option_tile.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
@@ -109,12 +110,11 @@ class _ClassroomQuiz extends ConsumerWidget {
     // ── Quiz em andamento ─────────────────────────────────────────
     final question  = questions[state.currentIndex];
     final selected  = state.answers[state.currentIndex];
-    final confirmed = state.confirmed;
     final isLast    = state.currentIndex == questions.length - 1;
 
-    final btnLabel = !confirmed
-        ? 'Verificar'
-        : (isLast ? 'Finalizar' : 'Continuar');
+    // Anti-cola: o gabarito não está no cliente, então não há revelação por
+    // questão. O aluno escolhe e avança; o feedback vem só após o envio.
+    final btnLabel = isLast ? 'Finalizar' : 'Continuar';
 
     return ColoredBox(
       color: isDark ? AppColors.backgroundDark : AppColors.background,
@@ -129,7 +129,7 @@ class _ClassroomQuiz extends ConsumerWidget {
                 _SegmentedProgress(
                   total: questions.length,
                   current: state.currentIndex,
-                  confirmed: confirmed,
+                  confirmed: selected != null,
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -273,41 +273,20 @@ class _ClassroomQuiz extends ConsumerWidget {
                       ],
                       const SizedBox(height: 24),
                       ...List.generate(question.options.length, (i) {
-                        final OptionState optState;
-                        if (!confirmed) {
-                          optState = selected == i
-                              ? OptionState.selected
-                              : OptionState.idle;
-                        } else {
-                          if (i == question.correctAnswer) {
-                            optState = OptionState.correct;
-                          } else if (i == selected) {
-                            optState = OptionState.wrong;
-                          } else {
-                            optState = OptionState.idle;
-                          }
-                        }
+                        // Sem revelação: apenas destaca a alternativa escolhida.
+                        final optState = selected == i
+                            ? OptionState.selected
+                            : OptionState.idle;
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: OptionTile(
                             index: i,
                             label: question.options[i],
                             optionState: optState,
-                            onTap: confirmed
-                                ? null
-                                : () => controller.answer(i),
+                            onTap: () => controller.answer(i),
                           ),
                         );
                       }),
-                      if (confirmed &&
-                          question.explanation.isNotEmpty) ...[
-                        const SizedBox(height: 4),
-                        _ExplanationCard(
-                          explanation: question.explanation,
-                          isCorrect: selected == question.correctAnswer,
-                          isDark: isDark,
-                        ),
-                      ],
                       const SizedBox(height: 8),
                     ],
                   ),
@@ -323,11 +302,7 @@ class _ClassroomQuiz extends ConsumerWidget {
               duration: const Duration(milliseconds: 200),
               child: AppButton(
                 key: ValueKey(btnLabel),
-                onPressed: selected == null
-                    ? null
-                    : confirmed
-                        ? () => controller.next()
-                        : controller.confirm,
+                onPressed: selected == null ? null : controller.next,
                 label: btnLabel,
               ),
             ),
@@ -459,6 +434,8 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
       total: r.total,
       correct: r.correct,
       firstAttempt: r.firstAttempt,
+      review: r.review,
+      questions: widget.phase.questions,
       onRestart: widget.onRestart,
     );
   }
@@ -471,12 +448,16 @@ class _ClassroomResultView extends StatelessWidget {
     required this.total,
     required this.correct,
     required this.firstAttempt,
+    required this.review,
+    required this.questions,
     required this.onRestart,
   });
 
   final int total;
   final int correct;
   final bool firstAttempt;
+  final List<QuizAnswerReview> review;
+  final List<Question> questions;
   final VoidCallback onRestart;
 
   int get _percent => total == 0 ? 0 : ((correct / total) * 100).round();
@@ -599,6 +580,10 @@ class _ClassroomResultView extends StatelessWidget {
                   ],
                 ),
               ),
+            if (review.isNotEmpty) ...[
+              const SizedBox(height: 32),
+              _QuizReviewSection(questions: questions, review: review),
+            ],
             const SizedBox(height: 24),
             AppButton(
               onPressed: onRestart,
@@ -745,6 +730,159 @@ class _SegmentedProgress extends StatelessWidget {
           ),
         );
       }),
+    );
+  }
+}
+
+// ─── Revisão das respostas (pós-envio) ───────────────────────────────────────
+
+/// Lista a correção de cada questão DEPOIS do envio: o gabarito (vindo do
+/// servidor em `submit_quiz`), a alternativa escolhida e a explicação. É aqui
+/// — e só aqui — que o aluno vê as respostas certas; elas nunca estiveram no
+/// app antes da submissão.
+class _QuizReviewSection extends StatelessWidget {
+  const _QuizReviewSection({required this.questions, required this.review});
+
+  final List<Question> questions;
+  final List<QuizAnswerReview> review;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final byId = {for (final r in review) r.questionId: r};
+
+    final items = <Widget>[];
+    for (var i = 0; i < questions.length; i++) {
+      final q = questions[i];
+      final r = byId[q.id];
+      if (r == null) continue;
+      items.add(
+        _QuizReviewItem(number: i + 1, question: q, review: r, isDark: isDark),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Revisão das respostas',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.textOnDark : AppColors.textPrimary,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...items,
+      ],
+    );
+  }
+}
+
+class _QuizReviewItem extends StatelessWidget {
+  const _QuizReviewItem({
+    required this.number,
+    required this.question,
+    required this.review,
+    required this.isDark,
+  });
+
+  final int number;
+  final Question question;
+  final QuizAnswerReview review;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final ok = review.isCorrect;
+    final accent = ok ? const Color(0xFF4CAF50) : AppColors.error;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.surfaceDark : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark
+              ? Colors.white12
+              : AppColors.borderBlue.withValues(alpha: 0.25),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                'Questão $number',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: isDark
+                      ? AppColors.textOnDark.withValues(alpha: 0.7)
+                      : AppColors.textSecondary,
+                ),
+              ),
+              const Spacer(),
+              Icon(
+                ok ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                color: accent,
+                size: 20,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _cleanQuestionText(question.text),
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              height: 1.4,
+              color: isDark ? AppColors.textOnDark : AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...List.generate(question.options.length, (i) {
+            final OptionState st;
+            if (i == review.correctAnswer) {
+              st = OptionState.correct;
+            } else if (i == review.chosen) {
+              st = OptionState.wrong;
+            } else {
+              st = OptionState.idle;
+            }
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: OptionTile(
+                index: i,
+                label: question.options[i],
+                optionState: st,
+              ),
+            );
+          }),
+          if (review.chosen == null)
+            const Text(
+              'Você não respondeu esta questão.',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppColors.error,
+              ),
+            ),
+          if (review.explanation.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            _ExplanationCard(
+              explanation: review.explanation,
+              isCorrect: ok,
+              isDark: isDark,
+            ),
+          ],
+        ],
+      ),
     );
   }
 }

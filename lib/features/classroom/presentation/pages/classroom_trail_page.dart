@@ -71,7 +71,9 @@ class _ClassroomTrailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final asyncPhases = ref.watch(classroomPhasesProvider(classroom.id));
+    // Aluno: questões SEM gabarito (anti-cola). O feedback vem do servidor
+    // na tela de resultado (submit_quiz), não do payload local.
+    final asyncPhases = ref.watch(studentPhasesProvider(classroom.id));
 
     return Scaffold(
       body: SafeArea(

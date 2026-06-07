@@ -19,6 +19,13 @@ import {
   type GenerateResult,
 } from "../_shared/openrouter.ts";
 
+// Teto diário de questões geradas por IA por professor (controle de custo no
+// OpenRouter). A contagem do uso de hoje vem da RPC ai_questions_today
+// (migration 20260607120000) — aqui fica só o valor do teto.
+const DAILY_QUESTION_LIMIT = 20;
+
+type AdminClient = ReturnType<typeof createClient>;
+
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -27,7 +34,7 @@ function json(status: number, body: unknown): Response {
 }
 
 async function logGeneration(
-  supabaseUrl: string,
+  admin: AdminClient,
   teacherId: string,
   body: Record<string, unknown>,
   result: GenerateResult | null,
@@ -36,10 +43,6 @@ async function logGeneration(
   attempts: unknown,
 ): Promise<void> {
   try {
-    const admin = createClient(
-      supabaseUrl,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
     await admin.from("ai_generation_logs").insert({
       teacher_id: teacherId,
       subject: (body.subject as string) ?? null,
@@ -96,12 +99,47 @@ Deno.serve(async (req: Request) => {
     return json(400, { error: "O tema é obrigatório." });
   }
 
+  // Quantidade precisa ser conhecida ANTES de gerar para checar a cota diária.
+  // (a validação completa do payload ainda ocorre em generateQuestionsWithFallback)
+  const requested = Number(body.quantity);
+  if (!Number.isInteger(requested) || requested < 1 || requested > 20) {
+    return json(400, { error: "A quantidade deve ser um inteiro entre 1 e 20." });
+  }
+
   const apiKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!apiKey) {
     return json(500, { error: "OPENROUTER_API_KEY não configurada no servidor." });
   }
 
-  // 4. Geração com fallback + auditoria.
+  // Cliente service_role (ignora RLS): usado para a cota diária e a auditoria.
+  const admin = createClient(
+    supabaseUrl,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+  );
+
+  // 4. Rate-limit: teto diário de questões por professor (custo no OpenRouter).
+  // Em caso de falha na consulta, deixamos passar (fail-open) — o limite é um
+  // controle de custo, não uma fronteira de segurança; preferimos não derrubar
+  // a geração por um erro transitório de leitura do contador.
+  const { data: usedToday, error: quotaErr } = await admin.rpc(
+    "ai_questions_today",
+    { p_teacher: user.id },
+  );
+  if (!quotaErr && typeof usedToday === "number") {
+    const remaining = DAILY_QUESTION_LIMIT - usedToday;
+    if (requested > remaining) {
+      return json(429, {
+        error: remaining > 0
+          ? `Limite diário de IA: ${DAILY_QUESTION_LIMIT} questões/dia. Você já gerou ${usedToday} hoje e ainda pode gerar ${remaining}. Reduza a quantidade ou tente amanhã.`
+          : `Limite diário de IA atingido (${DAILY_QUESTION_LIMIT} questões/dia). Você já gerou ${usedToday} hoje. Tente novamente amanhã.`,
+        limit: DAILY_QUESTION_LIMIT,
+        used: usedToday,
+        remaining: Math.max(0, remaining),
+      });
+    }
+  }
+
+  // 5. Geração com fallback + auditoria.
   try {
     const result = await generateQuestionsWithFallback({
       subject: body.subject as string | undefined,
@@ -113,12 +151,12 @@ Deno.serve(async (req: Request) => {
       modelKey: body.modelKey as string | undefined,
     }, apiKey);
 
-    await logGeneration(supabaseUrl, user.id, body, result, "success", null, null);
+    await logGeneration(admin, user.id, body, result, "success", null, null);
     return json(200, result);
   } catch (err) {
     const attempts = err instanceof GenerationError ? err.attempts : null;
     const message = err instanceof Error ? err.message : "Falha ao gerar questões.";
-    await logGeneration(supabaseUrl, user.id, body, null, "error", message, attempts);
+    await logGeneration(admin, user.id, body, null, "error", message, attempts);
     return json(500, { error: message, attempts });
   }
 });

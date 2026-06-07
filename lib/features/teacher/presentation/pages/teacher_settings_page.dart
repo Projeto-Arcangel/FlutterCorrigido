@@ -66,7 +66,7 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
   late final List<Animation<double>> _fadeAnims;
   late final List<Animation<Offset>> _slideAnims;
 
-  static const int _animCount = 4;
+  static const int _animCount = 5;
   static const Duration _totalDuration = Duration(milliseconds: 700);
   static const Duration _stagger = Duration(milliseconds: 80);
 
@@ -181,13 +181,21 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
                       ),
                     );
                   }),
+                  const SizedBox(height: 28),
+                  _SectionLabel(label: 'SUPORTE', isDark: isDark),
+                  const SizedBox(height: 10),
+                  _AnimatedSlot(
+                    fade: _fadeAnims[3],
+                    slide: _slideAnims[3],
+                    child: _SupportCard(isDark: isDark),
+                  ),
                   const SizedBox(height: 32),
                 ],
               ),
             ),
             _AnimatedSlot(
-              fade: _fadeAnims[3],
-              slide: _slideAnims[3],
+              fade: _fadeAnims[4],
+              slide: _slideAnims[4],
               child: _SignOutButton(onTap: _onSignOutTap, isDark: isDark),
             ),
           ],
@@ -472,6 +480,38 @@ class _TileIcon extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Icon(icon, color: _TC.accent, size: 22),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Card de suporte — aviso de contato por e-mail (visível para qualquer usuário).
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SupportCard extends StatelessWidget {
+  const _SupportCard({required this.isDark});
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      decoration: BoxDecoration(
+        color: _TC.cardBg(isDark),
+        border: Border.all(color: _TC.cardBorder(isDark)),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        'Caso precise de suporte, envie um email para '
+        'arcangel.admin@gmail.com. Responderemos o mais rápido possível.',
+        style: GoogleFonts.nunito(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: _TC.textPrimary(isDark),
+          height: 1.5,
+        ),
+      ),
     );
   }
 }

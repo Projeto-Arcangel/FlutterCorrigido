@@ -240,6 +240,8 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
             // Reseta antes de navegar para evitar re-trigger se a página
             // for revisitada com o mesmo state.
             ref.read(iaGenerationNotifierProvider.notifier).reset();
+            // A geração consumiu cota: atualiza o indicador ao voltar.
+            ref.invalidate(aiDailyQuotaProvider);
             context.push(
               AppRoutes.teacherIaQuizReview,
               extra: <String, Object?>{
@@ -268,6 +270,8 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
       iaGenerationNotifierProvider.select((s) => s.isLoading),
     );
 
+    final quotaAsync = ref.watch(aiDailyQuotaProvider);
+
     final meta = _kSubjectMeta[widget.subject?.toLowerCase()] ??
         _kSubjectMeta['história']!;
 
@@ -289,7 +293,19 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                     children: [
                       // Cabeçalho da tela
                       const _ScreenTitle(),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 20),
+
+                      // Cota diária de IA — limite + quanto já foi gerado hoje
+                      quotaAsync.when(
+                        data: (q) => _QuotaBanner(
+                          used: q.used,
+                          limit: q.limit,
+                          remaining: q.remaining,
+                        ),
+                        loading: () => const _QuotaBanner.loading(),
+                        error: (_, __) => const SizedBox.shrink(),
+                      ),
+                      const SizedBox(height: 28),
 
                       // Disciplina — dinâmica conforme a fase selecionada
                       _sectionLabel('DISCIPLINA'),
@@ -516,6 +532,106 @@ class _ScreenTitle extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Quota Banner — limite diário de IA + quanto o professor já gerou hoje.
+// Heurística #1 (visibilidade do estado): o teto e o consumo ficam explícitos
+// antes da geração; quando esgota, a mensagem orienta a voltar amanhã.
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QuotaBanner extends StatelessWidget {
+  const _QuotaBanner({
+    required this.used,
+    required this.limit,
+    required this.remaining,
+  }) : _loading = false;
+
+  const _QuotaBanner.loading()
+      : used = 0,
+        limit = 0,
+        remaining = 0,
+        _loading = true;
+
+  final int used;
+  final int limit;
+  final int remaining;
+  final bool _loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final exhausted = !_loading && remaining <= 0;
+    final accent = exhausted ? const Color(0xFFE0795B) : _C.accent;
+    final progress =
+        (_loading || limit == 0) ? 0.0 : (used / limit).clamp(0.0, 1.0);
+
+    final String caption;
+    if (_loading) {
+      caption = 'Carregando seu uso de hoje…';
+    } else if (exhausted) {
+      caption = 'Limite diário atingido. Tente novamente amanhã.';
+    } else {
+      caption =
+          'Você ainda pode gerar $remaining ${remaining == 1 ? 'questão' : 'questões'} hoje.';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: accent.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              FaIcon(FontAwesomeIcons.boltLightning, size: 13, color: accent),
+              const SizedBox(width: 8),
+              Text(
+                'Uso diário de IA',
+                style: GoogleFonts.nunito(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: _C.primaryText(isDark),
+                ),
+              ),
+              const Spacer(),
+              Text(
+                _loading ? '—' : '$used / $limit',
+                style: GoogleFonts.nunito(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w800,
+                  color: accent,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: _loading ? null : progress,
+              minHeight: 6,
+              backgroundColor: _C.trackInactive(isDark),
+              valueColor: AlwaysStoppedAnimation<Color>(accent),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            caption,
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: _C.mutedText(isDark),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

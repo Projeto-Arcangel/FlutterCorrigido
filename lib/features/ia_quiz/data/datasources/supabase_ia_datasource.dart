@@ -45,4 +45,16 @@ class SupabaseIaDatasource {
       details: 'Resposta inesperada da função generate-questions.',
     );
   }
+
+  /// Cota diária de geração por IA do professor logado (RPC `my_ai_quota`).
+  /// Cada professor vê só o PRÓPRIO consumo (a função usa `auth.uid()`).
+  Future<({int used, int limit, int remaining})> fetchDailyQuota() async {
+    final data = await _client.rpc<dynamic>('my_ai_quota');
+    final map = Map<String, dynamic>.from(data as Map);
+    return (
+      used: (map['used'] as num?)?.toInt() ?? 0,
+      limit: (map['limit'] as num?)?.toInt() ?? 20,
+      remaining: (map['remaining'] as num?)?.toInt() ?? 0,
+    );
+  }
 }

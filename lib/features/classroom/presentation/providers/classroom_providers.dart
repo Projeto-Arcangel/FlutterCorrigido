@@ -198,6 +198,22 @@ final classroomPhasesProvider = FutureProvider.autoDispose
   );
 });
 
+/// Fases de uma sala para o ALUNO — questões SEM gabarito (anti-cola).
+///
+/// Diferente de [classroomPhasesProvider] (que é do professor e traz o
+/// `correctAnswer`), aqui o gabarito não sai do servidor: o feedback só vem
+/// pela correção do `submit_quiz` na tela de resultado. Usado pela trilha
+/// do aluno (`ClassroomTrailPage`).
+final studentPhasesProvider = FutureProvider.autoDispose
+    .family<List<ClassroomPhase>, String>((ref, classroomId) async {
+  final repo = ref.watch(classroomRepositoryProvider);
+  final result = await repo.getStudentPhases(classroomId);
+  return result.fold(
+    (failure) => throw Exception(failure.message),
+    (phases) => phases.cast<ClassroomPhase>(),
+  );
+});
+
 // ─── Gerenciamento de fases (CRUD + reordenação) ───────────────
 
 final createEmptyPhaseProvider = Provider<CreateEmptyPhase>((ref) {
