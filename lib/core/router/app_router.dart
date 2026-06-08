@@ -1,14 +1,18 @@
+import 'dart:async';
+
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/account_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/preferences_page.dart';
 import 'package:arcangel_o_oficial/features/settings/presentation/pages/settings_page.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/domain/entities/user.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/google_complete_profile_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
@@ -56,6 +60,7 @@ class AppRoutes {
   static const String googleCompleteProfile = '/google-complete-profile';
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
+  static const String resetPassword = '/reset-password';
 
   static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
   static String classroomLessonPath(String classroomId, String phaseId) =>
@@ -83,15 +88,25 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final loc = state.matchedLocation;
       final isUnauthRoute = unauthRoutes.contains(loc);
 
+      // 0. Recuperação de senha: o link do e-mail abriu o app com uma sessão
+      //    de recovery → força a tela de definir nova senha. Tem prioridade
+      //    sobre tudo (a sessão temporária conta como "logado").
+      final inPasswordRecovery = ref.read(passwordRecoveryProvider);
+      if (inPasswordRecovery) {
+        return loc == AppRoutes.resetPassword ? null : AppRoutes.resetPassword;
+      }
+
       // 1. Não logado → manda para login (a menos que já esteja numa
       //    rota pública como register/forgot-password).
       if (!isLoggedIn) {
         return isUnauthRoute ? null : AppRoutes.login;
       }
 
-      // 2. Logado → verifica se é novo usuário Google (precisa completar perfil).
-      final isGoogleNewUser = ref.read(googleNewUserProvider);
-      if (isGoogleNewUser) {
+      // 2. Logado mas SEM nome no perfil = entrou via Google e ainda não
+      //    preencheu Nome + Prontuário → completar perfil. (O cadastro por
+      //    e-mail já grava o display_name no metadata, então pula esta etapa.)
+      final needsProfile = (user.displayName ?? '').trim().isEmpty;
+      if (needsProfile) {
         return loc == AppRoutes.googleCompleteProfile
             ? null
             : AppRoutes.googleCompleteProfile;
@@ -252,6 +267,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ForgotPasswordPage(),
       ),
       GoRoute(
+        path: AppRoutes.resetPassword,
+        builder: (_, __) => const ResetPasswordPage(),
+      ),
+      GoRoute(
         path: AppRoutes.classroomTrail,
         builder: (_, state) {
           final classroomId = state.pathParameters['classroomId']!;
@@ -301,20 +320,31 @@ class _AuthRefreshNotifier extends ChangeNotifier {
     _roleSub = ref.listen(currentUserRoleProvider, (_, __) {
       notifyListeners();
     });
-    _googleNewUserSub = ref.listen(googleNewUserProvider, (_, __) {
+    // Re-roteia quando entramos/saímos do fluxo de recuperação de senha.
+    _recoveryStateSub = ref.listen(passwordRecoveryProvider, (_, __) {
       notifyListeners();
+    });
+    // Detecta a chegada do link de reset (evento passwordRecovery) e liga a
+    // flag — o gate do redirect manda para a ResetPasswordPage.
+    _recoveryEventSub =
+        Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        ref.read(passwordRecoveryProvider.notifier).state = true;
+      }
     });
   }
 
   late final ProviderSubscription<dynamic> _authSub;
   late final ProviderSubscription<dynamic> _roleSub;
-  late final ProviderSubscription<dynamic> _googleNewUserSub;
+  late final ProviderSubscription<dynamic> _recoveryStateSub;
+  late final StreamSubscription<AuthState> _recoveryEventSub;
 
   @override
   void dispose() {
     _authSub.close();
     _roleSub.close();
-    _googleNewUserSub.close();
+    _recoveryStateSub.close();
+    _recoveryEventSub.cancel();
     super.dispose();
   }
 }

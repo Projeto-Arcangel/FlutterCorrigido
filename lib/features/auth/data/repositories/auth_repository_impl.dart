@@ -1,5 +1,5 @@
 import 'package:dartz/dartz.dart';
-import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -11,12 +11,16 @@ import '../../domain/repositories/auth_repository.dart';
 /// Implementação do [AuthRepository] sobre o Supabase Auth (GoTrue).
 class AuthRepositoryImpl implements AuthRepository {
   final SupabaseClient _client;
-  final GoogleSignIn _googleSignIn;
   final Logger _logger;
 
-  AuthRepositoryImpl(this._client, this._googleSignIn, this._logger);
+  AuthRepositoryImpl(this._client, this._logger);
 
   GoTrueClient get _auth => _client.auth;
+
+  /// URL para onde o provedor/e-mail redireciona após autenticar. Na web usa a
+  /// origem atual — funciona em localhost e no domínio do Cloudflare sem
+  /// hardcode (o domínio só precisa estar na allowlist do Supabase).
+  String? get _redirectUrl => kIsWeb ? Uri.base.origin : null;
 
   @override
   Future<Either<Failure, domain.User>> signInWithEmail({
@@ -39,29 +43,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Either<Failure, domain.User>> signInWithGoogle() async {
+  Future<Either<Failure, void>> signInWithGoogle() async {
     try {
-      // Abordagem nativa: obtém o idToken do Google e troca por sessão no
-      // Supabase. Requer [auth.external.google] configurado no Supabase.
-      final googleUser = await _googleSignIn.signIn();
-      if (googleUser == null) {
-        return const Left(AuthFailure('Login cancelado pelo usuário'));
-      }
-      final googleAuth = await googleUser.authentication;
-      final idToken = googleAuth.idToken;
-      if (idToken == null) {
-        return const Left(
-          AuthFailure('Não foi possível obter o token do Google.'),
-        );
-      }
-      final res = await _auth.signInWithIdToken(
-        provider: OAuthProvider.google,
-        idToken: idToken,
-        accessToken: googleAuth.accessToken,
+      // Web: fluxo OAuth com redirect de página inteira. O Supabase manda o
+      // usuário ao Google e, na volta para `redirectTo`, detecta a sessão na
+      // URL e a emite em authStateChanges (o router cuida do roteamento).
+      // Requer o provider Google habilitado no Supabase (dashboard/config).
+      await _auth.signInWithOAuth(
+        OAuthProvider.google,
+        redirectTo: _redirectUrl,
       );
-      final user = res.user;
-      if (user == null) return const Left(AuthFailure('Usuário não encontrado'));
-      return Right(_mapToEntity(user));
+      return const Right(null);
     } on AuthException catch (e, st) {
       _logger.e('Google auth error', error: e, stackTrace: st);
       return Left(_mapAuthError(e));
@@ -95,12 +87,20 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    String? studentId,
   }) async {
     try {
+      // Com a confirmação de e-mail ligada, NÃO há sessão após o signUp, então
+      // o cliente não consegue escrever em `profiles`. Por isso nome e prontuário
+      // vão no metadata: o trigger handle_new_user os grava na criação da conta.
       final res = await _auth.signUp(
         email: email,
         password: password,
-        data: {'display_name': displayName},
+        emailRedirectTo: _redirectUrl,
+        data: {
+          'display_name': displayName,
+          if (studentId != null && studentId.isNotEmpty) 'student_id': studentId,
+        },
       );
       final user = res.user;
       if (user == null) return const Left(AuthFailure('Falha ao criar conta'));
@@ -119,13 +119,31 @@ class AuthRepositoryImpl implements AuthRepository {
     required String email,
   }) async {
     try {
-      await _auth.resetPasswordForEmail(email);
+      // O link do e-mail volta para o app (redirectTo); o app detecta a sessão
+      // de recuperação e abre a tela de definir nova senha.
+      await _auth.resetPasswordForEmail(email, redirectTo: _redirectUrl);
       return const Right(null);
     } on AuthException catch (e, st) {
       _logger.e('Password reset error', error: e, stackTrace: st);
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown password reset error', error: e, stackTrace: st);
+      return const Left(UnknownFailure());
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePassword({
+    required String newPassword,
+  }) async {
+    try {
+      await _auth.updateUser(UserAttributes(password: newPassword));
+      return const Right(null);
+    } on AuthException catch (e, st) {
+      _logger.e('updatePassword error', error: e, stackTrace: st);
+      return Left(_mapAuthError(e));
+    } catch (e, st) {
+      _logger.e('Unknown updatePassword error', error: e, stackTrace: st);
       return const Left(UnknownFailure());
     }
   }

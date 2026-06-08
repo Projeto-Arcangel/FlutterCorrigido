@@ -33,15 +33,11 @@ class LoginController extends _$LoginController {
   Future<void> signInWithGoogle() async {
     state = const AsyncLoading();
     final result = await ref.read(signInWithGoogleProvider)();
+    // Sucesso = redirect iniciado (web). A sessão chega depois via authState;
+    // o router decide o destino (completar perfil p/ usuário novo, ou app).
     state = result.fold(
       (failure) => AsyncError<User?>(failure.message, StackTrace.current),
-      (googleResult) {
-        if (googleResult.isNewGoogleUser) {
-          // Sinaliza para o router redirecionar para a tela de completar perfil.
-          ref.read(googleNewUserProvider.notifier).state = true;
-        }
-        return AsyncData<User?>(googleResult.user);
-      },
+      (_) => const AsyncData<User?>(null),
     );
   }
 

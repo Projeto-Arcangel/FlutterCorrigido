@@ -1,6 +1,5 @@
 import 'package:dartz/dartz.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
 
 import '../../../../core/errors/failure.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
@@ -15,14 +14,9 @@ import '../../domain/usecases/sign_in_with_email.dart';
 import '../../domain/usecases/sign_in_with_google.dart';
 import '../../domain/usecases/sign_out.dart';
 
-final googleSignInProvider = Provider<GoogleSignIn>(
-  (ref) => GoogleSignIn(),
-);
-
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepositoryImpl(
     ref.watch(supabaseClientProvider),
-    ref.watch(googleSignInProvider),
     ref.watch(loggerProvider),
   );
 });
@@ -32,10 +26,7 @@ final signInWithEmailProvider = Provider<SignInWithEmail>((ref) {
 });
 
 final signInWithGoogleProvider = Provider<SignInWithGoogle>((ref) {
-  return SignInWithGoogle(
-    ref.watch(authRepositoryProvider),
-    ref.watch(userRepositoryProvider),
-  );
+  return SignInWithGoogle(ref.watch(authRepositoryProvider));
 });
 
 final signOutProvider = Provider<SignOut>((ref) {
@@ -73,6 +64,20 @@ final sendPasswordResetProvider = Provider<ResetPasswordFn>(
   (ref) => ref.watch(authRepositoryProvider).sendPasswordReset,
 );
 
+typedef UpdatePasswordFn = Future<Either<Failure, void>> Function({
+  required String newPassword,
+});
+
+final updatePasswordProvider = Provider<UpdatePasswordFn>(
+  (ref) => ref.watch(authRepositoryProvider).updatePassword,
+);
+
+/// `true` enquanto o app está numa sessão de RECUPERAÇÃO de senha (o usuário
+/// abriu o link do e-mail de reset). O listener em `app_router.dart` liga isso
+/// ao receber o evento `passwordRecovery`; o router então força a
+/// `ResetPasswordPage`. Volta a `false` após definir a nova senha.
+final passwordRecoveryProvider = StateProvider<bool>((_) => false);
+
 final userRepositoryProvider = Provider<UserRepository>((ref) {
   return UserRepositoryImpl(
     ref.watch(supabaseClientProvider),
@@ -81,10 +86,7 @@ final userRepositoryProvider = Provider<UserRepository>((ref) {
 });
 
 final registerUserProvider = Provider<RegisterUser>((ref) {
-  return RegisterUser(
-    ref.watch(authRepositoryProvider),
-    ref.watch(userRepositoryProvider),
-  );
+  return RegisterUser(ref.watch(authRepositoryProvider));
 });
 
 final updateDisplayNameProvider = Provider<UpdateDisplayNameFn>(

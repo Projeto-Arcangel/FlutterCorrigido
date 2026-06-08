@@ -3,41 +3,27 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failure.dart';
 import '../entities/user.dart';
 import '../repositories/auth_repository.dart';
-import '../repositories/user_repository.dart';
 
 class RegisterUser {
   final AuthRepository _authRepository;
-  final UserRepository _userRepository;
 
-  const RegisterUser(this._authRepository, this._userRepository);
+  const RegisterUser(this._authRepository);
 
+  /// Cria a conta. Nome e prontuário vão no metadata do signUp — com a
+  /// confirmação de e-mail ligada NÃO há sessão logo após o cadastro, então
+  /// quem grava o perfil é o trigger `handle_new_user` (server-side). O aluno
+  /// só entra de fato depois de confirmar o e-mail.
   Future<Either<Failure, User>> call({
     required String email,
     required String password,
     required String displayName,
     String? studentId,
-  }) async {
-    final result = await _authRepository.registerWithEmail(
+  }) {
+    return _authRepository.registerWithEmail(
       email: email,
       password: password,
       displayName: displayName,
-    );
-    return result.fold(
-      Left.new,
-      (user) async {
-        final userWithId = studentId != null && studentId.isNotEmpty
-            ? User(
-                id: user.id,
-                email: user.email,
-                displayName: user.displayName,
-                photoUrl: user.photoUrl,
-                role: user.role,
-                studentId: studentId,
-              )
-            : user;
-        await _userRepository.createProfileIfAbsent(userWithId);
-        return Right(userWithId);
-      },
+      studentId: studentId,
     );
   }
 }

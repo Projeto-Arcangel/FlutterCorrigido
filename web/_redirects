@@ -1,0 +1,5 @@
+# Cloudflare Pages: fallback de SPA.
+# Faz qualquer rota cair no index.html (status 200), para os redirects de
+# OAuth (Google) e dos e-mails (confirmação/reset de senha) abrirem o app
+# sem 404. O Flutter copia este arquivo para build/web/ no `flutter build web`.
+/*    /index.html   200

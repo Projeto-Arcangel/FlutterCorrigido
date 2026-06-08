@@ -9,7 +9,9 @@ abstract class AuthRepository {
     required String password,
   });
 
-  Future<Either<Failure, User>> signInWithGoogle();
+  /// Inicia o login com Google. Na web faz redirect (OAuth) — a sessão chega
+  /// depois via [authStateChanges], então não há `User` para retornar aqui.
+  Future<Either<Failure, void>> signInWithGoogle();
 
   Future<Either<Failure, void>> signOut();
 
@@ -19,10 +21,17 @@ abstract class AuthRepository {
     required String email,
     required String password,
     required String displayName,
+    String? studentId,
   });
 
   Future<Either<Failure, void>> sendPasswordReset({
     required String email,
+  });
+
+  /// Define uma nova senha para a sessão atual (usado na recuperação de senha,
+  /// após o link de reset abrir o app com uma sessão de `passwordRecovery`).
+  Future<Either<Failure, void>> updatePassword({
+    required String newPassword,
   });
 
   Future<Either<Failure, void>> updateDisplayName({required String name});
