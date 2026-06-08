@@ -75,6 +75,11 @@ class _ClassroomTrailContent extends ConsumerWidget {
     // na tela de resultado (submit_quiz), não do payload local.
     final asyncPhases = ref.watch(studentPhasesProvider(classroom.id));
 
+    // Fases já concluídas pelo aluno (para travar a trilha em ordem).
+    final completedPhaseIds =
+        ref.watch(studentCompletedPhasesProvider(classroom.id)).valueOrNull ??
+            const <String>{};
+
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -94,6 +99,7 @@ class _ClassroomTrailContent extends ConsumerWidget {
                   return _ClassroomTrailList(
                     phases: sorted,
                     classroom: classroom,
+                    completedPhaseIds: completedPhaseIds,
                   );
                 },
               ),
@@ -648,35 +654,58 @@ class _RankingTile extends StatelessWidget {
   }
 }
 
-// ── Lista da trilha (topo→base, estilo Duolingo) ──────────────────────────────
+// ── Lista da trilha (base→topo, estilo Duolingo) ──────────────────────────────
+// `reverse: true`: o item 0 (marcador "Início da trilha") fica EMBAIXO e as
+// fases sobem de baixo para cima, na ordem (a 1ª fase logo acima do início).
+// Dentro de cada item o conector vem DEPOIS do nó para, sob reverse, ficar
+// entre esta fase e a anterior (sem conector solto no topo).
 
 class _ClassroomTrailList extends StatelessWidget {
   const _ClassroomTrailList({
     required this.phases,
     required this.classroom,
+    required this.completedPhaseIds,
   });
 
   final List<ClassroomPhase> phases;
   final Classroom classroom;
+  final Set<String> completedPhaseIds;
 
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
+      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      // +1 para o marcador "Início da trilha" no topo
+      // +1 para o marcador "Início da trilha" (no fim da lista = base da tela)
       itemCount: phases.length + 1,
       itemBuilder: (context, i) {
         if (i == 0) return const _TrailStartMarker();
         final phaseIndex = i - 1;
+        final phase = phases[phaseIndex];
+        final completed = completedPhaseIds.contains(phase.id);
+        // Trava em ordem: a 1ª fase é sempre livre; as demais só liberam
+        // quando a fase anterior já foi concluída. Uma fase anterior VAZIA
+        // (sem questões, que o aluno não consegue concluir) não trava a próxima.
+        final bool locked;
+        if (phaseIndex == 0) {
+          locked = false;
+        } else {
+          final prev = phases[phaseIndex - 1];
+          final prevDone =
+              completedPhaseIds.contains(prev.id) || prev.questions.isEmpty;
+          locked = !prevDone;
+        }
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _NodeConnector(),
             _PhaseNode(
-              phase: phases[phaseIndex],
+              phase: phase,
               index: phaseIndex,
               classroom: classroom,
+              locked: locked,
+              completed: completed,
             ),
+            const _NodeConnector(),
           ],
         );
       },
@@ -766,11 +795,15 @@ class _PhaseNode extends StatelessWidget {
     required this.phase,
     required this.index,
     required this.classroom,
+    required this.locked,
+    required this.completed,
   });
 
   final ClassroomPhase phase;
   final int index;
   final Classroom classroom;
+  final bool locked;
+  final bool completed;
 
   // Padrão de zigue-zague S-curve: centro → direita → centro → esquerda
   static const List<int> _zigzag = [1, 2, 1, 0];
@@ -792,6 +825,8 @@ class _PhaseNode extends StatelessWidget {
                           phase: phase,
                           index: index,
                           classroom: classroom,
+                          locked: locked,
+                          completed: completed,
                         )
                       : const SizedBox.shrink(),
                 ),
@@ -811,23 +846,44 @@ class _PhaseButton extends StatelessWidget {
     required this.phase,
     required this.index,
     required this.classroom,
+    required this.locked,
+    required this.completed,
   });
 
   final ClassroomPhase phase;
   final int index;
   final Classroom classroom;
+  final bool locked;
+  final bool completed;
+
+  void _onTap(BuildContext context) {
+    if (locked) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Conclua a fase anterior para desbloquear esta.'),
+            behavior: SnackBarBehavior.floating,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
+    context.push(
+      AppRoutes.classroomLessonPath(classroom.id, phase.id),
+      extra: {'classroom': classroom, 'phase': phase},
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return GestureDetector(
-      onTap: () => context.push(
-        AppRoutes.classroomLessonPath(classroom.id, phase.id),
-        extra: {'classroom': classroom, 'phase': phase},
-      ),
+      onTap: () => _onTap(context),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _OvalPhase(index: index),
+          _OvalPhase(index: index, locked: locked, completed: completed),
           const SizedBox(height: 6),
           Text(
             phase.title,
@@ -835,9 +891,11 @@ class _PhaseButton extends StatelessWidget {
             style: GoogleFonts.nunito(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: Theme.of(context).brightness == Brightness.dark
-                  ? Colors.white70
-                  : AppColors.textSecondary,
+              color: locked
+                  ? (isDark
+                      ? Colors.white38
+                      : AppColors.textSecondary.withValues(alpha: 0.6))
+                  : (isDark ? Colors.white70 : AppColors.textSecondary),
             ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
@@ -851,9 +909,15 @@ class _PhaseButton extends StatelessWidget {
 // ── Oval com ícone ────────────────────────────────────────────────────────────
 
 class _OvalPhase extends StatelessWidget {
-  const _OvalPhase({required this.index});
+  const _OvalPhase({
+    required this.index,
+    required this.locked,
+    required this.completed,
+  });
 
   final int index;
+  final bool locked;
+  final bool completed;
 
   static const _shades = [
     Color(0xFF3B7DD8),
@@ -862,9 +926,20 @@ class _OvalPhase extends StatelessWidget {
     Color(0xFF1E5BA0),
   ];
 
+  // Cinza neutro para fases bloqueadas.
+  static const Color _lockedColor = Color(0xFF90A4AE);
+
   @override
   Widget build(BuildContext context) {
-    final color = _shades[index % _shades.length];
+    final color = locked ? _lockedColor : _shades[index % _shades.length];
+    final IconData icon;
+    if (locked) {
+      icon = Icons.lock_rounded;
+    } else if (completed) {
+      icon = Icons.check_rounded;
+    } else {
+      icon = Icons.play_arrow_rounded;
+    }
     return Container(
       width: 98,
       height: 79,
@@ -873,18 +948,14 @@ class _OvalPhase extends StatelessWidget {
         borderRadius: BorderRadius.circular(50),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.4),
+            color: Colors.black.withValues(alpha: locked ? 0.2 : 0.4),
             blurRadius: 8,
             offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: const Center(
-        child: Icon(
-          Icons.play_arrow_rounded,
-          color: Colors.white,
-          size: 36,
-        ),
+      child: Center(
+        child: Icon(icon, color: Colors.white, size: 36),
       ),
     );
   }

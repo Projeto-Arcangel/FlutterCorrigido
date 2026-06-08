@@ -376,6 +376,8 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
       }),
       (sub) {
         ref.invalidate(userProgressProvider(user.id));
+        // Concluir esta fase libera a próxima na trilha (trava em ordem).
+        ref.invalidate(studentCompletedPhasesProvider(widget.classroom.id));
         setState(() {
           _loading = false;
           _result = sub;

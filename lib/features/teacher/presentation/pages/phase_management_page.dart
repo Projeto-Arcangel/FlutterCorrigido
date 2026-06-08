@@ -12,6 +12,7 @@ import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../enem/presentation/pages/enem_bank_page.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../widgets/classroom_palette.dart';
+import '../widgets/question_detail_sheet.dart';
 
 /// Tela de gerenciamento de uma fase específica de uma turma.
 ///
@@ -70,8 +71,10 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   /// - `pctForCurrent`: % desta fase; `null` se ela ainda não tem questões
   ///   (não entra na média da trilha).
   /// - `rows`: distribuição entre todas as fases com questões.
-  ({double? pctForCurrent, List<({String title, bool isCurrent, int pct})> rows})
-      _weightShare(List<ClassroomPhase> phases) {
+  ({
+    double? pctForCurrent,
+    List<({String title, bool isCurrent, int pct})> rows
+  }) _weightShare(List<ClassroomPhase> phases) {
     final typed = _parsedWeight ?? widget.phase.weight;
     final gradable = phases.where((p) => p.totalQuestions > 0).toList();
     final currentGradable = gradable.any((p) => p.id == widget.phase.id);
@@ -86,11 +89,13 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
       final w = p.id == widget.phase.id ? typed : p.weight;
       final pct = total > 0 ? w / total * 100 : 0.0;
       final isCurrent = p.id == widget.phase.id;
-      rows.add((
-        title: p.title.trim().isEmpty ? 'Fase ${p.order}' : p.title,
-        isCurrent: isCurrent,
-        pct: pct.round(),
-      ),);
+      rows.add(
+        (
+          title: p.title.trim().isEmpty ? 'Fase ${p.order}' : p.title,
+          isCurrent: isCurrent,
+          pct: pct.round(),
+        ),
+      );
       if (isCurrent) pctForCurrent = pct;
     }
     return (pctForCurrent: currentGradable ? pctForCurrent : null, rows: rows);
@@ -273,6 +278,23 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
     );
   }
 
+  Future<void> _onEditQuestion(Question updated) async {
+    final useCase = ref.read(updateQuestionInPhaseProvider);
+    final result = await useCase(
+      classroomId: widget.classroom.id,
+      phaseId: widget.phase.id,
+      question: updated,
+    );
+    if (!mounted) return;
+    result.fold(
+      (f) => _showSnack(f.message, isError: true),
+      (_) {
+        _showSnack('Questão atualizada.');
+        ref.invalidate(classroomPhasesProvider(widget.classroom.id));
+      },
+    );
+  }
+
   void _showSnack(String message, {bool isError = false}) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -311,10 +333,10 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final asyncPhases =
-        ref.watch(classroomPhasesProvider(widget.classroom.id));
+    final asyncPhases = ref.watch(classroomPhasesProvider(widget.classroom.id));
     final phase = _currentPhase(asyncPhases.valueOrNull);
-    final share = _weightShare(asyncPhases.valueOrNull ?? <ClassroomPhase>[phase]);
+    final share =
+        _weightShare(asyncPhases.valueOrNull ?? <ClassroomPhase>[phase]);
 
     return Scaffold(
       appBar: _buildAppBar(context, isDark),
@@ -356,6 +378,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
               phaseQuestions: phase.questions,
               onReorder: _persistQuestionsOrder,
               onDelete: _onDeleteQuestion,
+              onEdit: _onEditQuestion,
             ),
           ],
         ),
@@ -557,8 +580,7 @@ class _DetailsSection extends StatelessWidget {
                               style: GoogleFonts.nunito(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
-                                color:
-                                    ClassroomPalette.primaryText(isDark),
+                                color: ClassroomPalette.primaryText(isDark),
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -646,8 +668,7 @@ class _DetailsSection extends StatelessWidget {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: ClassroomPalette.textMuted,
                                 side: BorderSide(
-                                  color:
-                                      ClassroomPalette.border(isDark),
+                                  color: ClassroomPalette.border(isDark),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 12,
@@ -760,8 +781,7 @@ class _PhaseField extends StatelessWidget {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide:
-              const BorderSide(color: AppColors.primary, width: 1.5),
+          borderSide: const BorderSide(color: AppColors.primary, width: 1.5),
         ),
       ),
     );
@@ -810,8 +830,11 @@ class _WeightSharePreview extends StatelessWidget {
         children: [
           Row(
             children: [
-              const Icon(Icons.pie_chart_outline_rounded,
-                  size: 15, color: AppColors.primary,),
+              const Icon(
+                Icons.pie_chart_outline_rounded,
+                size: 15,
+                color: AppColors.primary,
+              ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text.rich(
@@ -1087,11 +1110,13 @@ class _QuestionsSection extends StatefulWidget {
     required this.phaseQuestions,
     required this.onReorder,
     required this.onDelete,
+    required this.onEdit,
   });
 
   final List<Question> phaseQuestions;
   final ValueChanged<List<Question>> onReorder;
   final ValueChanged<Question> onDelete;
+  final ValueChanged<Question> onEdit;
 
   @override
   State<_QuestionsSection> createState() => _QuestionsSectionState();
@@ -1133,6 +1158,22 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
     if (confirmed == true) widget.onDelete(q);
   }
 
+  /// Abre a questão completa (enunciado, alternativas, gabarito, explicação)
+  /// num sheet; se o professor editar e salvar, propaga via [widget.onEdit].
+  Future<void> _openDetail(Question q, int order) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final updated = await showModalBottomSheet<Question>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: ClassroomPalette.cardBg(isDark),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => QuestionDetailSheet(question: q, order: order),
+    );
+    if (updated != null) widget.onEdit(updated);
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1166,13 +1207,11 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
             ),
             if (canReorder)
               _ToggleButton(
-                icon: _reordering
-                    ? Icons.check_rounded
-                    : Icons.swap_vert_rounded,
+                icon:
+                    _reordering ? Icons.check_rounded : Icons.swap_vert_rounded,
                 label: _reordering ? 'Concluir' : 'Reordenar',
-                color: _reordering
-                    ? ClassroomPalette.success
-                    : AppColors.primary,
+                color:
+                    _reordering ? ClassroomPalette.success : AppColors.primary,
                 onTap: () => setState(() => _reordering = !_reordering),
               ),
           ],
@@ -1235,6 +1274,7 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
                   question: q,
                   reordering: _reordering,
                   onDelete: () => _confirmDelete(q, i + 1),
+                  onTap: _reordering ? null : () => _openDetail(q, i + 1),
                 );
               },
             ),
@@ -1251,12 +1291,16 @@ class _QuestionTile extends StatelessWidget {
     required this.question,
     required this.reordering,
     required this.onDelete,
+    required this.onTap,
   });
 
   final int index;
   final Question question;
   final bool reordering;
   final VoidCallback onDelete;
+
+  /// Abre a questão completa (ver/editar). `null` durante a reordenação.
+  final VoidCallback? onTap;
 
   void _openImage(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1265,9 +1309,8 @@ class _QuestionTile extends StatelessWidget {
       builder: (ctx) => GestureDetector(
         onTap: () => Navigator.of(ctx).pop(),
         child: Scaffold(
-          backgroundColor: isDark
-              ? Colors.black.withValues(alpha: 0.92)
-              : Colors.black87,
+          backgroundColor:
+              isDark ? Colors.black.withValues(alpha: 0.92) : Colors.black87,
           body: Stack(
             children: [
               Center(
@@ -1290,8 +1333,11 @@ class _QuestionTile extends StatelessWidget {
                       errorBuilder: (_, __, ___) => Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.broken_image_outlined,
-                              color: Colors.white38, size: 48,),
+                          const Icon(
+                            Icons.broken_image_outlined,
+                            color: Colors.white38,
+                            size: 48,
+                          ),
                           const SizedBox(height: 8),
                           Text(
                             'Imagem indisponível',
@@ -1318,8 +1364,11 @@ class _QuestionTile extends StatelessWidget {
                       borderRadius: BorderRadius.circular(24),
                       child: const Padding(
                         padding: EdgeInsets.all(10),
-                        child: Icon(Icons.close_rounded,
-                            color: Colors.white70, size: 22,),
+                        child: Icon(
+                          Icons.close_rounded,
+                          color: Colors.white70,
+                          size: 22,
+                        ),
                       ),
                     ),
                   ),
@@ -1346,140 +1395,142 @@ class _QuestionTile extends StatelessWidget {
               indent: 16,
               endIndent: 16,
             ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: AppColors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Center(
-                    child: Text(
-                      '${index + 1}',
-                      style: GoogleFonts.nunito(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.primary,
-                      ),
+          InkWell(
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.15),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                // Miniatura da imagem (se houver)
-                if (question.hasImage) ...[
-                  GestureDetector(
-                    onTap: () => _openImage(context),
-                    child: Container(
-                      width: 48,
-                      height: 48,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: ClassroomPalette.border(isDark),
+                    child: Center(
+                      child: Text(
+                        '${index + 1}',
+                        style: GoogleFonts.nunito(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.primary,
                         ),
                       ),
-                      clipBehavior: Clip.antiAlias,
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          Image.network(
-                            question.imageUrl!,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (_, child, progress) {
-                              if (progress == null) return child;
-                              return Center(
-                                child: SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 1.5,
-                                    color: AppColors.primary
-                                        .withValues(alpha: 0.5),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Miniatura da imagem (se houver)
+                  if (question.hasImage) ...[
+                    GestureDetector(
+                      onTap: () => _openImage(context),
+                      child: Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: ClassroomPalette.border(isDark),
+                          ),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Image.network(
+                              question.imageUrl!,
+                              fit: BoxFit.cover,
+                              loadingBuilder: (_, child, progress) {
+                                if (progress == null) return child;
+                                return Center(
+                                  child: SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 1.5,
+                                      color: AppColors.primary
+                                          .withValues(alpha: 0.5),
+                                    ),
                                   ),
-                                ),
-                              );
-                            },
-                            errorBuilder: (_, __, ___) => Container(
-                              color: isDark
-                                  ? Colors.white10
-                                  : Colors.black.withValues(alpha: 0.05),
-                              child: Icon(
-                                Icons.broken_image_outlined,
+                                );
+                              },
+                              errorBuilder: (_, __, ___) => Container(
                                 color: isDark
-                                    ? Colors.white24
-                                    : Colors.black26,
-                                size: 18,
+                                    ? Colors.white10
+                                    : Colors.black.withValues(alpha: 0.05),
+                                child: Icon(
+                                  Icons.broken_image_outlined,
+                                  color:
+                                      isDark ? Colors.white24 : Colors.black26,
+                                  size: 18,
+                                ),
                               ),
                             ),
-                          ),
-                          // Ícone de expandir
-                          Positioned(
-                            bottom: 2,
-                            right: 2,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Icon(
-                                Icons.zoom_in_rounded,
-                                color: Colors.white70,
-                                size: 12,
+                            // Ícone de expandir
+                            Positioned(
+                              bottom: 2,
+                              right: 2,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black54,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: const Icon(
+                                  Icons.zoom_in_rounded,
+                                  color: Colors.white70,
+                                  size: 12,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                  ],
+                  Expanded(
+                    child: Text(
+                      question.text.isEmpty
+                          ? 'Questão sem enunciado'
+                          : _stripUrls(question.text),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.nunito(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: ClassroomPalette.primaryText(isDark),
+                        height: 1.35,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
+                  if (reordering)
+                    ReorderableDragStartListener(
+                      index: index,
+                      child: const Padding(
+                        padding: EdgeInsets.all(6),
+                        child: Icon(
+                          Icons.drag_handle_rounded,
+                          color: ClassroomPalette.textMuted,
+                          size: 20,
+                        ),
+                      ),
+                    )
+                  else
+                    IconButton(
+                      tooltip: 'Excluir questão',
+                      onPressed: onDelete,
+                      icon: const Icon(
+                        Icons.delete_outline_rounded,
+                        color: ClassroomPalette.danger,
+                        size: 18,
+                      ),
+                      visualDensity: VisualDensity.compact,
+                    ),
                 ],
-                Expanded(
-                  child: Text(
-                    question.text.isEmpty
-                        ? 'Questão sem enunciado'
-                        : _stripUrls(question.text),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.nunito(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: ClassroomPalette.primaryText(isDark),
-                      height: 1.35,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                if (reordering)
-                  ReorderableDragStartListener(
-                    index: index,
-                    child: const Padding(
-                      padding: EdgeInsets.all(6),
-                      child: Icon(
-                        Icons.drag_handle_rounded,
-                        color: ClassroomPalette.textMuted,
-                        size: 20,
-                      ),
-                    ),
-                  )
-                else
-                  IconButton(
-                    tooltip: 'Excluir questão',
-                    onPressed: onDelete,
-                    icon: const Icon(
-                      Icons.delete_outline_rounded,
-                      color: ClassroomPalette.danger,
-                      size: 18,
-                    ),
-                    visualDensity: VisualDensity.compact,
-                  ),
-              ],
+              ),
             ),
           ),
         ],

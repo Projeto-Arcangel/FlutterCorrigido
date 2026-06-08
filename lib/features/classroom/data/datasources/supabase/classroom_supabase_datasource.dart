@@ -176,6 +176,23 @@ class ClassroomSupabaseDatasource {
         .toList();
   }
 
+  /// IDs das fases que o ALUNO logado já concluiu nesta sala (tem resultado).
+  /// Lê direto de `classroom_results` — a RLS libera as próprias linhas
+  /// (`student_id = auth.uid()`). Usado para travar a trilha em ordem.
+  Future<Set<String>> fetchCompletedPhaseIds(String classroomId) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) return <String>{};
+    final rows = await _client
+        .from('classroom_results')
+        .select('phase_id')
+        .eq('classroom_id', classroomId)
+        .eq('student_id', uid);
+    return (rows as List)
+        .map((e) => (e as Map)['phase_id']?.toString())
+        .whereType<String>()
+        .toSet();
+  }
+
   /// Resultados POR FASE (cada item com `phaseId`) — para o dashboard.
   Future<List<ClassroomResultModel>> fetchPhaseResults(
     String classroomId,
