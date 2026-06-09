@@ -19,7 +19,7 @@ import '../widgets/question_detail_sheet.dart';
 /// Permite ao professor:
 ///   - editar o nome e a descrição da fase;
 ///   - adicionar questões à fase via IA ou manualmente;
-///   - puxar questões do ENEM;
+///   - utilizar questões do ENEM;
 ///   - reorganizar a ordem das questões;
 ///   - excluir a fase.
 ///
@@ -967,7 +967,7 @@ class _AddQuestionsSection extends StatelessWidget {
                 icon: FontAwesomeIcons.graduationCap,
                 iconColor: ClassroomPalette.gold,
                 iconBg: ClassroomPalette.goldSubtle,
-                title: 'Puxar questões do ENEM',
+                title: 'Utilizar questões do ENEM',
                 subtitle: 'Importe da base oficial do exame',
                 onTap: onEnem,
               ),
