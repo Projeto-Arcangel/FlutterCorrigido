@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/utils/reduced_motion.dart';
 import 'features/settings/presentation/pages/preferences_page.dart';
 
 class ArcangelApp extends ConsumerWidget {
@@ -20,6 +21,17 @@ class ArcangelApp extends ConsumerWidget {
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       routerConfig: router,
+      // "Reduzir movimento" do navegador vale para o app todo: as telas já
+      // consultam MediaQuery.disableAnimations, que o Flutter web não liga
+      // sozinho a partir do prefers-reduced-motion.
+      builder: (context, child) {
+        final page = child ?? const SizedBox.shrink();
+        if (!browserPrefersReducedMotion()) return page;
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(disableAnimations: true),
+          child: page,
+        );
+      },
     );
   }
 }

@@ -8,6 +8,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:percent_indicator/percent_indicator.dart';
 
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/download_helper.dart';
 import '../../../classroom/domain/entities/classroom.dart';
@@ -344,7 +345,10 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Erro ao exportar: ${e.toString()}',
+              ErrorMessages.from(
+                e,
+                fallback: 'Não foi possível exportar as notas. Tente novamente.',
+              ),
               style: GoogleFonts.nunito(fontWeight: FontWeight.w600),
             ),
             backgroundColor: AppColors.error,
@@ -383,7 +387,13 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
       _snack('Critérios de aprovação atualizados.', color: _C.good);
     } catch (e) {
       if (!mounted) return;
-      _snack('Erro ao salvar critérios: $e', color: AppColors.error);
+      _snack(
+        ErrorMessages.from(
+          e,
+          fallback: 'Não foi possível salvar os critérios. Tente novamente.',
+        ),
+        color: AppColors.error,
+      );
     }
   }
 
@@ -714,7 +724,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
                       fontWeight: FontWeight.w700,
                       color: AppColors.error,),),
               const SizedBox(height: 8),
-              Text(e.toString(),
+              Text(ErrorMessages.from(e, fallback: 'Tente novamente em instantes.'),
                   textAlign: TextAlign.center,
                   style: GoogleFonts.nunito(
                       fontSize: 13, color: _C.textMuted(Theme.of(context).brightness == Brightness.dark),),),

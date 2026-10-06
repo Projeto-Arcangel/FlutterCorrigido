@@ -17,6 +17,13 @@ analyzer:
     # Mantenha temporariamente enquanto refatora:
     - lib/flutter_flow/**
     - lib/custom_code/**
+    - build/**
+    - android/**
+    - ios/**
+    - web/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   rules:

@@ -4,5 +4,8 @@
       "PowerShell(git push --force origin main)",
       "Bash(dart analyze *)"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "supabase"
+  ]
 }

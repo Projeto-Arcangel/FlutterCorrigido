@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../domain/entities/achievement.dart';
 import '../providers/profile_providers.dart';
@@ -26,7 +27,12 @@ class ProfilePage extends ConsumerWidget {
         loading: () => const Center(
           child: CircularProgressIndicator(color: AppColors.primary),
         ),
-        error: (err, _) => _ErrorView(message: err.toString()),
+        error: (err, _) => _ErrorView(
+          message: ErrorMessages.from(
+            err,
+            fallback: 'Não foi possível carregar seu perfil.',
+          ),
+        ),
         data: (profile) => _ProfileContent(profile: profile),
       ),
     );

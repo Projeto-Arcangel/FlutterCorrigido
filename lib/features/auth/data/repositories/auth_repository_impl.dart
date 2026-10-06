@@ -4,6 +4,7 @@ import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/errors/auth_failure.dart';
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/errors/failure.dart';
 import '../../domain/entities/user.dart' as domain;
 import '../../domain/repositories/auth_repository.dart';
@@ -38,7 +39,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown auth error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -59,7 +60,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Google sign-in error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -70,7 +71,14 @@ class AuthRepositoryImpl implements AuthRepository {
       return const Right(null);
     } catch (e, st) {
       _logger.e('Sign-out error', error: e, stackTrace: st);
-      return const Left(UnknownFailure('Falha ao sair'));
+      return Left(
+        UnknownFailure(
+          ErrorMessages.from(
+            e,
+            fallback: 'Não foi possível sair. Tente novamente.',
+          ),
+        ),
+      );
     }
   }
 
@@ -110,7 +118,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown register error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -128,7 +136,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown password reset error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -144,7 +152,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown updatePassword error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -167,7 +175,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown updateDisplayName error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -182,10 +190,8 @@ class AuthRepositoryImpl implements AuthRepository {
         return const Left(AuthFailure('Usuário não autenticado'));
       }
       // Reautentica verificando a senha atual.
-      await _auth.signInWithPassword(
-        email: user.email!,
-        password: currentPassword,
-      );
+      final wrongPassword = await _reauthenticate(user.email!, currentPassword);
+      if (wrongPassword != null) return Left(wrongPassword);
       await _auth.updateUser(UserAttributes(password: newPassword));
       return const Right(null);
     } on AuthException catch (e, st) {
@@ -193,7 +199,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown changePassword error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -206,10 +212,8 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       // Reautentica se a senha foi fornecida (contas e-mail/senha).
       if (password != null && user.email != null) {
-        await _auth.signInWithPassword(
-          email: user.email!,
-          password: password,
-        );
+        final wrongPassword = await _reauthenticate(user.email!, password);
+        if (wrongPassword != null) return Left(wrongPassword);
       }
       // Exclusão da conta é feita server-side (RPC SECURITY DEFINER).
       await _client.rpc<void>('delete_account');
@@ -220,7 +224,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return Left(_mapAuthError(e));
     } catch (e, st) {
       _logger.e('Unknown deleteAccount error', error: e, stackTrace: st);
-      return const Left(UnknownFailure());
+      return Left(UnknownFailure(ErrorMessages.from(e)));
     }
   }
 
@@ -234,23 +238,22 @@ class AuthRepositoryImpl implements AuthRepository {
         role: domain.UserRole.student,
       );
 
-  AuthFailure _mapAuthError(AuthException e) {
-    final msg = e.message.toLowerCase();
-    if (msg.contains('invalid login credentials')) {
-      return const AuthFailure('Credenciais inválidas. Verifique e-mail e senha.');
+  /// Confere a senha atual antes de uma ação sensível. Devolve a falha a
+  /// mostrar quando a senha não confere; outros erros seguem para o `catch`.
+  Future<AuthFailure?> _reauthenticate(String email, String password) async {
+    try {
+      await _auth.signInWithPassword(email: email, password: password);
+      return null;
+    } on AuthException catch (e) {
+      final wrong = e.code == 'invalid_credentials' ||
+          e.message.toLowerCase().contains('invalid login credentials');
+      if (wrong) return const AuthFailure('Senha atual incorreta.');
+      rethrow;
     }
-    if (msg.contains('email not confirmed')) {
-      return const AuthFailure('E-mail ainda não confirmado.');
-    }
-    if (msg.contains('already registered') || msg.contains('already been registered')) {
-      return const AuthFailure('E-mail já cadastrado.');
-    }
-    if (msg.contains('password should be at least')) {
-      return const AuthFailure('Senha muito fraca (mínimo de 6 caracteres).');
-    }
-    if (msg.contains('unable to validate email address')) {
-      return const AuthFailure('E-mail inválido.');
-    }
-    return AuthFailure(e.message);
   }
+
+  /// Nunca repassa o texto original do Supabase (em inglês): ver
+  /// [ErrorMessages.auth].
+  AuthFailure _mapAuthError(AuthException e) =>
+      AuthFailure(ErrorMessages.auth(e));
 }

@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/errors/failure.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../../lesson/domain/entities/question.dart';
@@ -113,7 +114,7 @@ final teacherClassroomsProvider = FutureProvider.autoDispose
   final useCase = ref.watch(getTeacherClassroomsProvider);
   final result = await useCase(teacherId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (classrooms) => classrooms,
   );
 });
@@ -124,7 +125,7 @@ final studentClassroomsProvider = FutureProvider.autoDispose
   final useCase = ref.watch(getStudentClassroomProvider);
   final result = await useCase(studentId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (classrooms) => classrooms,
   );
 });
@@ -135,7 +136,7 @@ final classroomQuestionsProvider = FutureProvider.autoDispose
   final repo = ref.watch(classroomRepositoryProvider);
   final result = await repo.getQuestions(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (questions) => questions,
   );
 });
@@ -146,7 +147,7 @@ final classroomResultsProvider = FutureProvider.autoDispose
   final useCase = ref.watch(getClassroomResultsProvider);
   final result = await useCase(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (results) => results,
   );
 });
@@ -158,7 +159,7 @@ final classroomPhaseResultsProvider = FutureProvider.autoDispose
   final repo = ref.watch(classroomRepositoryProvider);
   final result = await repo.getPhaseResults(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (results) => results,
   );
 });
@@ -170,7 +171,7 @@ final classroomRankingProvider = FutureProvider.autoDispose
   final useCase = ref.watch(getClassroomResultsProvider);
   final result = await useCase(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (results) => [...results]
       ..sort((a, b) => b.percentage.compareTo(a.percentage)),
   );
@@ -193,7 +194,7 @@ final classroomPhasesProvider = FutureProvider.autoDispose
   final repo = ref.watch(classroomRepositoryProvider);
   final result = await repo.getClassroomPhases(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (phases) => phases.cast<ClassroomPhase>(),
   );
 });
@@ -209,7 +210,7 @@ final studentPhasesProvider = FutureProvider.autoDispose
   final repo = ref.watch(classroomRepositoryProvider);
   final result = await repo.getStudentPhases(classroomId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (phases) => phases.cast<ClassroomPhase>(),
   );
 });

@@ -6,6 +6,8 @@ import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../auth/presentation/widgets/auth_validators.dart';
+import '../../../auth/presentation/widgets/password_strength_meter.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1123,9 +1125,12 @@ class _ChangePasswordSheetState extends State<_ChangePasswordSheet> {
                     obscure: _obscureNew,
                     onToggle: () => setState(() => _obscureNew = !_obscureNew),
                   ),
-                  validator: (v) => (v == null || v.length < 6)
-                      ? 'Mínimo 6 caracteres'
-                      : null,
+                  validator: AuthValidators.newPassword,
+                ),
+                ValueListenableBuilder<TextEditingValue>(
+                  valueListenable: _newCtrl,
+                  builder: (_, value, __) =>
+                      PasswordStrengthMeter(password: value.text),
                 ),
                 const SizedBox(height: 12),
                 _DarkTextField(

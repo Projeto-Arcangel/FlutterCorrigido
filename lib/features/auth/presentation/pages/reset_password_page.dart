@@ -5,6 +5,8 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../providers/auth_providers.dart';
 import '../providers/login_controller.dart';
+import '../widgets/auth_validators.dart';
+import '../widgets/password_strength_meter.dart';
 
 /// Tela de "definir nova senha".
 ///
@@ -113,8 +115,12 @@ class _ResetPasswordPageState extends ConsumerState<ResetPasswordPage> {
                     textColor: textColor,
                     obscure: _obscure1,
                     onToggle: () => setState(() => _obscure1 = !_obscure1),
-                    validator: (v) =>
-                        (v == null || v.length < 6) ? 'Mínimo 6 caracteres' : null,
+                    validator: AuthValidators.newPassword,
+                  ),
+                  ValueListenableBuilder<TextEditingValue>(
+                    valueListenable: _passCtrl,
+                    builder: (_, value, __) =>
+                        PasswordStrengthMeter(password: value.text),
                   ),
                   const SizedBox(height: 12),
                   _passwordField(

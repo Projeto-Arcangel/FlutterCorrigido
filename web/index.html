@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-BR">
 <head>
   <!--
     If you are serving your web app in a path other than the root, change the
@@ -24,37 +24,100 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Arcangel">
 
-  <meta name="robots" content="noindex" />
+  <!-- SEO -->
+  <title>Arcangel — Conhecimento também é uma aventura!</title>
+  <meta name="description" content="Plataforma para professores criarem atividades com IA, montarem trilhas por fases e acompanharem a evolução de cada aluno, enquanto a turma aprende em formato de jogo." />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://arcangels.uk/" />
 
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="apple-touch-icon" href="icons/Icon-192.png" />
 
-  <!-- Open Graph & SEO tags -->
-  <meta property="og:title" content="Arcangel" />
-  <meta property="og:description" content="Plataforma de estudos de Ciências Humanas para o Ensino Médio." />
-  <meta property="og:image" content="icons/Icon-512.png" />
-  <meta name="twitter:title" content="Arcangel" />
-  <meta name="twitter:description" content="Plataforma de estudos de Ciências Humanas para o Ensino Médio." />
-  <meta name="twitter:image" content="icons/Icon-512.png" />
-  <meta name="twitter:card" content="summary_large_image" />
+  <!-- Pré-visualização de links (WhatsApp, redes sociais). URLs absolutas:
+       os robôs dessas plataformas não resolvem caminhos relativos. -->
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Arcangel" />
+  <meta property="og:locale" content="pt_BR" />
+  <meta property="og:url" content="https://arcangels.uk/" />
+  <meta property="og:title" content="Arcangel — Conhecimento também é uma aventura!" />
+  <meta property="og:description" content="Crie atividades com IA, organize suas turmas em trilhas por fases e acompanhe cada aluno. Comece grátis." />
+  <meta property="og:image" content="https://arcangels.uk/icons/Icon-512.png" />
+  <meta property="og:image:width" content="512" />
+  <meta property="og:image:height" content="512" />
+  <meta property="og:image:alt" content="Logo do Arcangel: uma árvore brotando de um livro aberto" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Arcangel — Conhecimento também é uma aventura!" />
+  <meta name="twitter:description" content="Crie atividades com IA, organize suas turmas em trilhas por fases e acompanhe cada aluno. Comece grátis." />
+  <meta name="twitter:image" content="https://arcangels.uk/icons/Icon-512.png" />
 
-  <title>Arcangel</title>
-  <meta name="description" content="Plataforma de estudos de Ciências Humanas para o Ensino Médio." />
+  <!-- Dados estruturados (schema.org) para o Google entender o que é o site. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Arcangel",
+    "url": "https://arcangels.uk/",
+    "inLanguage": "pt-BR",
+    "applicationCategory": "EducationalApplication",
+    "operatingSystem": "Web",
+    "description": "Plataforma para professores criarem atividades com IA, montarem trilhas por fases e acompanharem a evolução de cada aluno, enquanto a turma aprende em formato de jogo.",
+    "offers": [
+      { "@type": "Offer", "name": "Free", "price": "0", "priceCurrency": "BRL" },
+      { "@type": "Offer", "name": "Pro", "price": "15", "priceCurrency": "BRL" },
+      { "@type": "Offer", "name": "Premium", "price": "40", "priceCurrency": "BRL" }
+    ]
+  }
+  </script>
 
   <!-- Status Bar color em Safari (iOS) e PWA -->
   <meta name="theme-color" media="(prefers-color-scheme: light)" content="#f1f4f8">
   <meta name="theme-color" media="(prefers-color-scheme: dark)"  content="#1d2428">
 
   <link rel="manifest" href="manifest.json">
-  
+
+  <style>
+    /* Texto da página para buscadores: o Flutter desenha tudo em <canvas>,
+       que o Google não lê. Fica fora da tela e fora do leitor de tela (que
+       já recebe o conteúdo pela árvore de acessibilidade do Flutter). O
+       conteúdo é o mesmo da landing: nada é mostrado só para o robô. */
+    #seo-content {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  </style>
 </head>
 <body>
-  
-  
-  
-  
-  
+  <main id="seo-content" aria-hidden="true">
+    <h1>Arcangel — Conhecimento também é uma aventura!</h1>
+    <p>Aqui, estudar é subir de nível. Transforme conteúdos em desafios, teste seus conhecimentos, desbloqueie conquistas e acompanhe sua evolução.</p>
+
+    <h2>Conheça o Arcangel</h2>
+    <p>Feito para o professor: crie atividades em minutos, organize suas turmas e acompanhe cada aluno, enquanto a turma aprende em formato de jogo.</p>
+    <ul>
+      <li>Questões com IA: informe a disciplina e o tema e receba questões de múltipla escolha prontas para revisar.</li>
+      <li>Banco de questões do ENEM: busque questões de provas anteriores por ano e área.</li>
+      <li>Suas próprias questões, combinadas com as da IA e do ENEM.</li>
+      <li>Turmas com código de acesso: os alunos entram sozinhos.</li>
+      <li>Trilhas por fases que os alunos desbloqueiam conforme avançam.</li>
+      <li>Dashboard de desempenho com exportação das notas em planilha.</li>
+    </ul>
+
+    <h2>Planos</h2>
+    <ul>
+      <li>Free (grátis): 200 questões por mês com IA a partir de um tema, 50 a partir dos seus materiais, até 500 questões armazenadas.</li>
+      <li>Pro (R$ 15/mês): 500 questões por mês com IA, 100 a partir dos seus materiais, até 750 questões, exportar atividades em PDF.</li>
+      <li>Premium (R$ 40/mês): 1.000 questões por mês com IA, 150 a partir dos seus materiais, até 1.000 questões, exportar atividades em PDF e suporte prioritário.</li>
+    </ul>
+
+    <h2>Suporte</h2>
+    <p>Dúvidas? Fale com a nossa equipe: arcangel.admin@gmail.com</p>
+  </main>
+
   <script>
     {{flutter_bootstrap_js}}
   </script>

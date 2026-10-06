@@ -143,6 +143,41 @@ habilitado, Confirm email ON e SMTP configurado.
 
 ---
 
+## 8. Senha forte e e-mail real (hook `before-user-created`)
+
+O app já orienta e bloqueia antes de enviar; o servidor garante a regra mesmo se alguém
+contornar o app.
+
+| Regra | Onde é aplicada |
+|---|---|
+| Senha: 8+ caracteres, maiúscula, minúscula, número e símbolo | App (`PasswordPolicy`) + Auth (`password_min_length` / `password_required_characters`) |
+| E-mail com formato válido e sem erro de digitação no domínio (`gmial.com`) | App (`AuthValidators.signupEmail`) |
+| E-mail temporário (mailinator, yopmail…) recusado | Hook → `supabase/functions/before-user-created` |
+| Domínio precisa existir e receber e-mail (MX, ou A/AAAA) | Hook (DNS-over-HTTPS) |
+| A caixa de e-mail existe de fato | Link de confirmação (**Confirm email ON**) |
+
+O hook só verifica cadastros por e-mail/senha (login com Google passa direto). Se o DNS
+estiver instável, ele **libera** o cadastro (a confirmação por e-mail continua protegendo),
+para que uma falha de rede não impeça todo mundo de se cadastrar.
+
+**Local:** já vem ligado em `supabase/config.toml`; o segredo fica em `supabase/.env`
+(gitignored). O edge runtime local nem sempre recarrega a função sozinho no Windows —
+depois de editar o código: `docker restart supabase_edge_runtime_ArcangelCorrigido`.
+
+**Produção** — um comando aplica tudo na ordem segura (segredo → deploy da função → config
+do Auth) e testa no final que um e-mail temporário é recusado:
+
+```powershell
+# Token pessoal: supabase.com/dashboard/account/tokens (vale só nesta janela)
+$env:SUPABASE_ACCESS_TOKEN = "<seu token>"
+powershell -ExecutionPolicy Bypass -File .\scripts\apply-auth-hardening.ps1
+```
+
+O script altera **somente** a política de senha e o hook — não mexe em Site URL, SMTP,
+Google etc. Rodar de novo é seguro (gera e aplica um segredo novo nos dois lados).
+
+---
+
 ## Checklist rápido
 
 - [ ] `supabase db push` (migration do trigger)
@@ -153,3 +188,4 @@ habilitado, Confirm email ON e SMTP configurado.
 - [ ] Supabase: SMTP custom (Resend) habilitado
 - [ ] `web/_redirects` com fallback de SPA
 - [ ] Rebuild + redeploy do web no Cloudflare
+- [ ] Senha forte + hook de e-mail real: `scripts/apply-auth-hardening.ps1` (seção 8)

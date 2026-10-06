@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 import 'package:logger/logger.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/errors/failure.dart';
 import '../../domain/entities/ia_generation_result.dart';
 import '../../domain/entities/ia_model_option.dart';
@@ -58,8 +59,13 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
         error: e,
         stackTrace: st,
       );
-      return const Left(
-        UnknownFailure('Falha inesperada ao gerar questões.'),
+      return Left(
+        UnknownFailure(
+          ErrorMessages.from(
+            e,
+            fallback: 'Não foi possível gerar as questões. Tente novamente.',
+          ),
+        ),
       );
     }
   }
@@ -94,9 +100,11 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
           'Serviço de IA indisponível no momento.',
         );
       default:
-        return NetworkFailure(
-          detail ??
-              'A IA não conseguiu gerar as questões. Tente outro modelo.',
+        // O `detail` aqui é técnico (erro de cada modelo no fallback): fica
+        // só no log, nunca na tela.
+        return const NetworkFailure(
+          'A IA não conseguiu gerar as questões agora. Tente novamente ou '
+          'escolha outro modelo.',
         );
     }
   }

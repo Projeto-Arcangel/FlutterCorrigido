@@ -5,6 +5,9 @@ class AppColors {
 
   // ── App ─────────────────────────────────────────────────────────────────────
   static const Color primary = Color(0xFF72ACD0);
+  /// Azul para TEXTO de destaque sobre fundo claro: o [primary] sobre branco
+  /// fica em ~2,5:1; este atinge ~5,5:1 (WCAG AA). No modo escuro use [primary].
+  static const Color primaryTextOnLight = Color(0xFF2F6F96);
   static const Color background = Colors.white;
   static const Color surface = Color(0xFFD9D9D9);
   static const Color textPrimary = Color(0xFF1E1F28);

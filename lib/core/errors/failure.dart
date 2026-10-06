@@ -17,5 +17,19 @@ class NetworkFailure extends Failure {
 }
 
 class UnknownFailure extends Failure {
-  const UnknownFailure([super.message = 'Erro inesperado']);
+  const UnknownFailure([
+    super.message = 'Algo deu errado. Tente novamente em instantes.',
+  ]);
+}
+
+/// Leva uma [Failure] por um `throw` (ex.: dentro de um FutureProvider) sem
+/// perder a mensagem amigável: `toString()` devolve só a mensagem, sem o
+/// prefixo "Exception:" que `Exception(msg)` colocaria na tela.
+class FailureException implements Exception {
+  const FailureException(this.failure);
+
+  final Failure failure;
+
+  @override
+  String toString() => failure.message;
 }

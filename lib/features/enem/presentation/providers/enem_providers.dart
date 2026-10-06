@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/errors/failure.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/datasources/enem_supabase_datasource.dart';
@@ -82,7 +83,7 @@ final enemSearchProvider = FutureProvider.autoDispose
     limit: query.limit,
   );
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (questions) => questions,
   );
 });

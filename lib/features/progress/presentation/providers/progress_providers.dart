@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/errors/failure.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../data/repositories/progress_repository_impl.dart';
@@ -18,7 +19,7 @@ final userProgressProvider =
   final repo = ref.watch(progressRepositoryProvider);
   final result = await repo.getProgress(userId);
   return result.fold(
-    (failure) => throw Exception(failure.message),
+    (failure) => throw FailureException(failure),
     (progress) => progress,
   );
 });

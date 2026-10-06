@@ -1,7 +1,8 @@
 {
   "name": "Arcangel",
   "short_name": "Arcangel",
-  "description": "Plataforma de estudos de Ciências Humanas para o Ensino Médio.",
+  "description": "Plataforma para professores criarem atividades com IA e acompanharem a evolução dos alunos, que aprendem em formato de jogo.",
+  "lang": "pt-BR",
   "start_url": ".",
   "display": "standalone",
   "orientation": "portrait-primary",

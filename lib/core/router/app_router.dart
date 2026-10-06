@@ -8,19 +8,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../features/auth/domain/entities/user.dart';
-import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/google_complete_profile_page.dart';
-import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/reset_password_page.dart';
 import '../../features/auth/presentation/pages/role_selection_page.dart';
 import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/auth/presentation/providers/login_controller.dart';
+import '../../features/auth/presentation/widgets/auth_panel.dart';
 import '../../features/classroom/domain/entities/classroom.dart';
 import '../../features/classroom/domain/entities/classroom_phase.dart';
 import '../../features/classroom/presentation/pages/classroom_lesson_page.dart';
 import '../../features/classroom/presentation/pages/classroom_trail_page.dart';
 import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
+import '../../features/landing/presentation/pages/landing_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/classroom_list_page.dart';
@@ -37,6 +36,7 @@ import '../../features/teacher/presentation/pages/teacher_settings_page.dart';
 class AppRoutes {
   AppRoutes._();
 
+  static const String landing = '/';
   static const String login = '/login';
   static const String subjects = '/subjects';
   static const String teacher = '/teacher';
@@ -50,7 +50,7 @@ class AppRoutes {
   static const String teacherSettingsPreferences = '/teacher/settings/preferences';
   static const String teacherAccount = '/teacher/account';
   static const String profile = '/profile';
-  static const String roleSelection = '/';
+  static const String roleSelection = '/escolher-perfil';
   static const String settings = '/settings';
   static const String classroomTrail = '/classroom/:classroomId';
   static const String classroomLesson = '/classroom/:classroomId/phase/:phaseId';
@@ -61,6 +61,10 @@ class AppRoutes {
   static const String register = '/register';
   static const String forgotPassword = '/forgot-password';
   static const String resetPassword = '/reset-password';
+
+  /// Landing com o painel de autenticação já aberto na aba [view].
+  static String landingWithAuth(AuthPanelView view) =>
+      Uri(path: landing, queryParameters: {'auth': view.name}).toString();
 
   static String classroomTrailPath(String classroomId) => '/classroom/$classroomId';
   static String classroomLessonPath(String classroomId, String phaseId) =>
@@ -74,13 +78,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   // Rotas que NÃO exigem autenticação (telas de pré-login).
   // A roleSelection é tratada à parte porque exige usuário logado.
   const unauthRoutes = <String>{
+    AppRoutes.landing,
     AppRoutes.login,
     AppRoutes.register,
     AppRoutes.forgotPassword,
   };
 
   return GoRouter(
-    initialLocation: AppRoutes.login,
+    initialLocation: AppRoutes.landing,
     refreshListenable: notifier,
     redirect: (context, state) {
       final user = ref.read(authStateProvider).valueOrNull;
@@ -96,10 +101,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return loc == AppRoutes.resetPassword ? null : AppRoutes.resetPassword;
       }
 
-      // 1. Não logado → manda para login (a menos que já esteja numa
-      //    rota pública como register/forgot-password).
+      // 1. Não logado → manda para a landing (a menos que já esteja numa
+      //    rota pública como login/register/forgot-password).
       if (!isLoggedIn) {
-        return isUnauthRoute ? null : AppRoutes.login;
+        return isUnauthRoute ? null : AppRoutes.landing;
       }
 
       // 2. Logado mas SEM nome no perfil = entrou via Google e ainda não
@@ -138,12 +143,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     },
     routes: [
       GoRoute(
+        path: AppRoutes.landing,
+        builder: (_, state) => LandingPage(
+          initialAuthView: AuthPanelView.values
+              .asNameMap()[state.uri.queryParameters['auth']],
+        ),
+      ),
+      GoRoute(
         path: AppRoutes.roleSelection,
         builder: (_, __) => const RoleSelectionPage(),
       ),
+      // Login, cadastro e recuperação vivem no painel lateral da landing.
+      // As rotas antigas continuam valendo (links, favoritos) e só
+      // redirecionam para a landing com o painel na aba certa.
       GoRoute(
         path: AppRoutes.login,
-        builder: (_, __) => const LoginPage(),
+        redirect: (_, __) => AppRoutes.landingWithAuth(AuthPanelView.login),
+      ),
+      GoRoute(
+        path: AppRoutes.register,
+        redirect: (_, __) =>
+            AppRoutes.landingWithAuth(AuthPanelView.register),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        redirect: (_, __) =>
+            AppRoutes.landingWithAuth(AuthPanelView.forgotPassword),
       ),
       GoRoute(
         path: AppRoutes.subjects,
@@ -255,16 +280,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AccountPage(),
       ),
       GoRoute(
-        path: AppRoutes.register,
-        builder: (_, __) => const RegisterPage(),
-      ),
-      GoRoute(
         path: AppRoutes.googleCompleteProfile,
         builder: (_, __) => const GoogleCompleteProfilePage(),
-      ),
-      GoRoute(
-        path: AppRoutes.forgotPassword,
-        builder: (_, __) => const ForgotPasswordPage(),
       ),
       GoRoute(
         path: AppRoutes.resetPassword,
