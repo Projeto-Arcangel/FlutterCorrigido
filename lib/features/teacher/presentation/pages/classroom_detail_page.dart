@@ -5,6 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/list_reorder.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
@@ -689,6 +690,9 @@ class _PhasesSectionState extends ConsumerState<_PhasesSection> {
     );
     if (!mounted) return;
     setState(() => _savingOrder = false);
+    // Salvou ou não, a lista volta a mostrar a ordem que está no banco: se
+    // a gravação falhou, a tela não fica com uma ordem que não foi salva.
+    ref.invalidate(classroomPhasesProvider(widget.classroom.id));
     result.fold(
       (f) => ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -703,7 +707,7 @@ class _PhasesSectionState extends ConsumerState<_PhasesSection> {
           ),
         ),
       ),
-      (_) => ref.invalidate(classroomPhasesProvider(widget.classroom.id)),
+      (_) {},
     );
   }
 
@@ -907,12 +911,7 @@ class _PhasesListState extends State<_PhasesList> {
   }
 
   void _onReorder(int oldIndex, int newIndex) {
-    setState(() {
-      var to = newIndex;
-      if (to > oldIndex) to -= 1;
-      final moved = _local.removeAt(oldIndex);
-      _local.insert(to, moved);
-    });
+    setState(() => _local = reorderedList(_local, oldIndex, newIndex));
     widget.onReorder(_local);
   }
 

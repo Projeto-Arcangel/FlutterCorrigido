@@ -654,11 +654,11 @@ class _RankingTile extends StatelessWidget {
   }
 }
 
-// ── Lista da trilha (base→topo, estilo Duolingo) ──────────────────────────────
-// `reverse: true`: o item 0 (marcador "Início da trilha") fica EMBAIXO e as
-// fases sobem de baixo para cima, na ordem (a 1ª fase logo acima do início).
-// Dentro de cada item o conector vem DEPOIS do nó para, sob reverse, ficar
-// entre esta fase e a anterior (sem conector solto no topo).
+// ── Lista da trilha (topo→base) ───────────────────────────────────────────────
+// O item 0 (marcador "Início da trilha") fica NO TOPO e as fases descem na
+// ordem (a 1ª fase logo abaixo do início). A tela abre no topo, já mostrando
+// o início e a 1ª fase. Dentro de cada item o conector vem ANTES do nó, para
+// ficar entre esta fase e a anterior (sem conector solto no fim).
 
 class _ClassroomTrailList extends StatelessWidget {
   const _ClassroomTrailList({
@@ -674,9 +674,8 @@ class _ClassroomTrailList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView.builder(
-      reverse: true,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      // +1 para o marcador "Início da trilha" (no fim da lista = base da tela)
+      // +1 para o marcador "Início da trilha" (1º item = topo da tela)
       itemCount: phases.length + 1,
       itemBuilder: (context, i) {
         if (i == 0) return const _TrailStartMarker();
@@ -698,6 +697,7 @@ class _ClassroomTrailList extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const _NodeConnector(),
             _PhaseNode(
               phase: phase,
               index: phaseIndex,
@@ -705,7 +705,6 @@ class _ClassroomTrailList extends StatelessWidget {
               locked: locked,
               completed: completed,
             ),
-            const _NodeConnector(),
           ],
         );
       },

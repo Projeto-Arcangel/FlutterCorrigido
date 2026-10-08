@@ -131,6 +131,8 @@ dependency_overrides:
 
 dev_dependencies:
   flutter_launcher_icons: 0.13.1
+  # Cliente HTTP falso nos testes de datasource (mesma versão do override).
+  http: 1.4.0
   flutter_lints: 4.0.0
   image: 4.2.0
   lints: 4.0.0

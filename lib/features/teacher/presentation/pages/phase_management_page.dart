@@ -6,6 +6,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
+import '../../../../core/utils/list_reorder.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
@@ -48,6 +49,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   late final TextEditingController _weightCtrl;
   bool _detailsExpanded = false;
   bool _savingDetails = false;
+  bool _savingOrder = false;
 
   String _initialName = '';
   String _initialDesc = '';
@@ -248,6 +250,9 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   Future<void> _persistQuestionsOrder(
     List<Question> reordered,
   ) async {
+    // Bloqueia novos arrastes até gravar: duas gravações seguidas não se
+    // cruzam no servidor.
+    setState(() => _savingOrder = true);
     final useCase = ref.read(reorderQuestionsInPhaseProvider);
     final result = await useCase(
       classroomId: widget.classroom.id,
@@ -255,10 +260,10 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
       orderedQuestionIds: reordered.map((q) => q.id).toList(),
     );
     if (!mounted) return;
-    result.fold(
-      (f) => _showSnack(f.message, isError: true),
-      (_) => ref.invalidate(classroomPhasesProvider(widget.classroom.id)),
-    );
+    setState(() => _savingOrder = false);
+    // Salvou ou não, a lista volta a mostrar a ordem que está no banco.
+    ref.invalidate(classroomPhasesProvider(widget.classroom.id));
+    result.fold((f) => _showSnack(f.message, isError: true), (_) {});
   }
 
   Future<void> _onDeleteQuestion(Question q) async {
@@ -376,6 +381,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
             const SizedBox(height: 24),
             _QuestionsSection(
               phaseQuestions: phase.questions,
+              busy: _savingOrder,
               onReorder: _persistQuestionsOrder,
               onDelete: _onDeleteQuestion,
               onEdit: _onEditQuestion,
@@ -1108,12 +1114,16 @@ class _AddOptionTile extends StatelessWidget {
 class _QuestionsSection extends StatefulWidget {
   const _QuestionsSection({
     required this.phaseQuestions,
+    required this.busy,
     required this.onReorder,
     required this.onDelete,
     required this.onEdit,
   });
 
   final List<Question> phaseQuestions;
+
+  /// Gravando a nova ordem: o arraste fica bloqueado até terminar.
+  final bool busy;
   final ValueChanged<List<Question>> onReorder;
   final ValueChanged<Question> onDelete;
   final ValueChanged<Question> onEdit;
@@ -1141,12 +1151,7 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
   }
 
   void _reorder(int oldIndex, int newIndex) {
-    setState(() {
-      var to = newIndex;
-      if (to > oldIndex) to -= 1;
-      final moved = _local.removeAt(oldIndex);
-      _local.insert(to, moved);
-    });
+    setState(() => _local = reorderedList(_local, oldIndex, newIndex));
     widget.onReorder(_local);
   }
 
@@ -1273,6 +1278,7 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
                   index: i,
                   question: q,
                   reordering: _reordering,
+                  disabled: widget.busy,
                   onDelete: () => _confirmDelete(q, i + 1),
                   onTap: _reordering ? null : () => _openDetail(q, i + 1),
                 );
@@ -1290,6 +1296,7 @@ class _QuestionTile extends StatelessWidget {
     required this.index,
     required this.question,
     required this.reordering,
+    required this.disabled,
     required this.onDelete,
     required this.onTap,
   });
@@ -1297,6 +1304,9 @@ class _QuestionTile extends StatelessWidget {
   final int index;
   final Question question;
   final bool reordering;
+
+  /// Ordem sendo gravada: a alça de arrastar fica inativa.
+  final bool disabled;
   final VoidCallback onDelete;
 
   /// Abre a questão completa (ver/editar). `null` durante a reordenação.
@@ -1509,6 +1519,7 @@ class _QuestionTile extends StatelessWidget {
                   if (reordering)
                     ReorderableDragStartListener(
                       index: index,
+                      enabled: !disabled,
                       child: const Padding(
                         padding: EdgeInsets.all(6),
                         child: Icon(

@@ -268,10 +268,13 @@ class ClassroomSupabaseDatasource {
   Future<List<ClassroomPhaseModel>> fetchClassroomPhases(
     String classroomId,
   ) async {
+    // ATENÇÃO: no postgrest-dart, .order() é DECRESCENTE por padrão —
+    // sem ascending: true, as fases apareciam de trás para frente para o
+    // professor e a renumeração após exclusão invertia a ordem.
     final rows = await _phases
         .select('*, questions(*)')
         .eq('classroom_id', classroomId)
-        .order('sort_order');
+        .order('sort_order', ascending: true);
 
     final phases = <ClassroomPhaseModel>[];
     for (final row in (rows as List).cast<Map<String, dynamic>>()) {
@@ -352,26 +355,32 @@ class ClassroomSupabaseDatasource {
     await _renumberPhases(classroomId);
   }
 
+  /// Fecha os buracos de posição deixados por uma exclusão (1, 2, 3...).
   Future<void> _renumberPhases(String classroomId) async {
     final rows = await _phases
         .select('id')
         .eq('classroom_id', classroomId)
-        .order('sort_order');
-    var order = 1;
-    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
-      await _phases
-          .update({'sort_order': order}).eq('id', row['id'].toString());
-      order++;
-    }
+        .order('sort_order', ascending: true);
+    await reorderPhases(
+      classroomId: classroomId,
+      orderedPhaseIds: [
+        for (final row in (rows as List).cast<Map<String, dynamic>>())
+          row['id'].toString(),
+      ],
+    );
   }
 
+  /// Grava a ordem inteira numa única operação no servidor: ou todas as
+  /// fases mudam de posição, ou nenhuma (sem posições repetidas se a rede
+  /// cair no meio). A lista precisa ter todas as fases da turma.
   Future<void> reorderPhases({
     required String classroomId,
     required List<String> orderedPhaseIds,
   }) async {
-    for (var i = 0; i < orderedPhaseIds.length; i++) {
-      await _phases.update({'sort_order': i + 1}).eq('id', orderedPhaseIds[i]);
-    }
+    await _client.rpc<void>(
+      'reorder_phases',
+      params: {'p_classroom': classroomId, 'p_phase_ids': orderedPhaseIds},
+    );
   }
 
   Future<void> addQuestionsToPhase({
@@ -388,15 +397,16 @@ class ClassroomSupabaseDatasource {
     await _questions.insert(rows);
   }
 
+  /// Mesma garantia de [reorderPhases], para as questões de uma fase.
   Future<void> reorderQuestionsInPhase({
     required String classroomId,
     required String phaseId,
     required List<String> orderedQuestionIds,
   }) async {
-    for (var i = 0; i < orderedQuestionIds.length; i++) {
-      await _questions
-          .update({'sort_order': i + 1}).eq('id', orderedQuestionIds[i]);
-    }
+    await _client.rpc<void>(
+      'reorder_questions',
+      params: {'p_phase': phaseId, 'p_question_ids': orderedQuestionIds},
+    );
   }
 
   Future<void> updateQuestionInPhase({
@@ -422,17 +432,19 @@ class ClassroomSupabaseDatasource {
     required String questionId,
   }) async {
     await _questions.delete().eq('id', questionId);
-    // Renumera as questões restantes da fase.
+    // Renumera as questões restantes da fase (1, 2, 3...), de uma vez.
     final rows = await _questions
         .select('id')
         .eq('phase_id', phaseId)
-        .order('sort_order');
-    var order = 1;
-    for (final row in (rows as List).cast<Map<String, dynamic>>()) {
-      await _questions
-          .update({'sort_order': order}).eq('id', row['id'].toString());
-      order++;
-    }
+        .order('sort_order', ascending: true);
+    await reorderQuestionsInPhase(
+      classroomId: classroomId,
+      phaseId: phaseId,
+      orderedQuestionIds: [
+        for (final row in (rows as List).cast<Map<String, dynamic>>())
+          row['id'].toString(),
+      ],
+    );
   }
 
   // ─── Atividades ───────────────────────────────────────────────
