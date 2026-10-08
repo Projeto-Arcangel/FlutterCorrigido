@@ -17,6 +17,7 @@
 // não pode impedir todo mundo de se cadastrar.
 
 import { isDisposableDomain } from "./disposable_domains.ts";
+import { resolve, RR_A, RR_AAAA, RR_MX } from "./dns.ts";
 
 export type EmailCheck =
   | { ok: true; reason?: string }
@@ -24,26 +25,6 @@ export type EmailCheck =
 
 const EMAIL_PATTERN =
   /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/;
-
-const DNS_TIMEOUT_MS = 3000;
-
-const DOH_RESOLVERS = [
-  (name: string, type: string) =>
-    `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=${type}`,
-  (name: string, type: string) =>
-    `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=${type}`,
-];
-
-// Tipos de registro DNS (RFC 1035 / 3596).
-const RR_A = 1;
-const RR_MX = 15;
-const RR_AAAA = 28;
-
-type DnsAnswer = { type: number; data: string };
-type DnsResult =
-  | { status: "ok"; answers: DnsAnswer[] }
-  | { status: "nxdomain" }
-  | { status: "unknown" };
 
 export async function checkSignupEmail(rawEmail: string): Promise<EmailCheck> {
   const email = rawEmail.trim().toLowerCase();
@@ -101,26 +82,4 @@ function noMail(): EmailCheck {
     message: "Este domínio de e-mail não existe ou não recebe mensagens. " +
       "Confira o endereço digitado.",
   };
-}
-
-async function resolve(name: string, type: string): Promise<DnsResult> {
-  for (const url of DOH_RESOLVERS) {
-    try {
-      const res = await fetch(url(name, type), {
-        headers: { accept: "application/dns-json" },
-        signal: AbortSignal.timeout(DNS_TIMEOUT_MS),
-      });
-      if (!res.ok) continue;
-      const body = await res.json() as {
-        Status: number;
-        Answer?: DnsAnswer[];
-      };
-      // 0 = NOERROR, 3 = NXDOMAIN; o resto (SERVFAIL...) é inconclusivo.
-      if (body.Status === 3) return { status: "nxdomain" };
-      if (body.Status === 0) return { status: "ok", answers: body.Answer ?? [] };
-    } catch (_e) {
-      // Timeout ou erro de rede: tenta o próximo resolvedor.
-    }
-  }
-  return { status: "unknown" };
 }

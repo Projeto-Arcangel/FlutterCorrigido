@@ -3,12 +3,16 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failure.dart';
 import '../entities/ia_generation_result.dart';
 import '../entities/ia_model_option.dart';
+import '../entities/study_material.dart';
+import '../material_rules.dart';
 import '../repositories/ia_quiz_repository.dart';
 
 /// Use case que valida os inputs e dispara a geração de questões via IA.
 ///
 /// Validações:
-/// - tema obrigatório.
+/// - tema obrigatório na geração por tema; com materiais não há tema (o foco
+///   vai na descrição) e é preciso ao menos um material com texto, dentro do
+///   limite de texto da IA.
 /// - quantidade entre 1 e 20 (espelha o limite do backend em
 ///   `openrouter.js`).
 /// - descrição com até 500 caracteres (defesa contra prompt injection
@@ -30,9 +34,29 @@ class GenerateQuestionsWithIa {
     required int alternatives,
     required String description,
     required IaModelOption model,
+    String? subject,
+    List<MaterialForAi>? materials,
   }) {
     final trimmedTopic = topic.trim();
-    if (trimmedTopic.isEmpty) {
+    final fromMaterials = materials != null;
+    if (fromMaterials) {
+      final usable = materials.where((m) => m.text.trim().isNotEmpty);
+      if (usable.isEmpty) {
+        return Future.value(
+          const Left(
+            ValidationFailure('Adicione ao menos um material com texto.'),
+          ),
+        );
+      }
+      final chars = usable.fold<int>(0, (sum, m) => sum + m.text.length);
+      if (chars > MaterialRules.maxCharsForAi * 1.2) {
+        return Future.value(
+          const Left(
+            ValidationFailure('O texto dos materiais passou do limite.'),
+          ),
+        );
+      }
+    } else if (trimmedTopic.isEmpty) {
       return Future.value(
         const Left(ValidationFailure('Informe um tema para as questões.')),
       );
@@ -74,6 +98,8 @@ class GenerateQuestionsWithIa {
       alternatives: alternatives,
       description: trimmedDescription,
       model: model,
+      subject: subject,
+      materials: materials ?? const [],
     );
   }
 }

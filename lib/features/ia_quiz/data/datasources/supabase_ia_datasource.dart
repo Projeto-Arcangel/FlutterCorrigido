@@ -21,18 +21,21 @@ class SupabaseIaDatasource {
     required int alternatives,
     required String description,
     required String modelKey,
-    String subject = 'História do Brasil',
+    String? subject,
+    List<Map<String, Object>> materials = const [],
   }) async {
     final res = await _client.functions.invoke(
       'generate-questions',
       body: {
-        'subject': subject,
+        // Sem disciplina, o servidor usa o padrão dele.
+        if (subject != null && subject.trim().isNotEmpty) 'subject': subject,
         'topic': topic,
         'difficulty': difficulty,
         'quantity': quantity,
         'alternatives': alternatives,
         'description': description,
         'modelKey': modelKey,
+        if (materials.isNotEmpty) 'materials': materials,
       },
     );
 

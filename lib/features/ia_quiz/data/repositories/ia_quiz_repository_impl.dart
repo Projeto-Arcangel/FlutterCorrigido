@@ -6,6 +6,7 @@ import '../../../../core/errors/error_messages.dart';
 import '../../../../core/errors/failure.dart';
 import '../../domain/entities/ia_generation_result.dart';
 import '../../domain/entities/ia_model_option.dart';
+import '../../domain/entities/study_material.dart';
 import '../../domain/repositories/ia_quiz_repository.dart';
 import '../datasources/supabase_ia_datasource.dart';
 import '../models/ia_question_response_model.dart';
@@ -24,6 +25,8 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
     required int alternatives,
     required String description,
     required IaModelOption model,
+    String? subject,
+    List<MaterialForAi> materials = const [],
   }) async {
     try {
       final response = await _datasource.generateQuestions(
@@ -33,6 +36,8 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
         alternatives: alternatives,
         description: description,
         modelKey: model.key,
+        subject: subject,
+        materials: [for (final m in materials) m.toJson()],
       );
 
       final questions = IaQuestionResponseModel.questionsFromResponse(response);

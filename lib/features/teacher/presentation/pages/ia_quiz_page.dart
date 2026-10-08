@@ -7,9 +7,11 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../../ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../../ia_quiz/domain/entities/ia_model_option.dart';
+import '../../../ia_quiz/domain/material_rules.dart';
 import '../../../ia_quiz/presentation/providers/ia_quiz_providers.dart';
+import '../../../ia_quiz/presentation/providers/study_materials_controller.dart';
+import '../widgets/ia_materials_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — exclusiva da tela de IA
@@ -169,31 +171,102 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
   int _alternatives = 4;
   IaModelOption _selectedModel = IaModelOption.defaultOption;
 
+  /// "Dos meus materiais" (true) ou "Por tema" (false).
+  bool _fromMaterials = false;
+
   bool get _canGenerate {
     final isLoading = ref.read(iaGenerationNotifierProvider).isLoading;
-    return _topicCtrl.text.trim().isNotEmpty && !isLoading;
+    if (isLoading) return false;
+    if (_fromMaterials) {
+      final materials = ref.read(studyMaterialsProvider.notifier);
+      return materials.readyMaterials.isNotEmpty && !materials.isReading;
+    }
+    return _topicCtrl.text.trim().isNotEmpty;
+  }
+
+  /// Título usado na revisão (e como nome da fase, quando ela é criada).
+  String get _reviewTitle {
+    if (!_fromMaterials) return _topicCtrl.text.trim();
+    final names = ref
+        .read(studyMaterialsProvider.notifier)
+        .readyMaterials
+        .map((m) => m.name.replaceAll(RegExp(r'\.(pdf|docx|pptx)$'), ''))
+        .join(', ');
+    final title = 'Materiais: $names';
+    return title.length <= 60 ? title : '${title.substring(0, 57)}...';
+  }
+
+  /// Guardado no initState: o dispose não pode mais usar o `ref`.
+  late final IaGenerationNotifier _generation;
+
+  @override
+  void initState() {
+    super.initState();
+    // Com a tela aberta, é ela que leva o professor à revisão.
+    _generation = ref.read(iaGenerationNotifierProvider.notifier)
+      ..attachScreen();
+    // Questões que ficaram prontas com o professor fora daqui.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _openPendingReview());
   }
 
   @override
   void dispose() {
+    _generation.detachScreen();
     _topicCtrl.dispose();
     _descCtrl.dispose();
     _topicFocus.dispose();
     super.dispose();
   }
 
+  void _openPendingReview() {
+    if (!mounted) return;
+    final outcome = _generation.take();
+    if (outcome == null) return;
+    context.push(
+      AppRoutes.teacherIaQuizReview,
+      extra: outcome.reviewExtra(fromCreation: true),
+    );
+  }
+
   Future<void> _generate() async {
     if (!_canGenerate) return;
     FocusScope.of(context).unfocus();
 
-    await ref.read(iaGenerationNotifierProvider.notifier).generate(
-          topic: _topicCtrl.text,
-          difficulty: _difficulty.key,
-          quantity: _quantity.round(),
-          alternatives: _alternatives,
-          description: _descCtrl.text,
-          model: _selectedModel,
-        );
+    // Só o texto (já recortado no limite da IA) sai do navegador.
+    final materials = _fromMaterials
+        ? MaterialRules.selectForAi(
+            ref.read(studyMaterialsProvider.notifier).readyMaterials,
+          )
+        : null;
+
+    await _generation.generate(
+      // Com materiais não há tema: o recorte vem da descrição.
+      topic: _fromMaterials ? '' : _topicCtrl.text,
+      difficulty: _difficulty.key,
+      quantity: _quantity.round(),
+      alternatives: _alternatives,
+      description: _descCtrl.text,
+      model: _selectedModel,
+      subject: widget.subject,
+      materials: materials,
+      // O professor pode sair antes do fim: o destino vai junto.
+      target: IaReviewTarget(
+        title: _reviewTitle,
+        difficultyLabel: _difficulty.label,
+        classroomId: widget.classroomId,
+        phaseId: widget.phaseId,
+        phaseTitle: widget.phaseTitle,
+      ),
+    );
+  }
+
+  /// Sair durante a leitura dos anexos descarta os materiais: confirma antes.
+  Future<void> _confirmLeave() async {
+    final leave = await showDialog<bool>(
+      context: context,
+      builder: (_) => const _LeaveWhileReadingDialog(),
+    );
+    if ((leave ?? false) && mounted) Navigator.of(context).pop();
   }
 
   void _showErrorSnack(String message) {
@@ -230,36 +303,21 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Observa o estado da geração e reage: sucesso navega, erro exibe snack.
-    ref.listen<AsyncValue<IaGenerationResult?>>(
+    // Observa o estado da geração e reage: sucesso abre a revisão, erro
+    // exibe snack. (Com a tela fechada, o IaGenerationWatcher avisa.)
+    ref.listen<AsyncValue<IaGenerationOutcome?>>(
       iaGenerationNotifierProvider,
       (prev, next) {
         next.when(
-          data: (result) {
-            if (result == null) return;
-            // Reseta antes de navegar para evitar re-trigger se a página
-            // for revisitada com o mesmo state.
-            ref.read(iaGenerationNotifierProvider.notifier).reset();
-            // A geração consumiu cota: atualiza o indicador ao voltar.
-            ref.invalidate(aiDailyQuotaProvider);
-            context.push(
-              AppRoutes.teacherIaQuizReview,
-              extra: <String, Object?>{
-                'result': result,
-                'topic': _topicCtrl.text.trim(),
-                'difficulty': _difficulty.label,
-                'classroomId': widget.classroomId,
-                'phaseId': widget.phaseId,
-                'phaseTitle': widget.phaseTitle,
-              },
-            );
+          data: (outcome) {
+            if (outcome != null) _openPendingReview();
           },
           error: (err, _) {
             final msg = err is Failure
                 ? err.message
                 : 'Falha ao gerar questões. Tente novamente.';
             _showErrorSnack(msg);
-            ref.read(iaGenerationNotifierProvider.notifier).reset();
+            _generation.reset();
           },
           loading: () {},
         );
@@ -272,10 +330,26 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
 
     final quotaAsync = ref.watch(aiDailyQuotaProvider);
 
+    // Mantém os anexos vivos enquanto a tela estiver aberta. A página só se
+    // redesenha quando muda o que habilita o botão "Gerar" — o progresso de
+    // leitura de cada arquivo redesenha apenas o painel de materiais.
+    final materials = ref.watch(
+      studyMaterialsProvider.select(
+        (items) => (
+          anyReady: items.any((m) => m.status == MaterialStatus.ready),
+          reading: items.any(
+            (m) =>
+                m.status == MaterialStatus.reading ||
+                m.status == MaterialStatus.waiting,
+          ),
+        ),
+      ),
+    );
+
     final meta = _kSubjectMeta[widget.subject?.toLowerCase()] ??
         _kSubjectMeta['história']!;
 
-    return GestureDetector(
+    final page = GestureDetector(
       // Heurística #3: toque fora do campo fecha o teclado
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -283,7 +357,8 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              _TopBar(onBack: context.pop),
+              // maybePop: passa pelo PopScope (context.pop não passa).
+              _TopBar(onBack: () => Navigator.of(context).maybePop()),
               Expanded(
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
@@ -307,6 +382,17 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       ),
                       const SizedBox(height: 28),
 
+                      // Origem: tema digitado ou materiais do professor
+                      _sectionLabel('GERAR A PARTIR DE'),
+                      const SizedBox(height: 10),
+                      _SourceToggle(
+                        fromMaterials: _fromMaterials,
+                        enabled: !isLoading,
+                        onChanged: (value) =>
+                            setState(() => _fromMaterials = value),
+                      ),
+                      const SizedBox(height: 28),
+
                       // Disciplina — dinâmica conforme a fase selecionada
                       _sectionLabel('DISCIPLINA'),
                       const SizedBox(height: 10),
@@ -316,18 +402,30 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       ),
                       const SizedBox(height: 28),
 
-                      // Tema geral
-                      _sectionLabel('TEMA GERAL'),
-                      const SizedBox(height: 10),
-                      _TopicField(
-                        controller: _topicCtrl,
-                        focusNode: _topicFocus,
-                        placeholder: meta.hint,
-                        onChanged: (_) => setState(() {}),
-                      ),
-                      const SizedBox(height: 28),
+                      if (_fromMaterials) ...[
+                        _sectionLabel('MATERIAIS'),
+                        const SizedBox(height: 10),
+                        IaMaterialsPanel(onWarning: _showErrorSnack),
+                        const SizedBox(height: 28),
+                      ],
 
-                      // Descrição opcional para afunilar o estilo
+                      // Tema geral — só na geração por tema. Com materiais,
+                      // o assunto já vem dos arquivos e o recorte vai na
+                      // descrição.
+                      if (!_fromMaterials) ...[
+                        _sectionLabel('TEMA GERAL'),
+                        const SizedBox(height: 10),
+                        _TopicField(
+                          controller: _topicCtrl,
+                          focusNode: _topicFocus,
+                          placeholder: meta.hint,
+                          onChanged: (_) => setState(() {}),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
+
+                      // Descrição opcional: estilo das questões e, com
+                      // materiais, também o foco (capítulo, assunto...)
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
@@ -345,6 +443,13 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       const SizedBox(height: 10),
                       _DescriptionField(
                         controller: _descCtrl,
+                        hint: _fromMaterials
+                            ? 'Ex: foque no capítulo 3 e na fotossíntese, '
+                                'priorize causas e consequências, use '
+                                'linguagem acessível para o 8º ano...'
+                            : 'Ex: foco em causas e consequências, evite '
+                                'questões só de datas, use linguagem '
+                                'acessível para o 8º ano...',
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: 28),
@@ -413,6 +518,16 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
         ),
       ),
     );
+
+    return PopScope(
+      // Durante a leitura dos anexos, sair pede confirmação. A geração em
+      // si pode ficar para trás: ela continua e avisa quando terminar.
+      canPop: !materials.reading,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _confirmLeave();
+      },
+      child: page,
+    );
   }
 
   // Label de seção — reutilizado inline para não criar widget separado
@@ -478,6 +593,196 @@ class _TopBar extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Source Toggle — "Por tema" ou "Dos meus materiais".
+// Heurística #4 (consistência): mesmo estilo de seleção da dificuldade.
+// Heurística #6 (reconhecimento): ícone + rótulo + descrição curta.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Confirmação ao sair enquanto os anexos ainda estão sendo lidos.
+class _LeaveWhileReadingDialog extends StatelessWidget {
+  const _LeaveWhileReadingDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return AlertDialog(
+      backgroundColor: _C.cardBg(isDark),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text(
+        'Sair e descartar os materiais?',
+        style: GoogleFonts.nunito(
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
+          color: _C.primaryText(isDark),
+        ),
+      ),
+      content: Text(
+        // Vale mesmo se a leitura terminar com o diálogo aberto.
+        'Os materiais anexados ficam só nesta tela. Se você sair agora, eles '
+        'serão descartados e precisarão ser anexados de novo.',
+        style: GoogleFonts.nunito(
+          fontSize: 13,
+          fontWeight: FontWeight.w500,
+          color: _C.mutedText(isDark),
+          height: 1.5,
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: Text(
+            'Continuar aqui',
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: _C.mutedText(isDark),
+            ),
+          ),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: _C.accent,
+            foregroundColor: Colors.white,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+          onPressed: () => Navigator.of(context).pop(true),
+          child: Text(
+            'Sair',
+            style: GoogleFonts.nunito(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SourceToggle extends StatelessWidget {
+  const _SourceToggle({
+    required this.fromMaterials,
+    required this.enabled,
+    required this.onChanged,
+  });
+
+  final bool fromMaterials;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _SourceOption(
+            icon: FontAwesomeIcons.lightbulb,
+            label: 'Por tema',
+            caption: 'Você descreve o assunto',
+            selected: !fromMaterials,
+            onTap: enabled ? () => onChanged(false) : null,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _SourceOption(
+            icon: FontAwesomeIcons.paperclip,
+            label: 'Dos meus materiais',
+            caption: 'Arquivos, links e vídeos',
+            selected: fromMaterials,
+            onTap: enabled ? () => onChanged(true) : null,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _SourceOption extends StatelessWidget {
+  const _SourceOption({
+    required this.icon,
+    required this.label,
+    required this.caption,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final String caption;
+  final bool selected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Semantics(
+      button: true,
+      selected: selected,
+      inMutuallyExclusiveGroup: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: selected ? null : onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: selected ? _C.accentSubtle : _C.cardBg(isDark),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected
+                    ? _C.accent.withValues(alpha: 0.55)
+                    : _C.adaptiveBorder(isDark),
+                width: selected ? 1.5 : 1,
+              ),
+            ),
+            child: Row(
+              children: [
+                FaIcon(
+                  icon,
+                  size: 15,
+                  color: selected ? _C.accent : _C.mutedText(isDark),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        label,
+                        style: GoogleFonts.nunito(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w800,
+                          color: selected
+                              ? _C.accent
+                              : _C.primaryText(isDark),
+                        ),
+                      ),
+                      Text(
+                        caption,
+                        style: GoogleFonts.nunito(
+                          fontSize: 11,
+                          color: _C.mutedText(isDark),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Screen Title
 // Heurística #1: função e contexto da tela claros no topo.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -520,7 +825,7 @@ class _ScreenTitle extends StatelessWidget {
                 ),
               ),
               Text(
-                'Gere questões personalizadas por tema',
+                'Gere questões por tema ou a partir dos seus materiais',
                 style: GoogleFonts.nunito(
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
@@ -753,10 +1058,12 @@ class _TopicField extends StatelessWidget {
 class _DescriptionField extends StatelessWidget {
   const _DescriptionField({
     required this.controller,
+    required this.hint,
     required this.onChanged,
   });
 
   final TextEditingController controller;
+  final String hint;
   final ValueChanged<String> onChanged;
 
   @override
@@ -775,9 +1082,7 @@ class _DescriptionField extends StatelessWidget {
       ),
       cursorColor: _C.accent,
       decoration: InputDecoration(
-        hintText:
-            'Ex: foco em causas e consequências, evite questões só de datas, '
-            'use linguagem acessível para o 8º ano...',
+        hintText: hint,
         hintStyle: GoogleFonts.nunito(
           fontSize: 13,
           fontWeight: FontWeight.w400,

@@ -227,6 +227,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     classroomId: extra['classroomId'] as String?,
                     phaseId: extra['phaseId'] as String?,
                     phaseTitle: extra['phaseTitle'] as String?,
+                    fromCreation: extra['fromCreation'] as bool? ?? true,
                   );
                 },
               ),

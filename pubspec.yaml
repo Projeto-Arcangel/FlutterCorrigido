@@ -41,6 +41,11 @@ dependencies:
   # Geração de arquivos Excel (.xlsx)
   excel: ^4.0.6
 
+  # Leitura de .docx/.pptx (ZIP + XML) para gerar questões a partir dos
+  # materiais do professor. Mesmas versões que o excel já usava.
+  archive: 3.6.1
+  xml: 6.5.0
+
   flutter:
     sdk: flutter
   flutter_localizations:

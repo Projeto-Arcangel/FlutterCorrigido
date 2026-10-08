@@ -5,7 +5,10 @@
 //   1. Valida o JWT do usuário (header Authorization).
 //   2. Exige role 'teacher' (ou 'admin') em public.profiles.
 //   3. Valida o input e chama o OpenRouter com fallback (../_shared/openrouter.ts).
-//   4. Audita o resultado em ai_generation_logs (via service_role, ignora RLS).
+//      Dois modos: por tema (`topic`) ou a partir dos materiais do professor
+//      (`materials`: texto já extraído no navegador — o arquivo não vem).
+//   4. Audita o resultado em ai_generation_logs (via service_role, ignora RLS),
+//      com a origem (`source`) e só metadados dos materiais.
 //
 // Segredo: OPENROUTER_API_KEY (supabase secrets set / .env local).
 // SUPABASE_URL, SUPABASE_ANON_KEY e SUPABASE_SERVICE_ROLE_KEY são injetados
@@ -17,6 +20,8 @@ import {
   generateQuestionsWithFallback,
   GenerationError,
   type GenerateResult,
+  type MaterialInput,
+  validateMaterials,
 } from "../_shared/openrouter.ts";
 
 // Teto diário de questões geradas por IA por professor (controle de custo no
@@ -42,11 +47,28 @@ async function logGeneration(
   errMessage: string | null,
   attempts: unknown,
 ): Promise<void> {
+  const materials = Array.isArray(body.materials)
+    ? (body.materials as Array<Partial<MaterialInput> & { coverage?: unknown }>)
+    : null;
+  const topic = typeof body.topic === "string" ? body.topic.trim() : "";
   try {
     await admin.from("ai_generation_logs").insert({
       teacher_id: teacherId,
       subject: (body.subject as string) ?? null,
-      topic: (body.topic as string) ?? "",
+      // Com materiais não há tema: registra os nomes dos arquivos.
+      topic: topic ||
+        (materials
+          ? `Materiais: ${materials.map((m) => String(m.name ?? "")).join(", ")}`
+            .slice(0, 300)
+          : ""),
+      source: materials ? "materials" : "topic",
+      // Só metadados — o conteúdo dos materiais nunca é gravado.
+      materials: materials?.map((m) => ({
+        name: String(m.name ?? "").slice(0, 200),
+        kind: m.kind ?? null,
+        chars: typeof m.text === "string" ? m.text.length : 0,
+        coverage: typeof m.coverage === "number" ? m.coverage : null,
+      })) ?? null,
       difficulty: (body.difficulty as string) ?? null,
       quantity: body.quantity != null ? Number(body.quantity) : null,
       model_requested: (body.modelKey as string) ?? null,
@@ -93,9 +115,16 @@ Deno.serve(async (req: Request) => {
     return json(403, { error: "Apenas professores podem gerar questões com IA." });
   }
 
-  // 3. Validação superficial do input.
+  // 3. Validação superficial do input (antes de gastar cota).
   const body = await req.json().catch(() => ({})) as Record<string, unknown>;
-  if (!body.topic || typeof body.topic !== "string") {
+  const fromMaterials = body.materials !== undefined;
+  if (fromMaterials) {
+    try {
+      validateMaterials(body.materials);
+    } catch (e) {
+      return json(400, { error: (e as Error).message });
+    }
+  } else if (!body.topic || typeof body.topic !== "string") {
     return json(400, { error: "O tema é obrigatório." });
   }
 
@@ -143,12 +172,20 @@ Deno.serve(async (req: Request) => {
   try {
     const result = await generateQuestionsWithFallback({
       subject: body.subject as string | undefined,
-      topic: body.topic,
+      topic: typeof body.topic === "string" ? body.topic : "",
       difficulty: body.difficulty as string | undefined,
       quantity: Number(body.quantity),
       alternatives: body.alternatives != null ? Number(body.alternatives) : undefined,
       description: body.description as string | undefined,
       modelKey: body.modelKey as string | undefined,
+      // Só nome, tipo e texto vão para o prompt (coverage é só para o log).
+      materials: fromMaterials
+        ? (body.materials as MaterialInput[]).map(({ name, kind, text }) => ({
+          name,
+          kind,
+          text,
+        }))
+        : undefined,
     }, apiKey);
 
     await logGeneration(admin, user.id, body, result, "success", null, null);

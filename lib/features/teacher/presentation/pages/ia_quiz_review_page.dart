@@ -55,7 +55,12 @@ class IaQuizReviewPage extends ConsumerStatefulWidget {
     this.classroomId,
     this.phaseId,
     this.phaseTitle,
+    this.fromCreation = true,
   });
+
+  /// Aberta pela tela de criação (que está logo abaixo na pilha). Falso
+  /// quando aberta pelo aviso "questões prontas", de qualquer outra tela.
+  final bool fromCreation;
 
   final IaGenerationResult result;
   final String topic;
@@ -151,8 +156,7 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
             'Questões adicionadas à fase '
             '${widget.phaseTitle ?? "selecionada"}!',
           );
-          context.pop();
-          context.pop();
+          _leaveAfterSave();
         },
       );
       return;
@@ -176,11 +180,16 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
       (_) {
         ref.invalidate(classroomPhasesProvider(widget.classroomId!));
         _showSnack('Fase criada na sua turma com sucesso!');
-        // Volta para a tela do professor — pop duplo (review + form).
-        context.pop();
-        context.pop();
+        _leaveAfterSave();
       },
     );
+  }
+
+  /// Volta depois de salvar: sai da revisão e, se ela foi aberta pela tela
+  /// de criação, também do formulário (pop duplo).
+  void _leaveAfterSave() {
+    context.pop();
+    if (widget.fromCreation) context.pop();
   }
 
   void _showSnack(String message, {bool isError = false}) {
