@@ -68,8 +68,8 @@ void main() {
     expect(find.text('Conheça o Arcangel'), findsOneWidget);
     expect(find.text('Como funciona'), findsOneWidget);
     expect(find.text('Grátis'), findsOneWidget);
-    expect(find.text(r'R$ 15/mês', findRichText: true), findsOneWidget);
-    expect(find.text(r'R$ 40/mês', findRichText: true), findsOneWidget);
+    expect(find.text(r'R$ 19,99/mês', findRichText: true), findsOneWidget);
+    expect(find.text(r'R$ 39,99/mês', findRichText: true), findsOneWidget);
     expect(find.text('Começar grátis'), findsOneWidget);
     expect(find.text('Assinar por e-mail'), findsNWidgets(2));
     expect(find.text('O Arcangel é gratuito?'), findsOneWidget);

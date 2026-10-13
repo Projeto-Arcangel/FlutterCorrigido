@@ -61,19 +61,31 @@ export interface Attempt {
   message?: string;
 }
 
+/** Consumo informado pelo OpenRouter, somando todas as tentativas. */
+export interface Usage {
+  inputTokens: number;
+  outputTokens: number;
+  /** Custo em dólares (créditos do OpenRouter); 0 se não informado. */
+  costUsd: number;
+}
+
 export interface GenerateResult {
   questions: GeneratedQuestion[];
   modelUsed: string;
   modelIdUsed: string;
   attempts: Attempt[];
+  usage: Usage;
 }
 
 export class GenerationError extends Error {
   attempts: Attempt[];
-  constructor(message: string, attempts: Attempt[]) {
+  /** Tentativas que falharam também podem ter consumido tokens. */
+  usage: Usage;
+  constructor(message: string, attempts: Attempt[], usage: Usage) {
     super(message);
     this.name = "GenerationError";
     this.attempts = attempts;
+    this.usage = usage;
   }
 }
 
@@ -181,8 +193,17 @@ ${distribution}
 ${outputRules(a.alternatives)}`;
 }
 
+/**
+ * Chama o modelo e devolve o texto e o consumo. O consumo é lido antes de
+ * validar o texto: uma resposta que não serve também foi cobrada.
+ */
 async function callOpenRouter(
-  { modelId, prompt, apiKey }: { modelId: string; prompt: string; apiKey: string },
+  { modelId, prompt, apiKey, usage }: {
+    modelId: string;
+    prompt: string;
+    apiKey: string;
+    usage: Usage;
+  },
 ): Promise<string> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -201,6 +222,8 @@ async function callOpenRouter(
         messages: [{ role: "user", content: prompt }],
         response_format: { type: "json_object" },
         temperature: 0.7,
+        // Pede tokens e custo na resposta (usage accounting do OpenRouter).
+        usage: { include: true },
       }),
     });
 
@@ -210,6 +233,9 @@ async function callOpenRouter(
     }
 
     const data = await resp.json();
+    usage.inputTokens += Number(data?.usage?.prompt_tokens) || 0;
+    usage.outputTokens += Number(data?.usage?.completion_tokens) || 0;
+    usage.costUsd += Number(data?.usage?.cost) || 0;
     const content = data?.choices?.[0]?.message?.content;
     if (!content) throw new Error("Resposta da IA veio vazia.");
     return content as string;
@@ -273,17 +299,26 @@ function parseAndValidate(raw: string, expected: number): GeneratedQuestion[] {
   });
 }
 
-function buildAttemptQueue(preferredModelKey: string): string[] {
+/**
+ * Modelo pedido primeiro, depois o fallback. [allowed] (os modelos do plano
+ * do professor) limita também o fallback: um modelo pago nunca entra por
+ * falha de outro.
+ */
+export function buildAttemptQueue(
+  preferredModelKey: string,
+  allowed?: readonly string[],
+): string[] {
   const queue = [preferredModelKey];
   for (const m of FALLBACK_ORDER) {
     if (!queue.includes(m)) queue.push(m);
   }
-  return queue;
+  return allowed ? queue.filter((m) => allowed.includes(m)) : queue;
 }
 
 export async function generateQuestionsWithFallback(
   input: GenerateInput,
   apiKey: string,
+  allowedModels?: readonly string[],
 ): Promise<GenerateResult> {
   const {
     subject = "História do Brasil",
@@ -325,17 +360,21 @@ export async function generateQuestionsWithFallback(
     ? buildMaterialsPrompt(promptArgs)
     : buildTopicPrompt(promptArgs);
 
-  const queue = buildAttemptQueue(modelKey);
+  const queue = buildAttemptQueue(modelKey, allowedModels);
+  if (queue.length === 0) {
+    throw new Error(`Modelo "${modelKey}" não está disponível no seu plano.`);
+  }
   const attempts: Attempt[] = [];
+  const usage: Usage = { inputTokens: 0, outputTokens: 0, costUsd: 0 };
   let lastError: Error | null = null;
 
   for (const candidate of queue) {
     const modelId = ALLOWED_MODELS[candidate];
     try {
-      const raw = await callOpenRouter({ modelId, prompt, apiKey });
+      const raw = await callOpenRouter({ modelId, prompt, apiKey, usage });
       const questions = parseAndValidate(raw, alternatives);
       attempts.push({ model: candidate, status: "success" });
-      return { questions, modelUsed: candidate, modelIdUsed: modelId, attempts };
+      return { questions, modelUsed: candidate, modelIdUsed: modelId, attempts, usage };
     } catch (err) {
       lastError = err as Error;
       attempts.push({ model: candidate, status: "error", message: (err as Error).message });
@@ -347,6 +386,7 @@ export async function generateQuestionsWithFallback(
       ? `Todos os modelos falharam. Último erro: ${lastError.message}`
       : "Todos os modelos falharam.",
     attempts,
+    usage,
   );
 }
 

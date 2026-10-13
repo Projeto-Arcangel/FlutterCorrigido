@@ -14,6 +14,7 @@ import '../../../enem/presentation/pages/enem_bank_page.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../widgets/classroom_palette.dart';
 import '../widgets/question_detail_sheet.dart';
+import 'question_bank_page.dart';
 
 /// Tela de gerenciamento de uma fase específica de uma turma.
 ///
@@ -21,6 +22,7 @@ import '../widgets/question_detail_sheet.dart';
 ///   - editar o nome e a descrição da fase;
 ///   - adicionar questões à fase via IA ou manualmente;
 ///   - utilizar questões do ENEM;
+///   - reutilizar (copiar) questões das suas outras fases e turmas;
 ///   - reorganizar a ordem das questões;
 ///   - excluir a fase.
 ///
@@ -224,6 +226,19 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
     ref.invalidate(classroomPhasesProvider(widget.classroom.id));
   }
 
+  Future<void> _openQuestionBank() async {
+    final copied = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => QuestionBankPage(
+          phaseId: widget.phase.id,
+          phaseTitle: widget.phase.title,
+        ),
+      ),
+    );
+    if (!mounted || copied != true) return;
+    ref.invalidate(classroomPhasesProvider(widget.classroom.id));
+  }
+
   Future<void> _onDeletePhase() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -377,6 +392,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
               onIa: _openIaFlow,
               onCustom: _openCustomFlow,
               onEnem: _openEnemBank,
+              onReuse: _openQuestionBank,
             ),
             const SizedBox(height: 24),
             _QuestionsSection(
@@ -920,7 +936,7 @@ class _WeightSharePreview extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Seção "Adicionar questões" — três opções
+// Seção "Adicionar questões" — quatro opções
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _AddQuestionsSection extends StatelessWidget {
@@ -928,11 +944,13 @@ class _AddQuestionsSection extends StatelessWidget {
     required this.onIa,
     required this.onCustom,
     required this.onEnem,
+    required this.onReuse,
   });
 
   final VoidCallback onIa;
   final VoidCallback onCustom;
   final VoidCallback onEnem;
+  final VoidCallback onReuse;
 
   @override
   Widget build(BuildContext context) {
@@ -976,6 +994,15 @@ class _AddQuestionsSection extends StatelessWidget {
                 title: 'Utilizar questões do ENEM',
                 subtitle: 'Importe da base oficial do exame',
                 onTap: onEnem,
+              ),
+              _AddDivider(),
+              _AddOptionTile(
+                icon: FontAwesomeIcons.copy,
+                iconColor: const Color(0xFFB28AD9),
+                iconBg: const Color(0x1AB28AD9),
+                title: 'Reutilizar minhas questões',
+                subtitle: 'Copie questões das suas outras fases e turmas',
+                onTap: onReuse,
               ),
             ],
           ),

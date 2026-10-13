@@ -2,6 +2,7 @@ import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
+import '../entities/bank_question.dart';
 import '../entities/classroom.dart';
 import '../entities/classroom_activity.dart';
 import '../entities/classroom_phase.dart';
@@ -178,6 +179,17 @@ abstract class ClassroomRepository {
     required String classroomId,
     required String phaseId,
     required List<Question> questions,
+  });
+
+  /// Questões de todas as turmas do professor logado, para reutilizar em
+  /// outra fase ("Reutilizar minhas questões").
+  Future<Either<Failure, List<BankQuestion>>> getQuestionBank();
+
+  /// Copia questões do professor para o fim de uma fase (cópia, não
+  /// vínculo: editar uma não muda a outra). Devolve quantas foram copiadas.
+  Future<Either<Failure, int>> copyQuestionsToPhase({
+    required String phaseId,
+    required List<String> questionIds,
   });
 
   /// Reordena as questões dentro de uma fase.

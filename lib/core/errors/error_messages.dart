@@ -186,7 +186,20 @@ abstract final class ErrorMessages {
         return 'Você não tem permissão para fazer isso.';
       case '23505': // valor duplicado
         return 'Esse registro já existe.';
+      case planLimitCode:
+        // Limite do plano (gatilho de armazenamento): o servidor manda a
+        // mensagem pronta, em português, e a dica do que fazer.
+        final hint = e.hint?.trim() ?? '';
+        return hint.isEmpty ? e.message : '${e.message} $hint';
     }
     return fallback;
   }
+
+  /// Código do limite de plano no banco (HTTP 402 no PostgREST). Ver
+  /// enforce_stored_questions em supabase/migrations/..._plans_and_limits.
+  static const planLimitCode = 'PT402';
+
+  /// Se [error] é a recusa por limite do plano.
+  static bool isPlanLimit(Object? error) =>
+      error is PostgrestException && error.code == planLimitCode;
 }

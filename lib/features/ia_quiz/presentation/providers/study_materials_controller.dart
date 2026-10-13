@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/infrastructure/supabase_providers.dart';
+import '../../../plans/presentation/providers/plan_providers.dart';
 import '../../data/materials/link_material_source.dart';
 import '../../data/materials/material_extractor.dart';
 import '../../data/materials/material_read_exception.dart';
@@ -252,6 +253,9 @@ class StudyMaterialsController extends AutoDisposeNotifier<List<MaterialItem>> {
               : 'Não consegui ler esta página.',
         ),
       );
+    } finally {
+      // Vídeo lido (ou em parte) consome os minutos do plano.
+      if (item.kind == MaterialKind.video) ref.invalidate(myPlanProvider);
     }
   }
 

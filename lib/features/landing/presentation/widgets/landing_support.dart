@@ -70,8 +70,11 @@ class _Faq extends StatelessWidget {
       ),
       const _FaqItem(
         question: 'Existe limite de uso da IA?',
-        answer: 'Sim. Cada plano tem uma quantidade de questões por mês (veja '
-            'a seção Planos), e a tela de geração mostra quanto você já usou.',
+        answer: 'Sim. Cada plano tem uma quantidade de questões e de minutos '
+            'de vídeos do YouTube por mês (veja a seção Planos). Os limites '
+            'renovam a cada mês, contados do dia da assinatura (no Free, do '
+            'dia do cadastro), e a tela de geração mostra quanto você já usou '
+            'e quando renova.',
       ),
       const _FaqItem(
         question: 'Não recebi o e-mail de confirmação. E agora?',

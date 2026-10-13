@@ -2,6 +2,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
+import '../../../domain/entities/bank_question.dart';
 import '../../../domain/entities/classroom_activity.dart';
 import '../../../domain/entities/quiz_submission_result.dart';
 import '../../models/classroom_model.dart';
@@ -256,7 +257,16 @@ class ClassroomSupabaseDatasource {
         for (var i = 0; i < questions.length; i++)
           _questionRow(questions[i], phaseId, i + 1),
       ];
-      await _questions.insert(rows);
+      try {
+        await _questions.insert(rows);
+      } catch (_) {
+        // Sem as questões (ex.: limite de armazenamento do plano), a fase
+        // nova ficaria vazia na turma: desfaz e devolve o erro original.
+        try {
+          await _phases.delete().eq('id', phaseId);
+        } catch (_) {}
+        rethrow;
+      }
     }
 
     return ClassroomPhaseModel.fromMap(
@@ -395,6 +405,54 @@ class ClassroomSupabaseDatasource {
       for (final q in questions) _questionRow(q, phaseId, ++order),
     ];
     await _questions.insert(rows);
+  }
+
+  /// Questões de todas as turmas do professor logado (a RLS de `questions`
+  /// só devolve as do dono), das mais novas para as mais antigas. Uma
+  /// consulta só: a busca e os filtros rodam no app.
+  Future<List<BankQuestion>> fetchQuestionBank() async {
+    // Teto de segurança da consulta; os planos guardam até 600 questões.
+    const maxRows = 2000;
+    final rows = await _questions
+        .select(
+          'id, text, options, correct_answer, explanation, type, image_url, '
+          'image_author, image_source, ai_generated, created_at, '
+          'classroom_phases!inner(id, title, classrooms!inner(id, name))',
+        )
+        .order('created_at', ascending: false)
+        .limit(maxRows);
+    return [
+      for (final row in (rows as List).cast<Map<String, dynamic>>())
+        _toBankQuestion(row),
+    ];
+  }
+
+  BankQuestion _toBankQuestion(Map<String, dynamic> row) {
+    final phase = Map<String, dynamic>.from(row['classroom_phases'] as Map);
+    final classroom = Map<String, dynamic>.from(phase['classrooms'] as Map);
+    return BankQuestion(
+      question: QuestionModel.fromMap(row),
+      classroomId: classroom['id'].toString(),
+      classroomName: (classroom['name'] as String?) ?? '',
+      phaseId: phase['id'].toString(),
+      phaseTitle: (phase['title'] as String?) ?? '',
+      aiGenerated: (row['ai_generated'] as bool?) ?? false,
+      createdAt: DateTime.tryParse((row['created_at'] as String?) ?? ''),
+    );
+  }
+
+  /// Copia questões para o fim da fase numa única operação no servidor
+  /// (RPC `copy_questions_to_phase`): ou todas entram, ou nenhuma. Cópia,
+  /// não vínculo. Devolve quantas foram copiadas.
+  Future<int> copyQuestionsToPhase({
+    required String phaseId,
+    required List<String> questionIds,
+  }) async {
+    final copied = await _client.rpc<dynamic>(
+      'copy_questions_to_phase',
+      params: {'p_phase': phaseId, 'p_question_ids': questionIds},
+    );
+    return (copied as num?)?.toInt() ?? 0;
   }
 
   /// Mesma garantia de [reorderPhases], para as questões de uma fase.

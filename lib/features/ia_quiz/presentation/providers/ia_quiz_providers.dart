@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../plans/presentation/providers/plan_providers.dart';
 import '../../data/datasources/supabase_ia_datasource.dart';
 import '../../data/repositories/ia_quiz_repository_impl.dart';
 import '../../domain/entities/ia_generation_result.dart';
@@ -22,13 +23,6 @@ final iaQuizRepositoryProvider = Provider<IaQuizRepository>((ref) {
     ref.watch(iaQuizDatasourceProvider),
     ref.watch(loggerProvider),
   );
-});
-
-/// Cota diária de IA do professor logado — alimenta o indicador
-/// "X de N questões" na tela de criação. Invalidado após cada geração.
-final aiDailyQuotaProvider =
-    FutureProvider.autoDispose<({int used, int limit, int remaining})>((ref) {
-  return ref.watch(iaQuizDatasourceProvider).fetchDailyQuota();
 });
 
 // ─── Use Cases ─────────────────────────────────────────────────
@@ -144,8 +138,8 @@ class IaGenerationNotifier extends AsyncNotifier<IaGenerationOutcome?> {
     );
     if (run != _run) return;
 
-    // A geração pode ter consumido cota: o indicador "X de N" se atualiza.
-    ref.invalidate(aiDailyQuotaProvider);
+    // A geração pode ter consumido o limite do mês: o uso se atualiza.
+    ref.invalidate(myPlanProvider);
     state = result.fold(
       (failure) => AsyncError(failure, StackTrace.current),
       (generated) => AsyncData(

@@ -66,7 +66,7 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
   late final List<Animation<double>> _fadeAnims;
   late final List<Animation<Offset>> _slideAnims;
 
-  static const int _animCount = 5;
+  static const int _animCount = 6;
   static const Duration _totalDuration = Duration(milliseconds: 700);
   static const Duration _stagger = Duration(milliseconds: 80);
 
@@ -104,6 +104,7 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
   }
 
   void _onContaTap() => context.push(AppRoutes.teacherAccount);
+  void _onPlanTap() => context.push(AppRoutes.teacherPlan);
   void _onPreferencesTap() =>
       context.push(AppRoutes.teacherSettingsPreferences);
 
@@ -127,6 +128,12 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
         label: 'Conta',
         subtitle: 'Edite seus dados pessoais e senha',
         onTap: _onContaTap,
+      ),
+      _SettingsTile(
+        icon: Icons.workspace_premium_outlined,
+        label: 'Meu plano',
+        subtitle: 'Limites do mês, uso e planos',
+        onTap: _onPlanTap,
       ),
       _SettingsTile(
         icon: Icons.tune_outlined,
@@ -185,8 +192,8 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
                   _SectionLabel(label: 'SUPORTE', isDark: isDark),
                   const SizedBox(height: 10),
                   _AnimatedSlot(
-                    fade: _fadeAnims[3],
-                    slide: _slideAnims[3],
+                    fade: _fadeAnims[4],
+                    slide: _slideAnims[4],
                     child: _SupportCard(isDark: isDark),
                   ),
                   const SizedBox(height: 32),
@@ -194,8 +201,8 @@ class _TeacherSettingsPageState extends ConsumerState<TeacherSettingsPage>
               ),
             ),
             _AnimatedSlot(
-              fade: _fadeAnims[4],
-              slide: _slideAnims[4],
+              fade: _fadeAnims[5],
+              slide: _slideAnims[5],
               child: _SignOutButton(onTap: _onSignOutTap, isDark: isDark),
             ),
           ],

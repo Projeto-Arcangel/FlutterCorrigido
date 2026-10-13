@@ -6,6 +6,7 @@ import '../../../../core/utils/logger_provider.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../../data/datasources/supabase/classroom_supabase_datasource.dart';
 import '../../data/repositories/classroom_repository_impl.dart';
+import '../../domain/entities/bank_question.dart';
 import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
@@ -174,6 +175,17 @@ final classroomRankingProvider = FutureProvider.autoDispose
     (failure) => throw FailureException(failure),
     (results) => [...results]
       ..sort((a, b) => b.percentage.compareTo(a.percentage)),
+  );
+});
+
+/// Questões de todas as turmas do professor ("Reutilizar minhas
+/// questões"). Uma consulta só; busca e filtros rodam no app.
+final questionBankProvider =
+    FutureProvider.autoDispose<List<BankQuestion>>((ref) async {
+  final result = await ref.watch(classroomRepositoryProvider).getQuestionBank();
+  return result.fold(
+    (failure) => throw FailureException(failure),
+    (questions) => questions,
   );
 });
 

@@ -6,7 +6,8 @@
 // Como funciona:
 //   1. A duração exata vem da contagem de tokens (gratuita, < 2 s): áudio é
 //      sempre 32 tokens/s. A contagem também barra vídeo privado/removido
-//      antes de gastar qualquer coisa.
+//      antes de gastar qualquer coisa. Com a duração em mãos, quem chama
+//      confere os minutos do plano (beforeRead) — ainda sem custo.
 //   2. O vídeo é dividido em trechos de até 10 min, lidos EM PARALELO. O
 //      recorte é feito pelo próprio Gemini, então cada parte do vídeo tem a
 //      sua resposta: a cobertura não depende do modelo "lembrar" de tudo.
@@ -402,8 +403,21 @@ export function describeClips(clips: Clip[]): string {
   return `${clips.length > 1 ? "os trechos" : "o trecho"} ${list}`;
 }
 
-/** Lança [VideoError] com a mensagem para o professor. */
-export async function readVideo(videoUrl: string, apiKey: string): Promise<VideoNotes> {
+/** Segundos que serão lidos de um vídeo com esta duração. */
+export function secondsToRead(duration: number): number {
+  return Math.min(duration, MAX_VIDEO_SECONDS);
+}
+
+/**
+ * Lança [VideoError] com a mensagem para o professor. [beforeRead] recebe
+ * a duração (e os segundos que serão lidos) antes de qualquer custo; se
+ * lançar, nada é lido.
+ */
+export async function readVideo(
+  videoUrl: string,
+  apiKey: string,
+  beforeRead?: (duration: number, toRead: number) => Promise<void>,
+): Promise<VideoNotes> {
   const deadline = AbortSignal.timeout(DEADLINE_MS);
   let duration: number;
   try {
@@ -412,8 +426,9 @@ export async function readVideo(videoUrl: string, apiKey: string): Promise<Video
     if (deadline.aborted) throw new VideoError("timeout", VIDEO_MESSAGES.timeout);
     throw e;
   }
+  await beforeRead?.(duration, secondsToRead(duration));
 
-  const clips = clipsFor(Math.min(duration, MAX_VIDEO_SECONDS));
+  const clips = clipsFor(secondsToRead(duration));
   const results = await Promise.allSettled(
     clips.map((clip) => readClipHedged(videoUrl, clip, apiKey, deadline)),
   );

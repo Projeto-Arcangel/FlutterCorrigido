@@ -5,11 +5,12 @@
 // anotações de aula completas (_shared/gemini_video). O texto volta para o
 // app e é tratado como os outros materiais: entra no recorte e na geração
 // (generate-questions). Nada é armazenado além dos metadados da leitura
-// (material_extractions), para o teto diário.
+// (material_extractions), que contam os minutos do plano.
 //
 // - Só professores logados (JWT verificado + papel em profiles).
 // - Só vídeos públicos; lidos até MAX_VIDEO_SECONDS (o resto é avisado).
-// - Teto diário de vídeos por professor (custo no Gemini).
+// - Minutos de vídeo do plano por mês: com a duração conhecida (contagem
+//   gratuita), o vídeo que não cabe é recusado antes de ser lido.
 //
 // Segredo: GEMINI_API_KEY (supabase secrets set / supabase/functions/.env).
 //
@@ -27,11 +28,16 @@ import {
   VideoError,
   type VideoNotes,
 } from "../_shared/gemini_video.ts";
+import {
+  PlanCheckError,
+  type PlanReservation,
+  releasePlanUsage,
+  reservePlanUsage,
+  videoLimitMessage,
+} from "../_shared/plan_limits.ts";
 import { toSegments } from "../_shared/text_segments.ts";
 import { parseYouTube } from "../_shared/youtube.ts";
 
-/** Vídeos lidos (inteiros ou em parte) por professor por dia (custo no Gemini). */
-const DAILY_VIDEO_LIMIT = 10;
 const MAX_URL_LENGTH = 2048;
 
 type AdminClient = ReturnType<typeof createClient>;
@@ -167,61 +173,67 @@ Deno.serve(async (req: Request) => {
     return fail(500, "not_configured", VIDEO_MESSAGES.failed);
   }
 
-  // 3. Teto diário. Falha na consulta deixa passar (fail-open): o teto é
-  // controle de custo, não fronteira de segurança.
   const admin = createClient(supabaseUrl, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const { data: readToday, error: quotaErr } = await admin.rpc(
-    "videos_read_today",
-    { p_teacher: user.id },
-  );
-  if (!quotaErr && typeof readToday === "number" && readToday >= DAILY_VIDEO_LIMIT) {
-    return fail(
-      429,
-      "daily_limit",
-      `Você já leu ${readToday} vídeos hoje, o limite diário. Amanhã você ` +
-        "pode ler mais — ou anexe o conteúdo em PDF, Word ou PowerPoint.",
-    );
-  }
 
-  // 4. Título (e vídeo inexistente) antes de gastar tokens.
+  // 3. Título (e vídeo inexistente) antes de gastar tokens.
   const info = await videoInfo(link.url);
   if (info.missing) return fail(422, "not_found", LINK_MESSAGES.notFound);
 
-  // 5. Leitura do vídeo (anotações por trecho).
+  // 4. Leitura do vídeo (anotações por trecho). Antes de ler, reserva os
+  // minutos no plano; sem conseguir consultar o plano, recusa.
+  let reservation: PlanReservation | null = null;
   let notes: VideoNotes;
   try {
-    notes = await readVideo(link.url, apiKey);
-  } catch (e) {
-    const err = e instanceof VideoError
-      ? e
-      : new VideoError("failed", VIDEO_MESSAGES.failed);
-    if (!(e instanceof VideoError)) console.error("extract-video: falha inesperada", e);
+    try {
+      notes = await readVideo(link.url, apiKey, async (_duration, toRead) => {
+        const minutes = Math.ceil(toRead / 60);
+        try {
+          reservation = await reservePlanUsage(admin, user.id, "video_minutes", minutes);
+        } catch (e) {
+          if (e instanceof PlanCheckError) throw new VideoError("plan_unavailable", e.message);
+          throw e;
+        }
+        if (!reservation.ok) {
+          throw new VideoError("plan_limit", videoLimitMessage(reservation, minutes));
+        }
+      });
+    } catch (e) {
+      const err = e instanceof VideoError
+        ? e
+        : new VideoError("failed", VIDEO_MESSAGES.failed);
+      if (!(e instanceof VideoError)) console.error("extract-video: falha inesperada", e);
+      await logExtraction(admin, {
+        teacherId: user.id,
+        source: link.url,
+        title: info.title,
+        notes: null,
+        status: "error",
+        error: err.code,
+      });
+      const status = err.code === "busy" || err.code === "quota" || err.code === "plan_limit"
+        ? 429
+        : err.code === "plan_unavailable"
+        ? 503
+        : err.code === "timeout"
+        ? 504
+        : 422;
+      return fail(status, err.code, err.message);
+    }
+
+    // O log conta os minutos lidos; só depois dele a reserva sai.
     await logExtraction(admin, {
       teacherId: user.id,
       source: link.url,
       title: info.title,
-      notes: null,
-      status: "error",
-      error: err.code,
+      notes,
+      status: notes.missing.length ? "partial" : "success",
+      error: notes.missing.length
+        ? `faltou: ${notes.missing.map((c) => `${c.start}-${c.end}s`).join(", ")}`
+        : null,
     });
-    const status = err.code === "busy" || err.code === "quota"
-      ? 429
-      : err.code === "timeout"
-      ? 504
-      : 422;
-    return fail(status, err.code, err.message);
+  } finally {
+    await releasePlanUsage(admin, (reservation as PlanReservation | null)?.hold);
   }
-
-  await logExtraction(admin, {
-    teacherId: user.id,
-    source: link.url,
-    title: info.title,
-    notes,
-    status: notes.missing.length ? "partial" : "success",
-    error: notes.missing.length
-      ? `faltou: ${notes.missing.map((c) => `${c.start}-${c.end}s`).join(", ")}`
-      : null,
-  });
 
   const paragraphs = notes.text
     .split(/\n\s*\n/)

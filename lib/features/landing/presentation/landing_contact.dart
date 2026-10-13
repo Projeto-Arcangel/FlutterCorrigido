@@ -9,13 +9,21 @@ abstract final class LandingContact {
   /// Abre o app de e-mail já endereçado ao suporte. Se não houver app de
   /// e-mail para abrir, copia o endereço e avisa — o usuário nunca fica sem
   /// saída.
-  static Future<void> sendEmail(BuildContext context, {String? subject}) async {
+  static Future<void> sendEmail(
+    BuildContext context, {
+    String? subject,
+    String? body,
+  }) async {
+    final query = [
+      // encodeComponent: com queryParameters os espaços virariam "+", que
+      // vários apps de e-mail mostram literalmente no assunto.
+      if (subject != null) 'subject=${Uri.encodeComponent(subject)}',
+      if (body != null) 'body=${Uri.encodeComponent(body)}',
+    ].join('&');
     final uri = Uri(
       scheme: 'mailto',
       path: supportEmail,
-      // encodeComponent: com queryParameters os espaços virariam "+", que
-      // vários apps de e-mail mostram literalmente no assunto.
-      query: subject == null ? null : 'subject=${Uri.encodeComponent(subject)}',
+      query: query.isEmpty ? null : query,
     );
 
     var opened = false;

@@ -11,6 +11,9 @@ import '../../../ia_quiz/domain/entities/ia_model_option.dart';
 import '../../../ia_quiz/domain/material_rules.dart';
 import '../../../ia_quiz/presentation/providers/ia_quiz_providers.dart';
 import '../../../ia_quiz/presentation/providers/study_materials_controller.dart';
+import '../../../plans/domain/entities/plan.dart';
+import '../../../plans/domain/plan_catalog.dart';
+import '../../../plans/presentation/providers/plan_providers.dart';
 import '../widgets/ia_materials_panel.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -174,6 +177,25 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
   /// "Dos meus materiais" (true) ou "Por tema" (false).
   bool _fromMaterials = false;
 
+  GenerationSource get _source =>
+      _fromMaterials ? GenerationSource.materials : GenerationSource.topic;
+
+  /// Modelo que vai de fato: um modelo fora do plano (ex.: GPT Mini no
+  /// Free) volta para o padrão.
+  IaModelOption _effectiveModel(MyPlan? plan) =>
+      plan == null || plan.plan.allowsModel(_selectedModel.key)
+          ? _selectedModel
+          : IaModelOption.defaultOption;
+
+  /// Por que o plano não deixa gerar agora (null = pode). Mesmas regras do
+  /// servidor, que dá a palavra final.
+  String? _planBlock(MyPlan? plan) => plan?.generationBlock(
+        source: _source,
+        quantity: _quantity.round(),
+        modelKey: _effectiveModel(plan).key,
+        modelLabel: _effectiveModel(plan).label,
+      );
+
   bool get _canGenerate {
     final isLoading = ref.read(iaGenerationNotifierProvider).isLoading;
     if (isLoading) return false;
@@ -230,6 +252,12 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
 
   Future<void> _generate() async {
     if (!_canGenerate) return;
+    final plan = ref.read(myPlanProvider).valueOrNull;
+    final block = _planBlock(plan);
+    if (block != null) {
+      _showErrorSnack(block);
+      return;
+    }
     FocusScope.of(context).unfocus();
 
     // Só o texto (já recortado no limite da IA) sai do navegador.
@@ -246,7 +274,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
       quantity: _quantity.round(),
       alternatives: _alternatives,
       description: _descCtrl.text,
-      model: _selectedModel,
+      model: _effectiveModel(plan),
       subject: widget.subject,
       materials: materials,
       // O professor pode sair antes do fim: o destino vai junto.
@@ -328,7 +356,9 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
       iaGenerationNotifierProvider.select((s) => s.isLoading),
     );
 
-    final quotaAsync = ref.watch(aiDailyQuotaProvider);
+    final planAsync = ref.watch(myPlanProvider);
+    final myPlan = planAsync.valueOrNull;
+    final planBlock = _planBlock(myPlan);
 
     // Mantém os anexos vivos enquanto a tela estiver aberta. A página só se
     // redesenha quando muda o que habilita o botão "Gerar" — o progresso de
@@ -370,14 +400,14 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       const _ScreenTitle(),
                       const SizedBox(height: 20),
 
-                      // Cota diária de IA — limite + quanto já foi gerado hoje
-                      quotaAsync.when(
-                        data: (q) => _QuotaBanner(
-                          used: q.used,
-                          limit: q.limit,
-                          remaining: q.remaining,
+                      // Limite do período do plano + quanto já foi usado
+                      planAsync.when(
+                        data: (plan) => _PlanUsageBanner(
+                          plan: plan,
+                          fromMaterials: _fromMaterials,
+                          onOpenPlan: () => context.push(AppRoutes.teacherPlan),
                         ),
-                        loading: () => const _QuotaBanner.loading(),
+                        loading: () => const _PlanUsageBanner.loading(),
                         error: (_, __) => const SizedBox.shrink(),
                       ),
                       const SizedBox(height: 28),
@@ -498,14 +528,24 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       _sectionLabel('MODELO DE IA'),
                       const SizedBox(height: 10),
                       _ModelSelector(
-                        selected: _selectedModel,
+                        selected: _effectiveModel(myPlan),
+                        isAllowed: (m) =>
+                            myPlan == null || myPlan.plan.allowsModel(m.key),
                         onSelect: (m) => setState(() => _selectedModel = m),
                       ),
                       const SizedBox(height: 40),
 
+                      if (planBlock != null && !isLoading) ...[
+                        _PlanBlockNote(
+                          message: planBlock,
+                          onOpenPlan: () => context.push(AppRoutes.teacherPlan),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+
                       // Botão principal
                       _GenerateButton(
-                        enabled: _canGenerate,
+                        enabled: _canGenerate && planBlock == null,
                         loading: isLoading,
                         onTap: _generate,
                       ),
@@ -842,49 +882,65 @@ class _ScreenTitle extends StatelessWidget {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Quota Banner — limite diário de IA + quanto o professor já gerou hoje.
-// Heurística #1 (visibilidade do estado): o teto e o consumo ficam explícitos
-// antes da geração; quando esgota, a mensagem orienta a voltar amanhã.
+// Plan Usage Banner — limite do período do plano + quanto já foi usado, para a
+// origem escolhida (tema ou materiais). Com materiais, também os minutos de
+// vídeo e o aviso de que cada geração conta no mínimo 5 questões.
+// Heurística #1 (visibilidade do estado): o limite fica explícito antes da
+// geração; quando esgota, diz quando renova.
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _QuotaBanner extends StatelessWidget {
-  const _QuotaBanner({
-    required this.used,
-    required this.limit,
-    required this.remaining,
-  }) : _loading = false;
+class _PlanUsageBanner extends StatelessWidget {
+  const _PlanUsageBanner({
+    required MyPlan this.plan,
+    required this.fromMaterials,
+    required VoidCallback this.onOpenPlan,
+  });
 
-  const _QuotaBanner.loading()
-      : used = 0,
-        limit = 0,
-        remaining = 0,
-        _loading = true;
+  const _PlanUsageBanner.loading()
+      : plan = null,
+        fromMaterials = false,
+        onOpenPlan = null;
 
-  final int used;
-  final int limit;
-  final int remaining;
-  final bool _loading;
+  final MyPlan? plan;
+  final bool fromMaterials;
+  final VoidCallback? onOpenPlan;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final exhausted = !_loading && remaining <= 0;
+    final plan = this.plan;
+    final source =
+        fromMaterials ? GenerationSource.materials : GenerationSource.topic;
+    final used = plan == null
+        ? 0
+        : (fromMaterials ? plan.usage.materials : plan.usage.topic);
+    final limit = plan == null
+        ? 0
+        : (fromMaterials
+            ? plan.plan.materialQuestions
+            : plan.plan.topicQuestions);
+    final remaining = plan?.remainingFor(source) ?? 0;
+    final exhausted = plan != null && plan.maxQuantity(source) == 0;
     final accent = exhausted ? const Color(0xFFE0795B) : _C.accent;
-    final progress =
-        (_loading || limit == 0) ? 0.0 : (used / limit).clamp(0.0, 1.0);
+    final progress = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
 
     final String caption;
-    if (_loading) {
-      caption = 'Carregando seu uso de hoje…';
-    } else if (exhausted) {
-      caption = 'Limite diário atingido. Tente novamente amanhã.';
+    if (plan == null) {
+      caption = 'Carregando seu uso…';
+    } else if (remaining <= 0) {
+      caption = 'Limite atingido. Renova em ${plan.resetLabel}.';
     } else {
-      caption =
-          'Você ainda pode gerar $remaining ${remaining == 1 ? 'questão' : 'questões'} hoje.';
+      caption = 'Restam $remaining até ${plan.resetLabel}.';
     }
 
+    final muted = GoogleFonts.nunito(
+      fontSize: 12,
+      fontWeight: FontWeight.w500,
+      color: _C.mutedText(isDark),
+    );
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(12),
@@ -897,17 +953,22 @@ class _QuotaBanner extends StatelessWidget {
             children: [
               FaIcon(FontAwesomeIcons.boltLightning, size: 13, color: accent),
               const SizedBox(width: 8),
-              Text(
-                'Uso diário de IA',
-                style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: _C.primaryText(isDark),
+              Expanded(
+                child: Text(
+                  plan == null
+                      ? 'Uso do plano'
+                      : 'Plano ${plan.plan.name} · questões '
+                          '${fromMaterials ? 'com materiais' : 'por tema'}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: _C.primaryText(isDark),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const Spacer(),
               Text(
-                _loading ? '—' : '$used / $limit',
+                plan == null ? '—' : '$used / $limit',
                 style: GoogleFonts.nunito(
                   fontSize: 14,
                   fontWeight: FontWeight.w800,
@@ -920,19 +981,109 @@ class _QuotaBanner extends StatelessWidget {
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
-              value: _loading ? null : progress,
+              value: plan == null ? null : progress,
               minHeight: 6,
               backgroundColor: _C.trackInactive(isDark),
               valueColor: AlwaysStoppedAnimation<Color>(accent),
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            caption,
-            style: GoogleFonts.nunito(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: _C.mutedText(isDark),
+          Text(caption, style: muted),
+          if (plan != null && fromMaterials) ...[
+            const SizedBox(height: 4),
+            Text(
+              'Vídeos do YouTube: ${plan.usage.videoMinutes} de '
+              '${plan.plan.videoMinutes} min usados neste período.',
+              style: muted,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              PlanCatalog.materialChargeNotice,
+              style: muted.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ],
+          if (onOpenPlan != null)
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: onOpenPlan,
+                style: TextButton.styleFrom(
+                  foregroundColor: _C.accent,
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  minimumSize: const Size(0, 36),
+                ),
+                child: Text(
+                  'Ver meu plano',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            )
+          else
+            const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+/// Motivo do plano para o botão "Gerar" estar desligado, com o caminho para
+/// "Meu plano".
+class _PlanBlockNote extends StatelessWidget {
+  const _PlanBlockNote({required this.message, required this.onOpenPlan});
+
+  final String message;
+  final VoidCallback onOpenPlan;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    const warn = Color(0xFFE0795B);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 4),
+      decoration: BoxDecoration(
+        color: warn.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: warn.withValues(alpha: 0.35)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Padding(
+                padding: EdgeInsets.only(top: 2),
+                child: FaIcon(
+                  FontAwesomeIcons.circleExclamation,
+                  size: 13,
+                  color: warn,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: _C.primaryText(isDark),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: onOpenPlan,
+              style: TextButton.styleFrom(foregroundColor: _C.accent),
+              child: Text(
+                'Ver planos',
+                style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+              ),
             ),
           ),
         ],
@@ -1340,10 +1491,14 @@ class _AlternativesOption extends StatelessWidget {
 class _ModelSelector extends StatelessWidget {
   const _ModelSelector({
     required this.selected,
+    required this.isAllowed,
     required this.onSelect,
   });
 
   final IaModelOption selected;
+
+  /// Modelos fora do plano aparecem bloqueados, com o plano que os libera.
+  final bool Function(IaModelOption) isAllowed;
   final ValueChanged<IaModelOption> onSelect;
 
   @override
@@ -1356,6 +1511,7 @@ class _ModelSelector extends StatelessWidget {
           child: _ModelOption(
             model: entry.value,
             isSelected: selected == entry.value,
+            locked: !isAllowed(entry.value),
             onTap: () => onSelect(entry.value),
           ),
         );
@@ -1368,18 +1524,22 @@ class _ModelOption extends StatelessWidget {
   const _ModelOption({
     required this.model,
     required this.isSelected,
+    required this.locked,
     required this.onTap,
   });
 
   final IaModelOption model;
   final bool isSelected;
+
+  /// Fora do plano: não seleciona e mostra "Pro e Premium".
+  final bool locked;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    return GestureDetector(
-      onTap: onTap,
+    final option = GestureDetector(
+      onTap: locked ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         curve: Curves.easeOut,
@@ -1417,18 +1577,27 @@ class _ModelOption extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    model.description,
+                    locked
+                        ? 'Disponível nos planos Pro e Premium'
+                        : model.description,
                     style: GoogleFonts.nunito(
                       fontSize: 11,
-                      fontWeight: FontWeight.w500,
+                      fontWeight: locked ? FontWeight.w700 : FontWeight.w500,
                       color: _C.textMuted.withValues(alpha: 0.85),
                     ),
                   ),
                 ],
               ),
             ),
-            // Radio visual à direita
-            AnimatedContainer(
+            // Radio visual à direita (cadeado se o plano não inclui)
+            if (locked)
+              FaIcon(
+                FontAwesomeIcons.lock,
+                size: 13,
+                color: _C.textMuted.withValues(alpha: 0.7),
+              )
+            else
+              AnimatedContainer(
               duration: const Duration(milliseconds: 180),
               width: 18,
               height: 18,
@@ -1453,6 +1622,15 @@ class _ModelOption extends StatelessWidget {
           ],
         ),
       ),
+    );
+    return Semantics(
+      button: true,
+      enabled: !locked,
+      selected: isSelected,
+      label: locked
+          ? '${model.label}: disponível nos planos Pro e Premium'
+          : null,
+      child: Opacity(opacity: locked ? 0.6 : 1, child: option),
     );
   }
 }

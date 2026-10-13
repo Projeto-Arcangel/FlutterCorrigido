@@ -442,3 +442,8 @@ s3_secret_key = "env(S3_SECRET_KEY)"
 # assinatura Standard Webhooks.
 [functions.before-user-created]
 verify_jwt = false
+
+# Chamada pelo Asaas, sem JWT de usuário: a função valida o token do header
+# asaas-access-token (ASAAS_WEBHOOK_TOKEN).
+[functions.billing-webhook]
+verify_jwt = false

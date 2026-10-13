@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../plans/domain/entities/plan.dart';
+import '../../../plans/domain/plan_catalog.dart';
 import '../landing_contact.dart';
 import 'landing_layout.dart';
 import 'landing_reveal.dart';
@@ -8,70 +10,14 @@ import 'landing_reveal.dart';
 /// Conteúdo da seção "Planos". Ainda não há cobrança no app: o Free começa
 /// pelo cadastro e os planos pagos são contratados pelo e-mail do suporte —
 /// o botão diz exatamente isso, para não prometer um checkout que não existe.
+/// Preços e limites vêm de [PlanCatalog] (os mesmos do banco).
 class LandingPlans extends StatelessWidget {
   const LandingPlans({super.key, required this.onStartFree});
 
   final VoidCallback onStartFree;
 
-  // Mesmos itens, na mesma ordem, em todos os planos: dá para comparar
-  // linha a linha. `null` = não incluso no plano.
-  static const _plans = [
-    _Plan(
-      name: 'Free',
-      price: null,
-      description: 'Para conhecer a plataforma e começar com suas turmas.',
-      features: [
-        '200 questões por mês com IA a partir de um tema',
-        '50 questões por mês com IA a partir dos seus materiais',
-        'Armazenamento de até 500 questões',
-        'Banco de questões do ENEM',
-        'Exportar notas em planilha (.xlsx)',
-        null,
-        null,
-      ],
-    ),
-    _Plan(
-      name: 'Pro',
-      price: 15,
-      description: 'Para o professor que usa o Arcangel toda semana.',
-      recommended: true,
-      features: [
-        '500 questões por mês com IA a partir de um tema',
-        '100 questões por mês com IA a partir dos seus materiais',
-        'Armazenamento de até 750 questões',
-        'Banco de questões do ENEM',
-        'Exportar notas em planilha (.xlsx)',
-        'Exportar atividades em PDF',
-        null,
-      ],
-    ),
-    _Plan(
-      name: 'Premium',
-      price: 40,
-      description: 'Para quem produz muito conteúdo e quer atendimento '
-          'prioritário.',
-      features: [
-        '1.000 questões por mês com IA a partir de um tema',
-        '150 questões por mês com IA a partir dos seus materiais',
-        'Armazenamento de até 1.000 questões',
-        'Banco de questões do ENEM',
-        'Exportar notas em planilha (.xlsx)',
-        'Exportar atividades em PDF',
-        'Suporte prioritário',
-      ],
-    ),
-  ];
-
-  /// Rótulos dos itens que algum plano não inclui (mostrados riscados).
-  static const _featureNames = [
-    'Questões com IA a partir de um tema',
-    'Questões com IA a partir dos seus materiais',
-    'Armazenamento de questões',
-    'Banco de questões do ENEM',
-    'Exportar notas em planilha (.xlsx)',
-    'Exportar atividades em PDF',
-    'Suporte prioritário',
-  ];
+  /// Plano recomendado (destacado).
+  static const _recommendedId = 'pro';
 
   @override
   Widget build(BuildContext context) {
@@ -85,17 +31,18 @@ class LandingPlans extends StatelessWidget {
           evenRows: true,
           singleColumnMaxWidth: 480,
           children: [
-            for (var i = 0; i < _plans.length; i++)
+            for (var i = 0; i < PlanCatalog.all.length; i++)
               LandingReveal(
                 delay: Duration(milliseconds: 120 * i),
                 child: _PlanCard(
-                  plan: _plans[i],
-                  featureNames: _featureNames,
-                  onPressed: _plans[i].isFree
+                  plan: PlanCatalog.all[i],
+                  recommended: PlanCatalog.all[i].id == _recommendedId,
+                  onPressed: PlanCatalog.all[i].isFree
                       ? onStartFree
                       : () => LandingContact.sendEmail(
                             context,
-                            subject: 'Quero assinar o plano ${_plans[i].name}',
+                            subject: 'Quero assinar o plano '
+                                '${PlanCatalog.all[i].name}',
                           ),
                 ),
               ),
@@ -107,7 +54,11 @@ class LandingPlans extends StatelessWidget {
           child: Text(
             'Toda conta começa no plano Free. Para assinar o Pro ou o '
             'Premium, envie uma mensagem para ${LandingContact.supportEmail} '
-            'informando o e-mail da sua conta. Valores mensais em reais.',
+            'informando o e-mail da sua conta. Valores mensais em reais; os '
+            'limites renovam a cada mês, contados do dia da assinatura (no '
+            'Free, do dia do cadastro). Cada geração com materiais conta '
+            'no mínimo 5 questões, porque o material inteiro é lido a cada '
+            'geração.',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: palette.textMuted,
@@ -120,35 +71,15 @@ class LandingPlans extends StatelessWidget {
   }
 }
 
-class _Plan {
-  const _Plan({
-    required this.name,
-    required this.price,
-    required this.description,
-    required this.features,
-    this.recommended = false,
-  });
-
-  final String name;
-
-  /// Preço mensal em reais; `null` = gratuito.
-  final int? price;
-  final String description;
-  final List<String?> features;
-  final bool recommended;
-
-  bool get isFree => price == null;
-}
-
 class _PlanCard extends StatelessWidget {
   const _PlanCard({
     required this.plan,
-    required this.featureNames,
+    required this.recommended,
     required this.onPressed,
   });
 
-  final _Plan plan;
-  final List<String> featureNames;
+  final Plan plan;
+  final bool recommended;
   final VoidCallback onPressed;
 
   @override
@@ -163,7 +94,7 @@ class _PlanCard extends StatelessWidget {
         TextStyle(fontSize: 15, fontWeight: FontWeight.w700);
 
     final buttonLabel = plan.isFree ? 'Começar grátis' : 'Assinar por e-mail';
-    final button = plan.recommended
+    final button = recommended
         ? FilledButton.icon(
             onPressed: onPressed,
             style: FilledButton.styleFrom(
@@ -192,8 +123,8 @@ class _PlanCard extends StatelessWidget {
 
     return LandingCard(
       padding: const EdgeInsets.all(28),
-      borderColor: plan.recommended ? AppColors.primary : null,
-      borderWidth: plan.recommended ? 2 : 1,
+      borderColor: recommended ? AppColors.primary : null,
+      borderWidth: recommended ? 2 : 1,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -215,27 +146,24 @@ class _PlanCard extends StatelessWidget {
                   ),
                 ),
               ),
-              if (plan.recommended) const _RecommendedBadge(),
+              if (recommended) const _RecommendedBadge(),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            plan.description,
+            PlanCatalog.description(plan),
             style: textTheme.bodyMedium?.copyWith(
               color: palette.textMuted,
               height: 1.5,
             ),
           ),
           const SizedBox(height: 20),
-          _Price(price: plan.price),
+          _Price(cents: plan.priceCents),
           const SizedBox(height: 24),
           Divider(color: palette.border, height: 1),
           const SizedBox(height: 20),
-          for (var i = 0; i < plan.features.length; i++)
-            _FeatureRow(
-              label: plan.features[i] ?? featureNames[i],
-              included: plan.features[i] != null,
-            ),
+          for (final feature in PlanCatalog.features(plan))
+            _FeatureRow(label: feature.label, included: feature.included),
           const Spacer(),
           const SizedBox(height: 16),
           SizedBox(width: double.infinity, child: button),
@@ -271,9 +199,10 @@ class _RecommendedBadge extends StatelessWidget {
 }
 
 class _Price extends StatelessWidget {
-  const _Price({required this.price});
+  const _Price({required this.cents});
 
-  final int? price;
+  /// Preço mensal em centavos; 0 = gratuito.
+  final int cents;
 
   @override
   Widget build(BuildContext context) {
@@ -283,9 +212,7 @@ class _Price extends StatelessWidget {
       fontWeight: FontWeight.w900,
       color: palette.textPrimary,
     );
-    final price = this.price;
-
-    if (price == null) {
+    if (cents == 0) {
       return Semantics(
         label: 'Gratuito',
         excludeSemantics: true,
@@ -293,8 +220,12 @@ class _Price extends StatelessWidget {
       );
     }
 
+    final reais = cents ~/ 100;
+    final centavos = cents % 100;
     return Semantics(
-      label: '$price reais por mês',
+      label: centavos == 0
+          ? '$reais reais por mês'
+          : '$reais reais e $centavos centavos por mês',
       excludeSemantics: true,
       // Um único texto com trechos de estilos diferentes: alinha pela linha
       // de base e quebra a linha se a fonte estiver ampliada.
@@ -308,7 +239,15 @@ class _Price extends StatelessWidget {
                 color: palette.textPrimary,
               ),
             ),
-            TextSpan(text: '$price', style: valueStyle),
+            TextSpan(text: '$reais', style: valueStyle),
+            if (centavos != 0)
+              TextSpan(
+                text: ',${centavos.toString().padLeft(2, '0')}',
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  color: palette.textPrimary,
+                ),
+              ),
             TextSpan(
               text: '/mês',
               style: textTheme.titleMedium?.copyWith(color: palette.textMuted),

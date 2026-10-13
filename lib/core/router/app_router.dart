@@ -20,6 +20,7 @@ import '../../features/classroom/presentation/pages/classroom_lesson_page.dart';
 import '../../features/classroom/presentation/pages/classroom_trail_page.dart';
 import '../../features/ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../features/landing/presentation/pages/landing_page.dart';
+import '../../features/plans/presentation/pages/my_plan_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../../features/subject/presentation/pages/subject_choice_page.dart';
 import '../../features/teacher/presentation/pages/classroom_list_page.dart';
@@ -49,6 +50,7 @@ class AppRoutes {
   static const String teacherSettings = '/teacher/settings';
   static const String teacherSettingsPreferences = '/teacher/settings/preferences';
   static const String teacherAccount = '/teacher/account';
+  static const String teacherPlan = '/teacher/plan';
   static const String profile = '/profile';
   static const String roleSelection = '/escolher-perfil';
   static const String settings = '/settings';
@@ -259,6 +261,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: 'account',
             builder: (_, __) => const TeacherAccountPage(),
+          ),
+          GoRoute(
+            path: 'plan',
+            builder: (_, __) => const MyPlanPage(),
           ),
         ],
       ),

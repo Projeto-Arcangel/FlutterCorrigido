@@ -1,8 +1,11 @@
 import 'package:dartz/dartz.dart';
 import 'package:logger/logger.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../../core/errors/error_messages.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
+import '../../domain/entities/bank_question.dart';
 import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
@@ -305,9 +308,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       return Right(phase);
     } catch (e, st) {
       _logger.e('saveQuizAsPhase failed', error: e, stackTrace: st);
-      return const Left(
-        NetworkFailure('Falha ao salvar questionário como fase'),
-      );
+      return Left(_saveFailure(e, 'Falha ao salvar questionário como fase'));
     }
   }
 
@@ -430,8 +431,56 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       return const Right(null);
     } catch (e, st) {
       _logger.e('addQuestionsToPhase failed', error: e, stackTrace: st);
-      return const Left(NetworkFailure('Falha ao adicionar questões à fase'));
+      return Left(_saveFailure(e, 'Falha ao adicionar questões à fase'));
     }
+  }
+
+  @override
+  Future<Either<Failure, List<BankQuestion>>> getQuestionBank() async {
+    try {
+      return Right(await _datasource.fetchQuestionBank());
+    } catch (e, st) {
+      _logger.e('getQuestionBank failed', error: e, stackTrace: st);
+      return Left(
+        NetworkFailure(
+          ErrorMessages.from(
+            e,
+            fallback: 'Não foi possível carregar suas questões.',
+          ),
+        ),
+      );
+    }
+  }
+
+  @override
+  Future<Either<Failure, int>> copyQuestionsToPhase({
+    required String phaseId,
+    required List<String> questionIds,
+  }) async {
+    try {
+      return Right(
+        await _datasource.copyQuestionsToPhase(
+          phaseId: phaseId,
+          questionIds: questionIds,
+        ),
+      );
+    } catch (e, st) {
+      _logger.e('copyQuestionsToPhase failed', error: e, stackTrace: st);
+      return Left(_saveFailure(e, 'Não foi possível copiar as questões.'));
+    }
+  }
+
+  /// Limite do plano vira a mensagem do servidor (o que aconteceu e o que
+  /// fazer); recusas das RPCs (lista mudou, sem permissão) também têm texto
+  /// pronto. O resto fica com [fallback].
+  Failure _saveFailure(Object e, String fallback) {
+    if (ErrorMessages.isPlanLimit(e)) {
+      return ValidationFailure(ErrorMessages.from(e));
+    }
+    if (e is PostgrestException && e.code == '22023') {
+      return ValidationFailure(e.message);
+    }
+    return NetworkFailure(ErrorMessages.from(e, fallback: fallback));
   }
 
   @override
