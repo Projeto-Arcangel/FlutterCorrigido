@@ -188,7 +188,8 @@ class _ClassroomTrailHeader extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           GestureDetector(
-                            onTap: () => context.push(AppRoutes.profile),
+                            onTap: () =>
+                                context.push(AppRoutes.profileInClassroom),
                             child: SizedBox(
                               width: 64,
                               height: 64,

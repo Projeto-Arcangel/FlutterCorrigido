@@ -56,9 +56,7 @@ class LandingPlans extends StatelessWidget {
             'Premium, envie uma mensagem para ${LandingContact.supportEmail} '
             'informando o e-mail da sua conta. Valores mensais em reais; os '
             'limites renovam a cada mês, contados do dia da assinatura (no '
-            'Free, do dia do cadastro). Cada geração com materiais conta '
-            'no mínimo 5 questões, porque o material inteiro é lido a cada '
-            'geração.',
+            'Free, do dia do cadastro).',
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: palette.textMuted,

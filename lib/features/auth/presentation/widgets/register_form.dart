@@ -74,7 +74,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
           email: email,
           password: _passwordCtrl.text,
           displayName: _nameCtrl.text.trim(),
-          studentId: _studentIdCtrl.text.trim().toUpperCase(),
+          studentId: AuthValidators.normalizeStudentId(_studentIdCtrl.text),
         );
     if (!mounted) return;
 
@@ -138,7 +138,7 @@ class _RegisterFormState extends ConsumerState<RegisterForm> {
               controller: _studentIdCtrl,
               label: 'Prontuário',
               icon: Icons.badge_outlined,
-              helperText: 'Formato: PT + 7 dígitos (ex.: PT1234567)',
+              helperText: AuthValidators.studentIdHelp,
               textCapitalization: TextCapitalization.characters,
               inputFormatters: AuthValidators.studentIdFormatters,
               validator: AuthValidators.studentId,

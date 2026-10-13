@@ -61,22 +61,35 @@ abstract final class AuthValidators {
   static String? name(String? value) =>
       (value == null || value.trim().length < 2) ? 'Mínimo 2 caracteres' : null;
 
-  /// Prontuário IFSP: "PT" + 7 dígitos (ex.: PT1234567).
+  /// Texto de apoio do campo "Prontuário".
+  static const studentIdHelp = 'Insira a sua identificação institucional.';
+
+  /// Tamanho máximo do prontuário (o banco aceita até 40).
+  static const studentIdMaxLength = 30;
+
+  /// Prontuário: a identificação institucional, sem formato fixo — cada
+  /// instituição tem o seu. Só precisa ser preenchido. Sempre em
+  /// maiúsculas (o banco também converte).
   static String? studentId(String? value) {
-    final id = (value ?? '').trim().toUpperCase();
-    if (id.isEmpty) return 'Prontuário obrigatório';
-    if (!id.startsWith('PT')) return 'Deve começar com "PT"';
-    if (id.length != 9) return 'Deve ter exatamente 9 caracteres';
+    if (normalizeStudentId(value ?? '').isEmpty) {
+      return 'Informe seu prontuário';
+    }
     return null;
   }
 
   static final studentIdFormatters = <TextInputFormatter>[
     _UpperCaseTextFormatter(),
-    FilteringTextInputFormatter.allow(RegExp('[A-Z0-9]')),
-    LengthLimitingTextInputFormatter(9),
+    FilteringTextInputFormatter.deny(RegExp(r'[\n\r\t]')),
+    LengthLimitingTextInputFormatter(studentIdMaxLength),
   ];
+
+  /// Como o prontuário é gravado: em maiúsculas, sem espaços nas pontas nem
+  /// repetidos.
+  static String normalizeStudentId(String value) =>
+      value.trim().replaceAll(RegExp(r'\s+'), ' ').toUpperCase();
 }
 
+/// Converte para maiúsculas enquanto a pessoa digita.
 class _UpperCaseTextFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(

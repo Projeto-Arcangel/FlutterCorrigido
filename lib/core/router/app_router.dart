@@ -52,6 +52,9 @@ class AppRoutes {
   static const String teacherAccount = '/teacher/account';
   static const String teacherPlan = '/teacher/plan';
   static const String profile = '/profile';
+
+  /// Perfil aberto de dentro de uma turma: mostra nível, XP e conquistas.
+  static const String profileInClassroom = '$profile?turma=1';
   static const String roleSelection = '/escolher-perfil';
   static const String settings = '/settings';
   static const String classroomTrail = '/classroom/:classroomId';
@@ -270,7 +273,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.profile,
-        builder: (_, __) => const ProfilePage(),
+        builder: (_, state) => ProfilePage(
+          showProgress: state.uri.queryParameters['turma'] == '1',
+        ),
       ),
       GoRoute(
         path: AppRoutes.settings,

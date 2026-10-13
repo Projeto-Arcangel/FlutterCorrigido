@@ -2,12 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../../core/widgets/app_logo.dart';
 import '../../domain/entities/user.dart';
 import '../providers/auth_providers.dart';
 import '../providers/login_controller.dart';
+import '../widgets/auth_validators.dart';
 
 class GoogleCompleteProfilePage extends ConsumerStatefulWidget {
   const GoogleCompleteProfilePage({super.key});
@@ -23,6 +25,18 @@ class _GoogleCompleteProfilePageState
   final _nameCtrl      = TextEditingController();
   final _studentIdCtrl = TextEditingController();
   bool  _loading       = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // O Google já informa o nome da pessoa: vem preenchido para ela só
+    // confirmar ou ajustar.
+    final metadata =
+        ref.read(supabaseClientProvider).auth.currentUser?.userMetadata;
+    final googleName =
+        (metadata?['full_name'] ?? metadata?['name']) as String?;
+    if (googleName != null) _nameCtrl.text = googleName.trim();
+  }
 
   @override
   void dispose() {
@@ -42,7 +56,7 @@ class _GoogleCompleteProfilePageState
     }
 
     final name      = _nameCtrl.text.trim();
-    final studentId = _studentIdCtrl.text.trim().toUpperCase();
+    final studentId = AuthValidators.normalizeStudentId(_studentIdCtrl.text);
 
     // 1. Completa o perfil (profiles) com nome e prontuário.
     final user = User(
@@ -131,9 +145,7 @@ class _GoogleCompleteProfilePageState
                     label: 'Nome completo',
                     isDark: isDark,
                     prefixIcon: const Icon(Icons.person_outline_rounded),
-                    validator: (v) => (v == null || v.trim().length < 2)
-                        ? 'Mínimo 2 caracteres'
-                        : null,
+                    validator: AuthValidators.name,
                   ),
                   const SizedBox(height: 16),
 
@@ -143,25 +155,11 @@ class _GoogleCompleteProfilePageState
                     label: 'Prontuário',
                     isDark: isDark,
                     prefixIcon: const Icon(Icons.badge_outlined),
-                    helperText: 'Formato: PT + 7 dígitos (ex.: PT1234567)',
+                    helperText: AuthValidators.studentIdHelp,
                     keyboardType: TextInputType.text,
-                    inputFormatters: [
-                      _UpperCaseTextFormatter(),
-                      FilteringTextInputFormatter.allow(RegExp(r'[A-Z0-9]')),
-                      LengthLimitingTextInputFormatter(9),
-                    ],
                     textCapitalization: TextCapitalization.characters,
-                    validator: (v) {
-                      final value = (v ?? '').trim().toUpperCase();
-                      if (value.isEmpty) return 'Prontuário obrigatório';
-                      if (!value.startsWith('PT')) {
-                        return 'Deve começar com "PT"';
-                      }
-                      if (value.length != 9) {
-                        return 'Deve ter exatamente 9 caracteres';
-                      }
-                      return null;
-                    },
+                    inputFormatters: AuthValidators.studentIdFormatters,
+                    validator: AuthValidators.studentId,
                   ),
                   const SizedBox(height: 40),
 
@@ -250,14 +248,4 @@ class _GoogleCompleteProfilePageState
       ),
     );
   }
-}
-
-// ── Formatter: converte para maiúsculas a cada keystroke ────────────────────
-class _UpperCaseTextFormatter extends TextInputFormatter {
-  @override
-  TextEditingValue formatEditUpdate(
-    TextEditingValue oldValue,
-    TextEditingValue newValue,
-  ) =>
-      newValue.copyWith(text: newValue.text.toUpperCase());
 }

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
 import '../../../classroom/presentation/widgets/classroom_sheet.dart';
@@ -16,6 +18,18 @@ class SubjectChoicePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          // Perfil (dados da conta; nível e conquistas aparecem pelo perfil
+          // aberto dentro de uma turma) e configurações.
+          IconButton(
+            icon: const Icon(Icons.person_outline_rounded),
+            tooltip: 'Perfil',
+            onPressed: () => context.push(AppRoutes.profile),
+          ),
+          IconButton(
+            icon: const Icon(Icons.settings_outlined),
+            tooltip: 'Configurações',
+            onPressed: () => context.push(AppRoutes.settings),
+          ),
           IconButton(
             icon: const Icon(Icons.logout),
             tooltip: 'Sair',

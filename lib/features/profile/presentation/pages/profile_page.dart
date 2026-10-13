@@ -16,7 +16,12 @@ import '../providers/profile_providers.dart';
 // ─────────────────────────────────────────────────────────────────────────────
 
 class ProfilePage extends ConsumerWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.showProgress = false});
+
+  /// Nível, XP, moedas e conquistas aparecem só quando o aluno abre o
+  /// perfil de dentro de uma turma. Pela tela inicial, o perfil mostra só os
+  /// dados da conta (e o caminho para as configurações).
+  final bool showProgress;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -33,7 +38,10 @@ class ProfilePage extends ConsumerWidget {
             fallback: 'Não foi possível carregar seu perfil.',
           ),
         ),
-        data: (profile) => _ProfileContent(profile: profile),
+        data: (profile) => _ProfileContent(
+          profile: profile,
+          showProgress: showProgress,
+        ),
       ),
     );
   }
@@ -44,12 +52,14 @@ class ProfilePage extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _ProfileContent extends StatelessWidget {
-  const _ProfileContent({required this.profile});
+  const _ProfileContent({required this.profile, required this.showProgress});
 
   final ProfileData profile;
+  final bool showProgress;
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return CustomScrollView(
       physics: const BouncingScrollPhysics(),
       slivers: [
@@ -59,14 +69,31 @@ class _ProfileContent extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: 24),
-              _HeroSection(profile: profile),
-              const SizedBox(height: 28),
-              _StatsRow(progress: profile.progress),
-              const SizedBox(height: 32),
-              _AchievementsSection(
-                achievements: profile.achievements,
-                unlockedCount: profile.unlockedAchievementsCount,
-              ),
+              _HeroSection(profile: profile, showProgress: showProgress),
+              if (showProgress) ...[
+                const SizedBox(height: 28),
+                _StatsRow(progress: profile.progress),
+                const SizedBox(height: 32),
+                _AchievementsSection(
+                  achievements: profile.achievements,
+                  unlockedCount: profile.unlockedAchievementsCount,
+                ),
+              ] else ...[
+                const SizedBox(height: 28),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Text(
+                    'Seu nível e suas conquistas aparecem quando você abre o '
+                    'perfil dentro de uma turma.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: isDark ? Colors.white54 : AppColors.textSecondary,
+                      fontSize: 13,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 40),
             ],
           ),
@@ -124,21 +151,28 @@ class _ProfileAppBar extends ConsumerWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _HeroSection extends StatelessWidget {
-  const _HeroSection({required this.profile});
+  const _HeroSection({required this.profile, required this.showProgress});
 
   final ProfileData profile;
+  final bool showProgress;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
+      // Largura total: sem a barra de XP (perfil pela tela inicial), a
+      // coluna encolheria e o conteúdo sairia do centro.
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          const SizedBox(width: double.infinity),
           _Avatar(
             photoUrl: profile.photoUrl,
             level: profile.progress.level,
             levelProgress: profile.levelProgress,
+            showLevel: showProgress,
           ),
           const SizedBox(height: 16),
           Text(
@@ -158,13 +192,15 @@ class _HeroSection extends StatelessWidget {
               fontSize: 13,
             ),
           ),
-          const SizedBox(height: 20),
-          _XpProgressBar(
-            current: profile.xpIntoLevel,
-            total: profile.xpForCurrentLevel.toDouble(),
-            progress: profile.levelProgress,
-            nextLevel: profile.progress.level + 1,
-          ),
+          if (showProgress) ...[
+            const SizedBox(height: 20),
+            _XpProgressBar(
+              current: profile.xpIntoLevel,
+              total: profile.xpForCurrentLevel.toDouble(),
+              progress: profile.levelProgress,
+              nextLevel: profile.progress.level + 1,
+            ),
+          ],
         ],
       ),
     );
@@ -180,11 +216,15 @@ class _Avatar extends StatelessWidget {
     required this.photoUrl,
     required this.level,
     required this.levelProgress,
+    required this.showLevel,
   });
 
   final String? photoUrl;
   final int level;
   final double levelProgress;
+
+  /// Anel de XP e selo de nível (só no perfil aberto pela turma).
+  final bool showLevel;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +244,7 @@ class _Avatar extends StatelessWidget {
                 width: 96,
                 height: 96,
                 child: CircularProgressIndicator(
-                  value: levelProgress,
+                  value: showLevel ? levelProgress : 0,
                   strokeWidth: 3,
                   backgroundColor:
                       isDark ? Colors.white12 : Colors.black12,
@@ -236,21 +276,22 @@ class _Avatar extends StatelessWidget {
             ],
           ),
         ),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-          decoration: BoxDecoration(
-            color: AppColors.primary,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Text(
-            'Nv. $level',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
+        if (showLevel)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Nv. $level',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-        ),
       ],
     );
   }
