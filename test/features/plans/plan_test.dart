@@ -65,21 +65,21 @@ void main() {
       );
     });
 
-    test('materiais: cada geração conta no mínimo 5', () {
+    test('materiais: conta exatamente as questões pedidas', () {
+      // Free: 15 com materiais; usou 11, restam 4.
       final p = _plan(PlanCatalog.free, materials: 11);
-      expect(p.chargeFor(GenerationSource.materials, 1), 5);
-      expect(p.chargeFor(GenerationSource.materials, 8), 8);
-      expect(p.chargeFor(GenerationSource.topic, 1), 1);
-      // Restam 4: nem uma geração de 1 questão cabe.
       expect(
         _block(p, source: GenerationSource.materials, quantity: 1),
-        contains('no mínimo 5'),
+        isNull,
       );
-      expect(p.maxQuantity(GenerationSource.materials), 0);
       expect(
-        _plan(PlanCatalog.free, materials: 10)
-            .maxQuantity(GenerationSource.materials),
-        5,
+        _block(p, source: GenerationSource.materials, quantity: 4),
+        isNull,
+      );
+      expect(
+        _block(p, source: GenerationSource.materials, quantity: 5),
+        'Restam 4 questões com materiais até 12 de novembro às 15h04. '
+        'Peça 4 ou menos.',
       );
     });
 
@@ -131,7 +131,6 @@ void main() {
           'material_questions': 60,
           'video_minutes': 180,
           'stored_questions': 400,
-          'material_min_charge': 5,
           'allowed_models': ['gemini-flash', 'gpt-mini', 'claude-haiku'],
           'pdf_export': true,
           'priority_support': false,

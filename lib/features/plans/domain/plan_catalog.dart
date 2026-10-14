@@ -13,7 +13,6 @@ abstract final class PlanCatalog {
     materialQuestions: 15,
     videoMinutes: 30,
     storedQuestions: 200,
-    materialMinCharge: 5,
     allowedModels: ['gemini-flash', 'claude-haiku'],
     pdfExport: false,
     prioritySupport: false,
@@ -27,7 +26,6 @@ abstract final class PlanCatalog {
     materialQuestions: 60,
     videoMinutes: 180,
     storedQuestions: 400,
-    materialMinCharge: 5,
     allowedModels: ['gemini-flash', 'gpt-mini', 'claude-haiku'],
     pdfExport: true,
     prioritySupport: false,
@@ -41,7 +39,6 @@ abstract final class PlanCatalog {
     materialQuestions: 120,
     videoMinutes: 480,
     storedQuestions: 600,
-    materialMinCharge: 5,
     allowedModels: ['gemini-flash', 'gpt-mini', 'claude-haiku'],
     pdfExport: true,
     prioritySupport: true,
@@ -98,12 +95,6 @@ abstract final class PlanCatalog {
       (label: 'Suporte prioritário', included: plan.prioritySupport),
     ];
   }
-
-  /// Aviso da equivalência das gerações com materiais.
-  static const materialChargeNotice =
-      'Cada geração com materiais conta no mínimo 5 questões da sua cota, '
-      'porque o material inteiro é lido a cada geração. Gere 10 ou mais de '
-      'uma vez para aproveitar melhor.';
 }
 
 /// Cobrança pelo app (Asaas). Desligada até a conta existir: enquanto isso,

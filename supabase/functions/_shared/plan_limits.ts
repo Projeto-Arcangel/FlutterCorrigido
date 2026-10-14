@@ -24,10 +24,6 @@ export interface PlanReservation {
   limit?: number;
   used?: number;
   remaining?: number;
-  /** Quanto este pedido conta (materiais: no mínimo 5). */
-  charge?: number;
-  /** Mínimo que uma geração com materiais conta (só na recusa). */
-  min_charge?: number;
   /** Quando o período de uso renova (um mês depois do início do plano). */
   period_end?: string;
 }
@@ -129,16 +125,10 @@ export function questionLimitMessage(
   }
   const what = RESOURCE_TEXT[resource];
   const remaining = r.remaining ?? 0;
-  const min = resource === "materials" ? (r.min_charge ?? 5) : 1;
   const when = resetLabel(r.period_end);
   const renew = `Elas renovam em ${when} — ou mude de plano para gerar mais.`;
   if (remaining <= 0) {
     return `Você usou as ${r.limit} ${what} do plano ${r.plan_name}. ${renew}`;
-  }
-  if (remaining < min) {
-    // Sobrou menos que o mínimo de uma geração com materiais.
-    return `Restam ${remaining} ${what} até ${when}, e cada geração com ` +
-      `materiais conta no mínimo ${min}. Mude de plano para gerar mais antes disso.`;
   }
   return `Restam ${remaining} ${what} no plano ${r.plan_name} até ${when}. ` +
     `Peça ${remaining} ou menos.`;

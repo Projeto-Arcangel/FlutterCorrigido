@@ -157,16 +157,6 @@ class _PlanBody extends ConsumerWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
-            Text(
-              PlanCatalog.materialChargeNotice,
-              style: GoogleFonts.nunito(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: _C.muted(isDark),
-                height: 1.4,
-              ),
-            ),
             const SizedBox(height: 28),
             const _SectionLabel('PLANOS'),
             const SizedBox(height: 10),

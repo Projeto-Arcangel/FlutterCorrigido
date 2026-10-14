@@ -455,6 +455,18 @@ class ClassroomSupabaseDatasource {
     return (copied as num?)?.toInt() ?? 0;
   }
 
+  /// Exclui questões das turmas do professor (pelo banco "Reutilizar
+  /// minhas questões") numa única operação no servidor (RPC
+  /// `delete_my_questions`): saem da fase em que estão e as fases afetadas
+  /// são renumeradas. Devolve quantas foram excluídas.
+  Future<int> deleteMyQuestions(List<String> questionIds) async {
+    final deleted = await _client.rpc<dynamic>(
+      'delete_my_questions',
+      params: {'p_question_ids': questionIds},
+    );
+    return (deleted as num?)?.toInt() ?? 0;
+  }
+
   /// Mesma garantia de [reorderPhases], para as questões de uma fase.
   Future<void> reorderQuestionsInPhase({
     required String classroomId,

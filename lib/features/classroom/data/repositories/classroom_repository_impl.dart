@@ -470,6 +470,18 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, int>> deleteBankQuestions({
+    required List<String> questionIds,
+  }) async {
+    try {
+      return Right(await _datasource.deleteMyQuestions(questionIds));
+    } catch (e, st) {
+      _logger.e('deleteBankQuestions failed', error: e, stackTrace: st);
+      return Left(_saveFailure(e, 'Não foi possível excluir as questões.'));
+    }
+  }
+
   /// Limite do plano vira a mensagem do servidor (o que aconteceu e o que
   /// fazer); recusas das RPCs (lista mudou, sem permissão) também têm texto
   /// pronto. O resto fica com [fallback].

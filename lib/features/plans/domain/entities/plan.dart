@@ -13,7 +13,6 @@ class Plan extends Equatable {
     required this.materialQuestions,
     required this.videoMinutes,
     required this.storedQuestions,
-    required this.materialMinCharge,
     required this.allowedModels,
     required this.pdfExport,
     required this.prioritySupport,
@@ -27,7 +26,6 @@ class Plan extends Equatable {
         materialQuestions: (map['material_questions'] as num).toInt(),
         videoMinutes: (map['video_minutes'] as num).toInt(),
         storedQuestions: (map['stored_questions'] as num).toInt(),
-        materialMinCharge: (map['material_min_charge'] as num?)?.toInt() ?? 5,
         allowedModels: [
           for (final m in (map['allowed_models'] as List? ?? const [])) '$m',
         ],
@@ -53,9 +51,6 @@ class Plan extends Equatable {
   /// Questões guardadas, somando todas as turmas.
   final int storedQuestions;
 
-  /// Quanto cada geração com materiais conta, no mínimo.
-  final int materialMinCharge;
-
   /// Chaves dos modelos de IA (IaModelOption.key).
   final List<String> allowedModels;
   final bool pdfExport;
@@ -74,7 +69,6 @@ class Plan extends Equatable {
         materialQuestions,
         videoMinutes,
         storedQuestions,
-        materialMinCharge,
         allowedModels,
         pdfExport,
         prioritySupport,
@@ -252,26 +246,10 @@ class MyPlan extends Equatable {
   /// menor). Nada é apagado; só não dá para adicionar novas.
   int get storageOverflow => math.max(0, usage.stored - plan.storedQuestions);
 
-  /// Quanto uma geração conta no limite do período.
-  int chargeFor(GenerationSource source, int quantity) =>
-      source == GenerationSource.materials
-          ? math.max(quantity, plan.materialMinCharge)
-          : quantity;
-
   int remainingFor(GenerationSource source) =>
       source == GenerationSource.materials
           ? materialsRemaining
           : topicRemaining;
-
-  /// Maior quantidade que ainda dá para pedir numa geração (0 = nenhuma).
-  int maxQuantity(GenerationSource source, {int cap = 20}) {
-    final remaining = remainingFor(source);
-    if (source == GenerationSource.materials &&
-        remaining < plan.materialMinCharge) {
-      return 0;
-    }
-    return math.min(cap, remaining);
-  }
 
   /// Por que a geração não pode sair agora (null = pode). Mesmas regras do
   /// servidor (plan_reserve), que dá a palavra final.
@@ -294,12 +272,7 @@ class MyPlan extends Equatable {
       return 'Você usou as ${_limitFor(source)} $what do plano ${plan.name}. '
           '$renew';
     }
-    if (source == GenerationSource.materials &&
-        remaining < plan.materialMinCharge) {
-      return 'Restam $remaining $what até $resetLabel, e cada geração com '
-          'materiais conta no mínimo ${plan.materialMinCharge}.';
-    }
-    if (chargeFor(source, quantity) > remaining) {
+    if (quantity > remaining) {
       return 'Restam $remaining $what até $resetLabel. Peça $remaining ou '
           'menos.';
     }
@@ -359,8 +332,8 @@ class MyPlan extends Equatable {
       usage.materials,
       plan.materialQuestions,
       'questões com materiais',
-      '$renew Gere 10 ou mais de uma vez: cada geração conta no mínimo '
-          '${plan.materialMinCharge}.',
+      '$renew Até lá, gere questões por tema, reutilize questões que você '
+          'já criou ou crie questões manualmente.',
     );
     check(
       usage.videoMinutes,

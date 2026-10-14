@@ -12,7 +12,6 @@ import '../../../ia_quiz/domain/material_rules.dart';
 import '../../../ia_quiz/presentation/providers/ia_quiz_providers.dart';
 import '../../../ia_quiz/presentation/providers/study_materials_controller.dart';
 import '../../../plans/domain/entities/plan.dart';
-import '../../../plans/domain/plan_catalog.dart';
 import '../../../plans/presentation/providers/plan_providers.dart';
 import '../widgets/ia_materials_panel.dart';
 
@@ -513,13 +512,6 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                         value: _quantity,
                         onChanged: (v) => setState(() => _quantity = v),
                       ),
-                      if (_fromMaterials) ...[
-                        const SizedBox(height: 10),
-                        _MaterialChargeNote(
-                          quantity: _quantity.round(),
-                          minCharge: myPlan?.plan.materialMinCharge ?? 5,
-                        ),
-                      ],
                       const SizedBox(height: 28),
 
                       // Alternativas por questão
@@ -891,7 +883,7 @@ class _ScreenTitle extends StatelessWidget {
 // ─────────────────────────────────────────────────────────────────────────────
 // Plan Usage Banner — limite do período do plano + quanto já foi usado, para a
 // origem escolhida (tema ou materiais). Com materiais, também os minutos de
-// vídeo. (O aviso do mínimo de 5 por geração fica junto da quantidade.)
+// vídeo.
 // Heurística #1 (visibilidade do estado): o limite fica explícito antes da
 // geração; quando esgota, diz quando renova.
 // ─────────────────────────────────────────────────────────────────────────────
@@ -927,7 +919,7 @@ class _PlanUsageBanner extends StatelessWidget {
             ? plan.plan.materialQuestions
             : plan.plan.topicQuestions);
     final remaining = plan?.remainingFor(source) ?? 0;
-    final exhausted = plan != null && plan.maxQuantity(source) == 0;
+    final exhausted = plan != null && plan.remainingFor(source) <= 0;
     final accent = exhausted ? const Color(0xFFE0795B) : _C.accent;
     final progress = limit == 0 ? 0.0 : (used / limit).clamp(0.0, 1.0);
 
@@ -1085,58 +1077,6 @@ class _PlanBlockNote extends StatelessWidget {
               child: Text(
                 'Ver planos',
                 style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Material Charge Note — na área de gerar, junto da quantidade: com
-// materiais, cada geração conta no mínimo 5 questões da cota. Abaixo do
-// mínimo, diz quanto ESTA geração vai contar.
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _MaterialChargeNote extends StatelessWidget {
-  const _MaterialChargeNote({required this.quantity, required this.minCharge});
-
-  final int quantity;
-  final int minCharge;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final below = quantity < minCharge;
-    final color = below ? const Color(0xFFE0A85B) : _C.accent;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.only(top: 1),
-            child: FaIcon(FontAwesomeIcons.circleInfo, size: 13, color: color),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              below
-                  ? '${PlanCatalog.materialChargeNotice} Esta geração vai '
-                      'contar $minCharge.'
-                  : PlanCatalog.materialChargeNotice,
-              style: GoogleFonts.nunito(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                height: 1.4,
-                color: _C.primaryText(isDark),
               ),
             ),
           ),

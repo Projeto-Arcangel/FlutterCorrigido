@@ -26,7 +26,8 @@ const _kMaxCopy = 100;
 
 /// "Reutilizar minhas questões": escolhe questões das outras fases e turmas
 /// do professor e COPIA para esta fase (editar a cópia não muda a original).
-/// As cópias contam no limite de questões guardadas do plano.
+/// As cópias contam no limite de questões guardadas do plano. Daqui o
+/// professor também exclui questões: elas somem da fase em que estão.
 ///
 /// Devolve `true` se copiou alguma questão.
 class QuestionBankPage extends ConsumerStatefulWidget {
@@ -52,6 +53,7 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
   /// Seleção em ordem de toque: as cópias entram nessa ordem.
   final _selected = <String>[];
   bool _copying = false;
+  bool _deleting = false;
 
   @override
   void dispose() {
@@ -93,6 +95,38 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
               ? '1 questão copiada para a fase.'
               : '${copied == 0 ? count : copied} questões copiadas para a '
                   'fase.',
+        );
+      },
+    );
+  }
+
+  /// Exclui a questão só da fase desta linha (as cópias em outras fases
+  /// continuam), depois de confirmar.
+  Future<void> _delete(BankEntry entry) async {
+    if (_deleting || _copying) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => _DeleteQuestionDialog(entry: entry),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _deleting = true);
+    final result = await ref
+        .read(classroomRepositoryProvider)
+        .deleteBankQuestions(questionIds: [entry.id]);
+    if (!mounted) return;
+    setState(() => _deleting = false);
+    result.fold(
+      (failure) => _snack(failure.message, isError: true),
+      (_) {
+        _selected.remove(entry.id);
+        // A lista e o espaço do plano mudaram.
+        ref
+          ..invalidate(questionBankProvider)
+          ..invalidate(myPlanProvider);
+        _snack(
+          'Questão excluída de ${entry.question.classroomName} · '
+          '${entry.question.phaseTitle}.',
         );
       },
     );
@@ -280,8 +314,9 @@ class _QuestionBankPageState extends ConsumerState<QuestionBankPage> {
                             return _BankTile(
                               entry: e,
                               selected: _selected.contains(e.id),
-                              enabled: !_copying,
+                              enabled: !_copying && !_deleting,
                               onTap: () => _toggle(e),
+                              onDelete: () => _delete(e),
                             );
                           },
                         ),
@@ -308,19 +343,20 @@ class _BankTile extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
+    required this.onDelete,
   });
 
   final BankEntry entry;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
+  final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final q = entry.question;
-    final where = '${q.classroomName} · ${q.phaseTitle}'
-        '${entry.copies > 1 ? ' · em ${entry.copies} fases' : ''}';
+    final where = '${q.classroomName} · ${q.phaseTitle}';
     return Semantics(
       checked: selected,
       button: true,
@@ -392,10 +428,89 @@ class _BankTile extends StatelessWidget {
                   ],
                 ),
               ),
+              IconButton(
+                tooltip: 'Excluir questão',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(
+                  Icons.delete_outline_rounded,
+                  color: ClassroomPalette.danger,
+                  size: 20,
+                ),
+                onPressed: enabled ? onDelete : null,
+              ),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Confirma a exclusão dizendo de qual fase a questão vai sumir.
+class _DeleteQuestionDialog extends StatelessWidget {
+  const _DeleteQuestionDialog({required this.entry});
+
+  final BankEntry entry;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = entry.question;
+    final textStyle = GoogleFonts.nunito(fontSize: 14, height: 1.4);
+
+    return AlertDialog(
+      title: Text(
+        'Excluir esta questão?',
+        style: GoogleFonts.nunito(fontWeight: FontWeight.w800),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              q.question.text,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: textStyle.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            Text.rich(
+              TextSpan(
+                children: [
+                  const TextSpan(text: 'Ela vai sumir da fase '),
+                  TextSpan(
+                    text: '${q.classroomName} · ${q.phaseTitle}',
+                    style: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                  const TextSpan(
+                    text: '. As cópias em outras fases continuam.',
+                  ),
+                ],
+              ),
+              style: textStyle,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Os alunos deixam de ver a questão nessa fase. Não dá para '
+              'desfazer.',
+              style: textStyle,
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(false),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(true),
+          style: TextButton.styleFrom(
+            foregroundColor: ClassroomPalette.danger,
+          ),
+          child: const Text('Excluir'),
+        ),
+      ],
     );
   }
 }

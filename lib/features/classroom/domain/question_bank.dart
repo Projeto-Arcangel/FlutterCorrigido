@@ -1,11 +1,11 @@
 import 'entities/bank_question.dart';
 
-/// Uma linha do banco "Reutilizar minhas questões": a questão (a ocorrência
-/// mais recente, quando ela existe em várias fases) e onde mais ela aparece.
+/// Uma linha do banco "Reutilizar minhas questões": uma questão, na turma e
+/// na fase em que ela está. A mesma questão em fases diferentes aparece uma
+/// vez para cada fase — cada uma é copiada ou excluída isoladamente.
 class BankEntry {
   BankEntry({
     required this.question,
-    required this.copies,
     required this.inThisPhase,
   }) : searchText = foldForSearch(
           [
@@ -18,9 +18,6 @@ class BankEntry {
 
   final BankQuestion question;
 
-  /// Em quantas fases a mesma questão (mesmo enunciado e alternativas) está.
-  final int copies;
-
   /// Já existe uma igual na fase de destino: copiar de novo duplicaria.
   final bool inThisPhase;
 
@@ -30,9 +27,9 @@ class BankEntry {
   String get id => question.id;
 }
 
-/// Monta o banco para copiar para a fase [phaseId]: tira as questões da
-/// própria fase, junta as repetidas (fica a mais recente — [all] vem da mais
-/// nova para a mais antiga) e marca as que já existem na fase.
+/// Monta o banco para copiar para a fase [phaseId]: todas as questões do
+/// professor fora dessa fase ([all] vem da mais nova para a mais antiga),
+/// marcando as que já têm uma igual nela.
 List<BankEntry> buildBankEntries(
   List<BankQuestion> all, {
   required String phaseId,
@@ -41,25 +38,10 @@ List<BankEntry> buildBankEntries(
     for (final q in all)
       if (q.phaseId == phaseId) q.signature,
   };
-  final order = <String>[];
-  final first = <String, BankQuestion>{};
-  final counts = <String, int>{};
-  for (final q in all) {
-    if (q.phaseId == phaseId) continue;
-    final key = q.signature;
-    if (!first.containsKey(key)) {
-      first[key] = q;
-      order.add(key);
-    }
-    counts[key] = (counts[key] ?? 0) + 1;
-  }
   return [
-    for (final key in order)
-      BankEntry(
-        question: first[key]!,
-        copies: counts[key]!,
-        inThisPhase: inPhase.contains(key),
-      ),
+    for (final q in all)
+      if (q.phaseId != phaseId)
+        BankEntry(question: q, inThisPhase: inPhase.contains(q.signature)),
   ];
 }
 

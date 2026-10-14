@@ -142,6 +142,40 @@ void main() {
     );
   });
 
+  test('excluir pelo banco é uma chamada só, com todas as ocorrências',
+      () async {
+    fake.responses['POST delete_my_questions'] = (200, 2);
+
+    final result = await repository.deleteBankQuestions(
+      questionIds: ['q1', 'q2'],
+    );
+
+    expect(result.fold((_) => -1, (n) => n), 2);
+    expect(fake.requests.where((r) => r.method == 'DELETE'), isEmpty);
+    final call = fake.where('POST', '/rpc/delete_my_questions').single;
+    expect(jsonDecode(call.body), {
+      'p_question_ids': ['q1', 'q2'],
+    });
+  });
+
+  test('exclusão recusada pela RPC mostra o motivo do servidor', () async {
+    fake.responses['POST delete_my_questions'] = (
+      400,
+      {
+        'code': '22023',
+        'message': 'Alguma das questões escolhidas não existe mais. '
+            'Recarregue a lista e tente de novo.',
+      }
+    );
+
+    final result = await repository.deleteBankQuestions(questionIds: ['q1']);
+
+    expect(
+      result.fold((f) => f.message, (_) => ''),
+      startsWith('Alguma das questões escolhidas não existe mais.'),
+    );
+  });
+
   test('cópia recusada pela RPC mostra o motivo do servidor', () async {
     fake.responses['POST copy_questions_to_phase'] = (
       400,

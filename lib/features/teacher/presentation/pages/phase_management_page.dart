@@ -227,7 +227,7 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
   }
 
   Future<void> _openQuestionBank() async {
-    final copied = await Navigator.of(context).push<bool>(
+    await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
         builder: (_) => QuestionBankPage(
           phaseId: widget.phase.id,
@@ -235,7 +235,8 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
         ),
       ),
     );
-    if (!mounted || copied != true) return;
+    if (!mounted) return;
+    // Copiou para cá ou excluiu de outras fases da turma: recarrega.
     ref.invalidate(classroomPhasesProvider(widget.classroom.id));
   }
 

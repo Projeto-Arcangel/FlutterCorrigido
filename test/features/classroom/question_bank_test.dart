@@ -38,27 +38,35 @@ void main() {
     _q('6', 'Quem foi Getúlio Vargas?', phase: 'f2', options: ['X', 'Y']),
   ];
 
-  test('tira as da própria fase e junta as repetidas (fica a mais nova)', () {
+  test('tira só as da própria fase; repetidas aparecem uma vez por fase', () {
     final entries = buildBankEntries(all, phaseId: 'destino');
-    expect(entries.map((e) => e.id), ['1', '3', '5', '6']);
-    expect(entries.first.copies, 2); // "1" e "2": mesmo texto e alternativas
-    expect(entries.last.copies, 1); // alternativas diferentes = outra questão
+    // "1" e "2" são a mesma questão em fases diferentes: duas linhas, cada
+    // uma com a sua turma e fase (copiadas e excluídas isoladamente).
+    expect(entries.map((e) => e.id), ['1', '2', '3', '5', '6']);
+    expect(entries[0].question.phaseId, 'f2');
+    expect(entries[1].question.phaseId, 'f3');
   });
 
   test('marca as que já existem na fase de destino e esconde por padrão', () {
     final entries = buildBankEntries(all, phaseId: 'destino');
     expect(entries.firstWhere((e) => e.id == '5').inThisPhase, isTrue);
-    expect(filterBank(entries).map((e) => e.id), ['1', '3', '6']);
-    expect(filterBank(entries, showInPhase: true), hasLength(4));
+    expect(filterBank(entries).map((e) => e.id), ['1', '2', '3', '6']);
+    expect(filterBank(entries, showInPhase: true), hasLength(5));
   });
 
   test('busca sem acento, todas as palavras, e por turma', () {
     final entries = buildBankEntries(all, phaseId: 'destino');
-    expect(filterBank(entries, query: 'getulio').map((e) => e.id), ['1', '6']);
+    expect(
+      filterBank(entries, query: 'getulio').map((e) => e.id),
+      ['1', '2', '6'],
+    );
     expect(filterBank(entries, query: 'FOTOSSÍNTESE').map((e) => e.id), ['3']);
     expect(filterBank(entries, query: 'vargas x').map((e) => e.id), ['6']);
-    expect(filterBank(entries, query: 'turma 8a fase f2'), hasLength(3));
-    expect(filterBank(entries, classroomId: 'c2'), isEmpty);
+    expect(
+      filterBank(entries, query: 'turma 8a fase f2').map((e) => e.id),
+      ['1', '3', '6'],
+    );
+    expect(filterBank(entries, classroomId: 'c2').map((e) => e.id), ['2']);
   });
 
   test('foldForSearch', () {

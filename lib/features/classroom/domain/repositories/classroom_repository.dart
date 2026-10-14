@@ -192,6 +192,12 @@ abstract class ClassroomRepository {
     required List<String> questionIds,
   });
 
+  /// Exclui questões das turmas do professor pelo banco: elas somem da fase
+  /// em que estão. Devolve quantas foram excluídas.
+  Future<Either<Failure, int>> deleteBankQuestions({
+    required List<String> questionIds,
+  });
+
   /// Reordena as questões dentro de uma fase.
   Future<Either<Failure, void>> reorderQuestionsInPhase({
     required String classroomId,
