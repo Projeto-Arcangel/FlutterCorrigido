@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../lesson/domain/entities/question.dart';
+import 'phase_rules.dart';
 
 /// Representa uma fase (phase/lesson) criada pelo professor e vinculada
 /// a uma sala de aula (classroom).
@@ -23,6 +24,35 @@ class ClassroomPhase extends Equatable {
   final DateTime createdAt;
   final List<Question> questions;
 
+  // ── Ajustes do professor (ver PhaseRules) ─────────────────────────
+  final DateTime? opensAt;
+  final DateTime? closesAt;
+
+  /// Nota (%) para liberar a próxima fase (`null` = basta concluir).
+  final double? passPct;
+
+  /// Relógio por questão (o efeito entra com as tentativas no servidor).
+  final bool timerEnabled;
+
+  /// 'short' | 'normal' | 'long'.
+  final String timerLevel;
+
+  // ── Estado para o aluno logado (só nas fases do aluno; calculado no
+  // servidor por student_phase_states) ─────────────────────────────
+  final PhaseStatus status;
+
+  /// Falta cumprir uma fase anterior.
+  final bool locked;
+
+  /// O aluno já respondeu esta fase.
+  final bool completed;
+
+  /// Nota oficial (%), a da 1ª tentativa.
+  final double? scorePct;
+
+  /// Melhor nota (%) — a que libera a próxima fase.
+  final double? bestPct;
+
   const ClassroomPhase({
     required this.id,
     required this.classroomId,
@@ -32,9 +62,32 @@ class ClassroomPhase extends Equatable {
     this.weight = 1.0,
     required this.createdAt,
     required this.questions,
+    this.opensAt,
+    this.closesAt,
+    this.passPct,
+    this.timerEnabled = false,
+    this.timerLevel = 'normal',
+    this.status = PhaseStatus.open,
+    this.locked = false,
+    this.completed = false,
+    this.scorePct,
+    this.bestPct,
   });
 
   int get totalQuestions => questions.length;
+
+  PhaseRules get rules =>
+      PhaseRules(opensAt: opensAt, closesAt: closesAt, passPct: passPct);
+
+  /// Respondeu, mas a melhor nota ainda não alcança a nota mínima (e a
+  /// fase segue aberta para refazer).
+  bool get needsPassScore {
+    final pass = passPct;
+    return pass != null &&
+        completed &&
+        status != PhaseStatus.closed &&
+        (bestPct ?? 0) < pass;
+  }
 
   @override
   List<Object?> get props => [
@@ -46,5 +99,15 @@ class ClassroomPhase extends Equatable {
         weight,
         createdAt,
         questions,
+        opensAt,
+        closesAt,
+        passPct,
+        timerEnabled,
+        timerLevel,
+        status,
+        locked,
+        completed,
+        scorePct,
+        bestPct,
       ];
 }

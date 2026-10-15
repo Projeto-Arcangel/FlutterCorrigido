@@ -7,6 +7,7 @@ import '../entities/classroom.dart';
 import '../entities/classroom_activity.dart';
 import '../entities/classroom_phase.dart';
 import '../entities/classroom_result.dart';
+import '../entities/phase_rules.dart';
 import '../entities/quiz_submission_result.dart';
 
 /// Contrato do repositório de salas de aula.
@@ -179,6 +180,13 @@ abstract class ClassroomRepository {
     required String classroomId,
     required String phaseId,
     required List<Question> questions,
+  });
+
+  /// Prazo (abertura/fechamento) e nota mínima da fase.
+  Future<Either<Failure, void>> updatePhaseRules({
+    required String classroomId,
+    required String phaseId,
+    required PhaseRules rules,
   });
 
   /// Questões de todas as turmas do professor logado, para reutilizar em

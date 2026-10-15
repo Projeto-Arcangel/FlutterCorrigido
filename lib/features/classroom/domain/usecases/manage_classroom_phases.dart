@@ -3,6 +3,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/errors/failure.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../entities/classroom_phase.dart';
+import '../entities/phase_rules.dart';
 import '../repositories/classroom_repository.dart';
 
 /// Use cases agrupados para gerenciar fases (CRUD + ordenação) de uma
@@ -42,6 +43,28 @@ class CreateEmptyPhase {
       title: title.trim(),
       description: description.trim(),
       weight: weight,
+    );
+  }
+}
+
+/// Salva o prazo (abertura/fechamento) e a nota mínima de uma fase.
+class UpdatePhaseRules {
+  final ClassroomRepository _repository;
+  const UpdatePhaseRules(this._repository);
+
+  Future<Either<Failure, void>> call({
+    required String classroomId,
+    required String phaseId,
+    required PhaseRules rules,
+  }) {
+    final problem = rules.validate();
+    if (problem != null) {
+      return Future.value(Left(ValidationFailure(problem)));
+    }
+    return _repository.updatePhaseRules(
+      classroomId: classroomId,
+      phaseId: phaseId,
+      rules: rules,
     );
   }
 }

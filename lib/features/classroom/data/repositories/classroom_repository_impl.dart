@@ -10,6 +10,7 @@ import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
+import '../../domain/entities/phase_rules.dart';
 import '../../domain/entities/quiz_submission_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../datasources/supabase/classroom_supabase_datasource.dart';
@@ -257,7 +258,16 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       return Right(result);
     } catch (e, st) {
       _logger.e('submitQuiz failed', error: e, stackTrace: st);
-      return const Left(NetworkFailure('Falha ao enviar respostas'));
+      // Recusas da regra da fase (não abriu, fechou, bloqueada) chegam com
+      // a mensagem pronta do servidor.
+      if (e is PostgrestException && e.code == '22023') {
+        return Left(ValidationFailure(e.message));
+      }
+      return Left(
+        NetworkFailure(
+          ErrorMessages.from(e, fallback: 'Falha ao enviar respostas'),
+        ),
+      );
     }
   }
 
@@ -432,6 +442,41 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
     } catch (e, st) {
       _logger.e('addQuestionsToPhase failed', error: e, stackTrace: st);
       return Left(_saveFailure(e, 'Falha ao adicionar questões à fase'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> updatePhaseRules({
+    required String classroomId,
+    required String phaseId,
+    required PhaseRules rules,
+  }) async {
+    try {
+      await _datasource.updatePhaseRules(phaseId: phaseId, rules: rules);
+      return const Right(null);
+    } catch (e, st) {
+      _logger.e('updatePhaseRules failed', error: e, stackTrace: st);
+      // As restrições do banco espelham PhaseRules.validate.
+      if (e is PostgrestException && e.code == '23514') {
+        if (e.message.contains('dates_order')) {
+          return const Left(
+            ValidationFailure('O fechamento precisa ser depois da abertura.'),
+          );
+        }
+        if (e.message.contains('pass_pct')) {
+          return const Left(
+            ValidationFailure('A nota mínima vai de 1% a 100%.'),
+          );
+        }
+      }
+      return Left(
+        NetworkFailure(
+          ErrorMessages.from(
+            e,
+            fallback: 'Não foi possível salvar o prazo e a nota mínima.',
+          ),
+        ),
+      );
     }
   }
 

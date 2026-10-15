@@ -1012,10 +1012,14 @@ class _PhaseTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${phase.totalQuestions} '
-                  'quest${phase.totalQuestions == 1 ? 'ão' : 'ões'}'
-                  '${phase.description.isEmpty ? '' : ' · ${phase.description}'}',
-                  maxLines: 1,
+                  [
+                    '${phase.totalQuestions} '
+                        'quest${phase.totalQuestions == 1 ? 'ão' : 'ões'}',
+                    if (phase.description.isNotEmpty) phase.description,
+                    if (!phase.rules.isEmpty) phase.rules.summary(),
+                  ].join(' · '),
+                  // Com prazo e nota mínima, o resumo pode passar de uma linha.
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: GoogleFonts.nunito(
                     fontSize: 12,

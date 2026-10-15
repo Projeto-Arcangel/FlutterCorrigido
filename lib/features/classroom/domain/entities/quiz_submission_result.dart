@@ -52,20 +52,30 @@ class QuizAnswerReview extends Equatable {
 /// [review] traz a correção por questão (gabarito + acertou/errou + explicação),
 /// usada na tela de revisão pós-envio.
 class QuizSubmissionResult extends Equatable {
+  /// Nota OFICIAL (a da 1ª tentativa): total de questões e acertos.
   final int total;
   final int correct;
   final bool firstAttempt;
   final List<QuizAnswerReview> review;
+
+  /// Nota (%) DESTA tentativa — igual à oficial na 1ª vez.
+  final double? attemptPct;
+
+  /// Melhor nota (%) do aluno na fase, a que libera a próxima.
+  final double? bestPct;
 
   const QuizSubmissionResult({
     required this.total,
     required this.correct,
     required this.firstAttempt,
     this.review = const [],
+    this.attemptPct,
+    this.bestPct,
   });
 
   double get percentage => total > 0 ? correct / total : 0.0;
 
   @override
-  List<Object?> get props => [total, correct, firstAttempt, review];
+  List<Object?> get props =>
+      [total, correct, firstAttempt, review, attemptPct, bestPct];
 }

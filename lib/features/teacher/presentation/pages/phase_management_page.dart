@@ -9,10 +9,12 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/list_reorder.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
+import '../../../classroom/domain/entities/phase_rules.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../enem/presentation/pages/enem_bank_page.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../widgets/classroom_palette.dart';
+import '../widgets/phase_rules_card.dart';
 import '../widgets/question_detail_sheet.dart';
 import 'question_bank_page.dart';
 
@@ -150,6 +152,24 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
       _parsedWeight != null &&
       _detailsDirty &&
       !_savingDetails;
+
+  /// Salva prazo e nota mínima; devolve o erro para o cartão mostrar.
+  Future<String?> _saveRules(PhaseRules rules) async {
+    final result = await ref.read(updatePhaseRulesProvider)(
+      classroomId: widget.classroom.id,
+      phaseId: widget.phase.id,
+      rules: rules,
+    );
+    if (!mounted) return null;
+    return result.fold(
+      (f) => f.message,
+      (_) {
+        _showSnack('Prazo e nota mínima salvos.');
+        ref.invalidate(classroomPhasesProvider(widget.classroom.id));
+        return null;
+      },
+    );
+  }
 
   Future<void> _saveDetails() async {
     if (!_canSaveDetails) return;
@@ -387,6 +407,12 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
                 _weightCtrl.text = _initialWeight;
                 _detailsExpanded = false;
               }),
+            ),
+            const SizedBox(height: 24),
+            PhaseRulesCard(
+              key: ValueKey('rules-${phase.id}'),
+              rules: phase.rules,
+              onSave: _saveRules,
             ),
             const SizedBox(height: 24),
             _AddQuestionsSection(

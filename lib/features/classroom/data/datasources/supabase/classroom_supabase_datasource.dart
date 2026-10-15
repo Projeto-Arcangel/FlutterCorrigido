@@ -4,6 +4,7 @@ import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
 import '../../../domain/entities/bank_question.dart';
 import '../../../domain/entities/classroom_activity.dart';
+import '../../../domain/entities/phase_rules.dart';
 import '../../../domain/entities/quiz_submission_result.dart';
 import '../../models/classroom_model.dart';
 import '../../models/classroom_phase_model.dart';
@@ -157,11 +158,15 @@ class ClassroomSupabaseDatasource {
     final review = ((map['questions'] as List?) ?? const [])
         .map((e) => QuizAnswerReview.fromMap(Map<String, dynamic>.from(e as Map)))
         .toList();
+    double? number(Object? v) =>
+        v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
     return QuizSubmissionResult(
       total: (map['total'] as num?)?.toInt() ?? 0,
       correct: (map['correct'] as num?)?.toInt() ?? 0,
       firstAttempt: (map['first_attempt'] as bool?) ?? false,
       review: review,
+      attemptPct: number(map['attempt_pct']),
+      bestPct: number(map['best_pct']),
     );
   }
 
@@ -180,20 +185,6 @@ class ClassroomSupabaseDatasource {
   /// IDs das fases que o ALUNO logado já concluiu nesta sala (tem resultado).
   /// Lê direto de `classroom_results` — a RLS libera as próprias linhas
   /// (`student_id = auth.uid()`). Usado para travar a trilha em ordem.
-  Future<Set<String>> fetchCompletedPhaseIds(String classroomId) async {
-    final uid = _client.auth.currentUser?.id;
-    if (uid == null) return <String>{};
-    final rows = await _client
-        .from('classroom_results')
-        .select('phase_id')
-        .eq('classroom_id', classroomId)
-        .eq('student_id', uid);
-    return (rows as List)
-        .map((e) => (e as Map)['phase_id']?.toString())
-        .whereType<String>()
-        .toSet();
-  }
-
   /// Resultados POR FASE (cada item com `phaseId`) — para o dashboard.
   Future<List<ClassroomResultModel>> fetchPhaseResults(
     String classroomId,
@@ -354,6 +345,19 @@ class ClassroomSupabaseDatasource {
       'title': title,
       'description': description,
       'weight': weight,
+    }).eq('id', phaseId);
+  }
+
+  /// Prazo e nota mínima da fase. `null` limpa o ajuste (sem data / sem
+  /// nota mínima).
+  Future<void> updatePhaseRules({
+    required String phaseId,
+    required PhaseRules rules,
+  }) async {
+    await _phases.update({
+      'opens_at': rules.opensAt?.toUtc().toIso8601String(),
+      'closes_at': rules.closesAt?.toUtc().toIso8601String(),
+      'pass_pct': rules.passPct,
     }).eq('id', phaseId);
   }
 

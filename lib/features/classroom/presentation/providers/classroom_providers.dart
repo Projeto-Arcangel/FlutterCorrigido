@@ -227,18 +227,14 @@ final studentPhasesProvider = FutureProvider.autoDispose
   );
 });
 
-/// IDs das fases que o aluno logado já concluiu numa sala — usado para
-/// travar a trilha (cada fase libera a próxima na ordem). Invalidado após
-/// concluir uma fase (ver `_QuizResultGate`).
-final studentCompletedPhasesProvider = FutureProvider.autoDispose
-    .family<Set<String>, String>((ref, classroomId) async {
-  return ref.watch(classroomDatasourceProvider).fetchCompletedPhaseIds(classroomId);
-});
-
 // ─── Gerenciamento de fases (CRUD + reordenação) ───────────────
 
 final createEmptyPhaseProvider = Provider<CreateEmptyPhase>((ref) {
   return CreateEmptyPhase(ref.watch(classroomRepositoryProvider));
+});
+
+final updatePhaseRulesProvider = Provider<UpdatePhaseRules>((ref) {
+  return UpdatePhaseRules(ref.watch(classroomRepositoryProvider));
 });
 
 final updatePhaseProvider = Provider<UpdatePhase>((ref) {

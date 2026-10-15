@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../../../../core/errors/failure.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
@@ -11,6 +12,7 @@ import '../../../lesson/presentation/widgets/option_tile.dart';
 import '../../../progress/presentation/providers/progress_providers.dart';
 import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_phase.dart';
+import '../../domain/entities/phase_rules.dart';
 import '../../domain/entities/quiz_submission_result.dart';
 import '../providers/classroom_providers.dart';
 
@@ -339,6 +341,9 @@ class _QuizResultGate extends ConsumerStatefulWidget {
 class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
   bool _loading = true;
   String? _error;
+
+  /// Recusa da regra da fase (fechou, bloqueada): reenviar não adianta.
+  bool _errorIsFinal = false;
   QuizSubmissionResult? _result;
 
   @override
@@ -351,6 +356,7 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
     setState(() {
       _loading = true;
       _error = null;
+      _errorIsFinal = false;
     });
 
     final user = ref.read(authStateProvider).valueOrNull;
@@ -373,11 +379,12 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
       (f) => setState(() {
         _loading = false;
         _error = f.message;
+        _errorIsFinal = f is ValidationFailure;
       }),
       (sub) {
         ref.invalidate(userProgressProvider(user.id));
-        // Concluir esta fase libera a próxima na trilha (trava em ordem).
-        ref.invalidate(studentCompletedPhasesProvider(widget.classroom.id));
+        // A trilha recalcula no servidor o que esta fase libera.
+        ref.invalidate(studentPhasesProvider(widget.classroom.id));
         setState(() {
           _loading = false;
           _result = sub;
@@ -415,12 +422,16 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
                   size: 48, color: AppColors.error,),
               const SizedBox(height: 12),
               Text(
-                'Não foi possível enviar suas respostas.\n$_error',
+                _errorIsFinal
+                    ? _error!
+                    : 'Não foi possível enviar suas respostas.\n$_error',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-              AppButton(onPressed: _submit, label: 'Tentar enviar de novo'),
-              const SizedBox(height: 8),
+              if (!_errorIsFinal) ...[
+                AppButton(onPressed: _submit, label: 'Tentar enviar de novo'),
+                const SizedBox(height: 8),
+              ],
               OutlinedButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text('Voltar à turma'),
@@ -439,6 +450,9 @@ class _QuizResultGateState extends ConsumerState<_QuizResultGate> {
       review: r.review,
       questions: widget.phase.questions,
       onRestart: widget.onRestart,
+      attemptPct: r.attemptPct,
+      bestPct: r.bestPct,
+      passPct: widget.phase.passPct,
     );
   }
 }
@@ -453,8 +467,12 @@ class _ClassroomResultView extends StatelessWidget {
     required this.review,
     required this.questions,
     required this.onRestart,
+    this.attemptPct,
+    this.bestPct,
+    this.passPct,
   });
 
+  /// Nota OFICIAL (1ª tentativa).
   final int total;
   final int correct;
   final bool firstAttempt;
@@ -462,8 +480,26 @@ class _ClassroomResultView extends StatelessWidget {
   final List<Question> questions;
   final VoidCallback onRestart;
 
-  int get _percent => total == 0 ? 0 : ((correct / total) * 100).round();
-  bool get _passed => _percent >= 60;
+  /// Nota desta tentativa e melhor nota (%), do servidor.
+  final double? attemptPct;
+  final double? bestPct;
+
+  /// Nota mínima da fase para liberar a próxima.
+  final double? passPct;
+
+  int get _officialPercent =>
+      total == 0 ? 0 : ((correct / total) * 100).round();
+
+  /// Na 1ª vez é a nota oficial; ao refazer, a desta tentativa.
+  int get _percent => firstAttempt
+      ? _officialPercent
+      : (attemptPct ?? _officialPercent.toDouble()).round();
+
+  int get _shownCorrect =>
+      firstAttempt ? correct : review.where((r) => r.isCorrect).length;
+  int get _shownTotal => firstAttempt ? total : review.length;
+
+  bool get _passed => _percent >= (passPct ?? 60);
 
   @override
   Widget build(BuildContext context) {
@@ -491,9 +527,13 @@ class _ClassroomResultView extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              _passed
-                  ? 'Você acertou $correct de $total questões.'
-                  : 'Você acertou $correct de $total. Tente novamente!',
+              firstAttempt
+                  ? (_passed
+                      ? 'Você acertou $_shownCorrect de $_shownTotal questões.'
+                      : 'Você acertou $_shownCorrect de $_shownTotal. '
+                          'Tente novamente!')
+                  : 'Nesta tentativa você acertou $_shownCorrect de '
+                      '$_shownTotal.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: cs.onSurfaceVariant,
@@ -571,8 +611,8 @@ class _ClassroomResultView extends StatelessWidget {
                     const SizedBox(width: 8),
                     Flexible(
                       child: Text(
-                        'Você já havia concluído esta fase — sua nota foi '
-                        'mantida.',
+                        'Sua nota oficial continua $_officialPercent%, a da '
+                        '1ª tentativa.',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: cs.onSurfaceVariant,
@@ -582,6 +622,10 @@ class _ClassroomResultView extends StatelessWidget {
                   ],
                 ),
               ),
+            if (passPct != null) ...[
+              const SizedBox(height: 16),
+              _PassScoreBox(passPct: passPct!, bestPct: bestPct),
+            ],
             if (review.isNotEmpty) ...[
               const SizedBox(height: 32),
               _QuizReviewSection(questions: questions, review: review),
@@ -603,6 +647,53 @@ class _ClassroomResultView extends StatelessWidget {
     );
   }
 }
+/// Nota mínima da fase: liberou a próxima ou quanto falta.
+class _PassScoreBox extends StatelessWidget {
+  const _PassScoreBox({required this.passPct, required this.bestPct});
+
+  final double passPct;
+  final double? bestPct;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final best = bestPct ?? 0;
+    final reached = best >= passPct;
+    final color = reached ? const Color(0xFF3FA86B) : const Color(0xFFE0A85B);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            reached ? Icons.lock_open_rounded : Icons.lock_outline_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              reached
+                  ? 'Próxima fase liberada! Sua melhor nota '
+                      '(${formatPct(best)}%) alcançou o mínimo de '
+                      '${formatPct(passPct)}%.'
+                  : 'Para liberar a próxima fase, tire pelo menos '
+                      '${formatPct(passPct)}%. Sua melhor nota: '
+                      '${formatPct(best)}%. Toque em "Tentar novamente".',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 // ─── Dialog de imagem em tela cheia ───────────────────────────────────────────
 
 void _showImageDialog(BuildContext context, String url, bool isDark) {
