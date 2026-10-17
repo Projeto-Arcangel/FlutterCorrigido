@@ -1,3 +1,5 @@
+import 'package:arcangel_o_oficial/features/profile/domain/entities/achievement.dart';
+import 'package:arcangel_o_oficial/features/profile/domain/entities/classmate_profile.dart';
 import 'package:arcangel_o_oficial/features/profile/presentation/pages/profile_page.dart';
 import 'package:arcangel_o_oficial/features/profile/presentation/providers/profile_providers.dart';
 import 'package:arcangel_o_oficial/features/progress/domain/entities/user_progress.dart';
@@ -19,13 +21,21 @@ void main() {
       gold: 42,
       currentPhase: 2,
     ),
-    achievements: [],
   );
 
-  Future<void> pump(WidgetTester tester, {required bool showProgress}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    required bool showProgress,
+    MyAchievements? mine,
+  }) async {
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [profileProvider.overrideWith((ref) async => profile)],
+        overrides: [
+          profileProvider.overrideWith((ref) async => profile),
+          myAchievementsProvider.overrideWith(
+            (ref) async => mine ?? MyAchievements(achievements: xpAchievementsFor(150)),
+          ),
+        ],
         child: MaterialApp(home: ProfilePage(showProgress: showProgress)),
       ),
     );
@@ -61,5 +71,42 @@ void main() {
       find.textContaining('aparecem quando você abre o perfil dentro'),
       findsNothing,
     );
+  });
+
+  testWidgets('conquistas do servidor: liberadas e quanto falta',
+      (tester) async {
+    final electrician = achievementCatalog.firstWhere((a) => a.id == 'electrician');
+    final organized = achievementCatalog.firstWhere((a) => a.id == 'organized');
+    await pump(
+      tester,
+      showProgress: true,
+      mine: MyAchievements(
+        achievements: [
+          ...xpAchievementsFor(150),
+          electrician.copyWith(unlocked: true, progress: 5),
+          organized.copyWith(progress: 3),
+        ],
+      ),
+    );
+
+    expect(find.text('2 / 8'), findsOneWidget); // Primeiro Passo + Eletricista
+    expect(find.text('Eletricista'), findsOneWidget);
+    expect(find.text('3/5'), findsOneWidget); // Organizado
+    expect(find.text('150/200'), findsOneWidget); // Estudante, pelo XP
+    expect(find.textContaining('não carregaram'), findsNothing);
+  });
+
+  testWidgets('servidor fora: só as de XP, com aviso', (tester) async {
+    await pump(
+      tester,
+      showProgress: true,
+      mine: MyAchievements(achievements: xpAchievementsFor(150), partial: true),
+    );
+
+    expect(find.textContaining('não carregaram agora'), findsOneWidget);
+    expect(find.text('Tentar de novo'), findsOneWidget);
+    expect(find.text('Eletricista'), findsNothing);
+    // Sem o servidor, não mostra contagem que pareça completa.
+    expect(find.text('1 / 6'), findsNothing);
   });
 }

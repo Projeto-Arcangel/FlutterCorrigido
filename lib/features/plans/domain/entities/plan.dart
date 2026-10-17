@@ -258,6 +258,8 @@ class MyPlan extends Equatable {
     required int quantity,
     required String modelKey,
     required String modelLabel,
+    /// Quanto cada questão pedida conta no limite (cruzadinha = 3).
+    int weight = 1,
   }) {
     if (!plan.allowsModel(modelKey)) {
       return 'O $modelLabel está disponível nos planos Pro e Premium. '
@@ -272,7 +274,12 @@ class MyPlan extends Equatable {
       return 'Você usou as ${_limitFor(source)} $what do plano ${plan.name}. '
           '$renew';
     }
-    if (quantity > remaining) {
+    if (quantity * weight > remaining) {
+      if (weight > 1) {
+        final fits = remaining ~/ weight;
+        return 'Restam $remaining $what até $resetLabel, e cada cruzadinha '
+            'conta $weight. ${fits > 0 ? 'Peça $fits ou menos.' : renew}';
+      }
       return 'Restam $remaining $what até $resetLabel. Peça $remaining ou '
           'menos.';
     }

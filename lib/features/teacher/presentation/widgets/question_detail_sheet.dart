@@ -2,8 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/theme/app_colors.dart';
+import '../../../classroom/domain/entities/phase_rules.dart';
 import '../../../lesson/domain/entities/question.dart';
+import '../../../lesson/domain/entities/question_kinds.dart';
 import 'classroom_palette.dart';
+import 'kind_editors.dart';
+import 'question_time_picker.dart';
 
 /// Bottom sheet que mostra uma questão **completa** (enunciado, imagem,
 /// alternativas com a correta destacada e explicação) e permite **editá-la**.
@@ -16,12 +20,23 @@ class QuestionDetailSheet extends StatefulWidget {
     super.key,
     required this.question,
     required this.order,
+    this.timerEnabled = false,
+    this.timerLevel = 'normal',
+    this.initiallyEditing = false,
   });
+
+  /// Abre direto na edição (revisão das questões geradas pela IA).
+  final bool initiallyEditing;
 
   final Question question;
 
   /// Posição da questão na fase (1-based) — só para o título.
   final int order;
+
+  /// Relógio da fase: o tempo da questão só vale com ele ligado, e o
+  /// nível dá o tempo automático.
+  final bool timerEnabled;
+  final String timerLevel;
 
   @override
   State<QuestionDetailSheet> createState() => _QuestionDetailSheetState();
@@ -30,12 +45,22 @@ class QuestionDetailSheet extends StatefulWidget {
 class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
   static const _letters = ['A', 'B', 'C', 'D', 'E'];
 
-  bool _editing = false;
+  late bool _editing = widget.initiallyEditing;
+
+  /// Ligar/ordenar/lacunas: os itens em edição.
+  MatchPairsDraft? _match;
+  OrderingDraft? _ordering;
+  FillBlanksDraft? _blanks;
+  CrosswordDraft? _crossword;
+  WordSearchDraft? _wordSearch;
 
   late final TextEditingController _textCtrl;
   late final List<TextEditingController> _optionCtrls;
   late final TextEditingController _explanationCtrl;
   late int _correctIndex;
+
+  /// Tempo escolhido (`null` = automático).
+  int? _timeLimit;
 
   @override
   void initState() {
@@ -46,6 +71,28 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
         .toList();
     _explanationCtrl = TextEditingController(text: widget.question.explanation);
     _correctIndex = widget.question.correctAnswer;
+    _timeLimit = widget.question.timeLimitS;
+    _makeKindDrafts();
+  }
+
+  void _makeKindDrafts() {
+    _match?.dispose();
+    _ordering?.dispose();
+    _blanks?.dispose();
+    _crossword?.dispose();
+    _wordSearch?.dispose();
+    final q = widget.question;
+    _crossword = q.type == QuestionType.crossword
+        ? CrosswordDraft(q.crosswordEntries)
+        : null;
+    _wordSearch = q.type == QuestionType.wordSearch
+        ? WordSearchDraft(q.wordSearchWords)
+        : null;
+    _match = q.isMatchColumns ? MatchPairsDraft(q.matchPairs) : null;
+    _ordering = q.isOrdering ? OrderingDraft(q.orderedItems) : null;
+    _blanks = q.type == QuestionType.fillBlanks
+        ? FillBlanksDraft(q.blankTemplate, q.blankDistractors)
+        : null;
   }
 
   @override
@@ -55,14 +102,29 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
       c.dispose();
     }
     _explanationCtrl.dispose();
+    _match?.dispose();
+    _ordering?.dispose();
+    _blanks?.dispose();
+    _crossword?.dispose();
+    _wordSearch?.dispose();
     super.dispose();
   }
 
   String _letterFor(int i) => i < _letters.length ? _letters[i] : '${i + 1}';
 
+  /// Ligar/ordenar: por que ainda não dá para salvar.
+  String? get _kindProblem =>
+      _match?.problem ??
+      _ordering?.problem ??
+      _blanks?.problem ??
+      _crossword?.problem ??
+      _wordSearch?.problem;
+
   bool get _isValid =>
       _textCtrl.text.trim().isNotEmpty &&
-      _optionCtrls.every((c) => c.text.trim().isNotEmpty);
+      (widget.question.type.usesContent
+          ? _kindProblem == null
+          : _optionCtrls.every((c) => c.text.trim().isNotEmpty));
 
   void _resetEdits() {
     _textCtrl.text = widget.question.text;
@@ -71,12 +133,119 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
     }
     _explanationCtrl.text = widget.question.explanation;
     _correctIndex = widget.question.correctAnswer;
+    _timeLimit = widget.question.timeLimitS;
+    _makeKindDrafts();
+  }
+
+  /// Tempo automático com o texto como está agora (muda ao editar).
+  int get _autoSeconds {
+    final crossword = _crossword;
+    final wordSearch = _wordSearch;
+    if (crossword != null || wordSearch != null) {
+      final grid = wordSearch?.layout;
+      return autoTimeLimit(
+        _textCtrl.text.trim(),
+        const [],
+        widget.timerLevel,
+        contentTexts: crossword != null
+            ? [for (final e in crossword.entries) e.clue]
+            : [...?grid?.grid, ...?grid?.words],
+        extraSeconds: crossword != null
+            ? 10 * crossword.length
+            : 6 * wordSearch!.length,
+      );
+    }
+    final match = _match;
+    final ordering = _ordering;
+    final blanks = _blanks;
+    final parsed = blanks == null ? null : parseBlankTemplate(blanks.template);
+    final texts = match != null
+        ? [for (final p in match.pairs) ...[p.left, p.right]]
+        : parsed != null
+            ? [...parsed.parts, ...parsed.answers, ...blanks!.distractors]
+            : (ordering?.items ?? const <String>[]);
+    return autoTimeLimit(
+      _textCtrl.text.trim(),
+      _optionCtrls.map((c) => c.text.trim()).toList(),
+      widget.timerLevel,
+      contentTexts: texts,
+      extraSeconds: 3 *
+          (match?.length ?? ordering?.length ?? parsed?.answers.length ?? 0),
+    );
   }
 
   void _save() {
     if (!_isValid) return;
-    // Preserva imagem/tipo/id — só texto, alternativas, correta e explicação
-    // são editáveis aqui.
+    final q = widget.question;
+    final match = _match;
+    final ordering = _ordering;
+    final crossword = _crossword;
+    final wordSearch = _wordSearch;
+    if (crossword != null || wordSearch != null) {
+      // Mesma lista, mesma grade da prévia.
+      final updated = crossword != null
+          ? buildCrosswordQuestion(
+              id: q.id,
+              text: _textCtrl.text,
+              entries: crossword.entries,
+              explanation: _explanationCtrl.text,
+              timeLimitS: _timeLimit,
+            )
+          : buildWordSearchQuestion(
+              id: q.id,
+              text: _textCtrl.text,
+              words: wordSearch!.words,
+              explanation: _explanationCtrl.text,
+              timeLimitS: _timeLimit,
+            );
+      if (updated != null) Navigator.of(context).pop(updated);
+      return;
+    }
+    final blanks = _blanks;
+    if (blanks != null) {
+      Navigator.of(context).pop(
+        buildFillBlanksQuestion(
+          id: q.id,
+          text: _textCtrl.text,
+          template: blanks.template,
+          distractors: blanks.distractors,
+          explanation: _explanationCtrl.text,
+          timeLimitS: _timeLimit,
+          imageUrl: q.imageUrl,
+          imageAuthor: q.imageAuthor,
+          imageSource: q.imageSource,
+        ),
+      );
+      return;
+    }
+    if (match != null || ordering != null) {
+      // Remonta (e reembaralha) a partir do que o professor escreveu.
+      final updated = match != null
+          ? buildMatchQuestion(
+              id: q.id,
+              text: _textCtrl.text,
+              pairs: match.pairs,
+              explanation: _explanationCtrl.text,
+              timeLimitS: _timeLimit,
+              imageUrl: q.imageUrl,
+              imageAuthor: q.imageAuthor,
+              imageSource: q.imageSource,
+            )
+          : buildOrderingQuestion(
+              id: q.id,
+              text: _textCtrl.text,
+              orderedItems: ordering!.items,
+              explanation: _explanationCtrl.text,
+              timeLimitS: _timeLimit,
+              imageUrl: q.imageUrl,
+              imageAuthor: q.imageAuthor,
+              imageSource: q.imageSource,
+            );
+      Navigator.of(context).pop(updated);
+      return;
+    }
+    // Preserva imagem/tipo/id — texto, alternativas, correta, explicação e
+    // tempo são editáveis aqui.
     final updated = Question(
       id: widget.question.id,
       text: _textCtrl.text.trim(),
@@ -87,6 +256,7 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
       imageUrl: widget.question.imageUrl,
       imageAuthor: widget.question.imageAuthor,
       imageSource: widget.question.imageSource,
+      timeLimitS: _timeLimit,
     );
     Navigator.of(context).pop(updated);
   }
@@ -277,14 +447,31 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
           ),
         ),
         const SizedBox(height: 14),
-        // Alternativas
-        for (var i = 0; i < q.options.length; i++)
-          _ViewAlternative(
-            letter: _letterFor(i),
-            text: q.options[i],
-            isCorrect: i == q.correctAnswer,
-            isDark: isDark,
+        // Alternativas (ou pares / ordem certa)
+        if (questionKindView(q) case final kindView?) ...[
+          _TypeTag(type: q.type),
+          const SizedBox(height: 8),
+          kindView,
+        ] else
+          for (var i = 0; i < q.options.length; i++)
+            _ViewAlternative(
+              letter: _letterFor(i),
+              text: q.options[i],
+              isCorrect: i == q.correctAnswer,
+              isDark: isDark,
+            ),
+        if (widget.timerEnabled || q.timeLimitS != null) ...[
+          const SizedBox(height: 10),
+          _TimeInfo(
+            text: q.timeLimitS != null
+                ? 'Tempo para responder: ${formatSeconds(q.timeLimitS!)}'
+                : 'Tempo para responder: automático '
+                    '(${formatSeconds(_autoSeconds)})',
+            note: widget.timerEnabled
+                ? null
+                : 'Vale quando o relógio da fase estiver ligado.',
           ),
+        ],
         // Explicação
         if (q.explanation.trim().isNotEmpty) ...[
           const SizedBox(height: 14),
@@ -352,20 +539,60 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
           isDark: isDark,
         ),
         const SizedBox(height: 16),
-        const _EditLabel(
-          'ALTERNATIVAS · toque no círculo para marcar a correta',
-        ),
-        const SizedBox(height: 6),
-        for (var i = 0; i < _optionCtrls.length; i++) ...[
-          _OptionEditRow(
-            letter: _letterFor(i),
-            controller: _optionCtrls[i],
-            isCorrect: i == _correctIndex,
-            isDark: isDark,
-            onSelectCorrect: () => setState(() => _correctIndex = i),
+        if (_match case final match?) ...[
+          const _EditLabel('PARES'),
+          const SizedBox(height: 6),
+          MatchPairsEditor(draft: match, onChanged: () => setState(() {})),
+        ] else if (_crossword case final crossword?) ...[
+          const _EditLabel('PALAVRAS E DICAS'),
+          const SizedBox(height: 6),
+          CrosswordEditor(draft: crossword, onChanged: () => setState(() {})),
+        ] else if (_wordSearch case final wordSearch?) ...[
+          const _EditLabel('PALAVRAS'),
+          const SizedBox(height: 6),
+          WordSearchEditor(
+            draft: wordSearch,
             onChanged: () => setState(() {}),
           ),
-          if (i < _optionCtrls.length - 1) const SizedBox(height: 6),
+        ] else if (_blanks case final blanks?) ...[
+          const _EditLabel('TEXTO COM LACUNAS'),
+          const SizedBox(height: 6),
+          FillBlanksEditor(draft: blanks, onChanged: () => setState(() {})),
+        ] else if (_ordering case final ordering?) ...[
+          const _EditLabel('ITENS NA ORDEM CERTA'),
+          const SizedBox(height: 6),
+          OrderingItemsEditor(
+            draft: ordering,
+            onChanged: () => setState(() {}),
+          ),
+        ] else ...[
+          const _EditLabel(
+            'ALTERNATIVAS · toque no círculo para marcar a correta',
+          ),
+          const SizedBox(height: 6),
+          for (var i = 0; i < _optionCtrls.length; i++) ...[
+            _OptionEditRow(
+              letter: _letterFor(i),
+              controller: _optionCtrls[i],
+              isCorrect: i == _correctIndex,
+              isDark: isDark,
+              onSelectCorrect: () => setState(() => _correctIndex = i),
+              onChanged: () => setState(() {}),
+            ),
+            if (i < _optionCtrls.length - 1) const SizedBox(height: 6),
+          ],
+        ],
+        if (_kindProblem case final problem?
+            when !problem.startsWith('Preencha')) ...[
+          const SizedBox(height: 6),
+          Text(
+            problem,
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: const Color(0xFFE0A85B),
+            ),
+          ),
         ],
         const SizedBox(height: 16),
         const _EditLabel('EXPLICAÇÃO (OPCIONAL)'),
@@ -375,6 +602,60 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
           maxLines: 3,
           hint: 'Justificativa pedagógica da resposta correta',
           isDark: isDark,
+        ),
+        const SizedBox(height: 16),
+        const _EditLabel('TEMPO PARA RESPONDER'),
+        const SizedBox(height: 6),
+        QuestionTimeMenu(
+          value: _timeLimit,
+          autoSeconds: _autoSeconds,
+          onSelected: (s) => setState(() => _timeLimit = s),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: ClassroomPalette.fieldFill(isDark),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: ClassroomPalette.border(isDark)),
+            ),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.timer_outlined,
+                  size: 18,
+                  color: AppColors.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _timeLimit != null
+                        ? formatSeconds(_timeLimit!)
+                        : 'Automático (${formatSeconds(_autoSeconds)})',
+                    style: GoogleFonts.nunito(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: ClassroomPalette.primaryText(isDark),
+                    ),
+                  ),
+                ),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: ClassroomPalette.textMuted,
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          widget.timerEnabled
+              ? 'Tempo esgotado vale 0. No automático, o tempo cresce com '
+                  'o tamanho do texto.'
+              : 'Vale quando o relógio da fase estiver ligado (em Regras '
+                  'da fase).',
+          style: GoogleFonts.nunito(
+            fontSize: 11,
+            color: ClassroomPalette.textMuted,
+          ),
         ),
       ],
     );
@@ -419,6 +700,85 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
           borderSide: const BorderSide(color: AppColors.primary, width: 1.4),
         ),
       ),
+    );
+  }
+}
+
+// ── Tipo da questão (ligar/ordenar) ─────────────────────────────────────────
+
+class _TypeTag extends StatelessWidget {
+  const _TypeTag({required this.type});
+
+  final QuestionType type;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(questionTypeIcon(type), size: 16, color: AppColors.primary),
+        const SizedBox(width: 6),
+        Text(
+          switch (type) {
+            QuestionType.ordering => '${type.label} · ordem certa',
+            QuestionType.fillBlanks => '${type.label} · respostas em verde',
+            QuestionType.crossword => '${type.label} · respostas na grade',
+            QuestionType.wordSearch => '${type.label} · palavras na grade',
+            _ => '${type.label} · pares certos',
+          },
+          style: GoogleFonts.nunito(
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
+            color: AppColors.primary,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Tempo da questão (modo visualização) ────────────────────────────────────
+
+class _TimeInfo extends StatelessWidget {
+  const _TimeInfo({required this.text, this.note});
+
+  final String text;
+  final String? note;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 1),
+          child: Icon(Icons.timer_outlined, size: 16, color: AppColors.primary),
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text.rich(
+            TextSpan(
+              text: text,
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: ClassroomPalette.primaryText(isDark),
+              ),
+              children: [
+                if (note != null)
+                  TextSpan(
+                    text: ' · $note',
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                      color: ClassroomPalette.textMuted,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

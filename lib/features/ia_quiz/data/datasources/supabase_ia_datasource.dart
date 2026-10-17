@@ -23,6 +23,9 @@ class SupabaseIaDatasource {
     required String modelKey,
     String? subject,
     List<Map<String, Object>> materials = const [],
+    /// Tipo das questões no banco ('multiple_choice', 'match_columns',
+    /// 'ordering').
+    String questionType = 'multiple_choice',
   }) async {
     final res = await _client.functions.invoke(
       'generate-questions',
@@ -35,6 +38,7 @@ class SupabaseIaDatasource {
         'alternatives': alternatives,
         'description': description,
         'modelKey': modelKey,
+        'questionType': questionType,
         if (materials.isNotEmpty) 'materials': materials,
       },
     );

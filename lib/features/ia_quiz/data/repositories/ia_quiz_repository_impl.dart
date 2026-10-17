@@ -4,6 +4,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/errors/error_messages.dart';
 import '../../../../core/errors/failure.dart';
+import '../../../lesson/data/models/question_model.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../../domain/entities/ia_generation_result.dart';
 import '../../domain/entities/ia_model_option.dart';
 import '../../domain/entities/study_material.dart';
@@ -27,6 +29,7 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
     required IaModelOption model,
     String? subject,
     List<MaterialForAi> materials = const [],
+    QuestionType questionType = QuestionType.multipleChoice,
   }) async {
     try {
       final response = await _datasource.generateQuestions(
@@ -38,15 +41,25 @@ class IaQuizRepositoryImpl implements IaQuizRepository {
         modelKey: model.key,
         subject: subject,
         materials: [for (final m in materials) m.toJson()],
+        questionType: QuestionModel.questionTypeToDb(questionType),
       );
 
-      final questions = IaQuestionResponseModel.questionsFromResponse(response);
+      final parsed = IaQuestionResponseModel.questionsFromResponse(response);
+      if (parsed.questions.isEmpty) {
+        return const Left(
+          UnknownFailure(
+            'As palavras geradas não couberam numa grade. Tente de novo ou '
+            'peça palavras menores na descrição.',
+          ),
+        );
+      }
       final modelUsedKey = response['modelUsed'] as String?;
       final modelUsed = IaModelOption.fromKey(modelUsedKey) ?? model;
 
       return Right(
         IaGenerationResult(
-          questions: questions,
+          questions: parsed.questions,
+          skipped: parsed.skipped,
           modelUsed: modelUsed,
           usedFallback: modelUsed != model,
         ),

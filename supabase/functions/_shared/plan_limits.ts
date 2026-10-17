@@ -118,6 +118,8 @@ export function questionLimitMessage(
   r: PlanReservation,
   resource: "topic" | "materials",
   model: string,
+  /** Quanto cada questão pedida conta (cruzadinha = 3). */
+  weight = 1,
 ): string {
   if (r.reason === "model") {
     return `O ${MODEL_LABELS[model] ?? model} está disponível nos planos Pro e Premium. ` +
@@ -129,6 +131,12 @@ export function questionLimitMessage(
   const renew = `Elas renovam em ${when} — ou mude de plano para gerar mais.`;
   if (remaining <= 0) {
     return `Você usou as ${r.limit} ${what} do plano ${r.plan_name}. ${renew}`;
+  }
+  if (weight > 1) {
+    const fits = Math.floor(remaining / weight);
+    return `Restam ${remaining} ${what} no plano ${r.plan_name} até ${when}, e cada ` +
+      `cruzadinha conta ${weight}. ` +
+      (fits > 0 ? `Peça ${fits} cruzadinha${fits > 1 ? "s" : ""} ou menos.` : renew);
   }
   return `Restam ${remaining} ${what} no plano ${r.plan_name} até ${when}. ` +
     `Peça ${remaining} ou menos.`;

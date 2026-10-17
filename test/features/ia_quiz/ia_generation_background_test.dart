@@ -31,6 +31,7 @@ class _FakeGenerate implements GenerateQuestionsWithIa {
     required IaModelOption model,
     String? subject,
     List<MaterialForAi>? materials,
+    QuestionType questionType = QuestionType.multipleChoice,
   }) =>
       (calls..add(Completer())).last.future;
 }

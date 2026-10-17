@@ -23,6 +23,8 @@ class ClassroomPhaseModel extends ClassroomPhase {
     super.completed,
     super.scorePct,
     super.bestPct,
+    super.stars,
+    super.inProgress,
   });
 
   factory ClassroomPhaseModel.fromMap(
@@ -52,6 +54,8 @@ class ClassroomPhaseModel extends ClassroomPhase {
       completed: (map['completed'] as bool?) ?? false,
       scorePct: _number(map['score_pct']),
       bestPct: _number(map['best_pct']),
+      stars: _number(map['stars'])?.toInt() ?? 0,
+      inProgress: (map['in_progress'] as bool?) ?? false,
     );
   }
 

@@ -17,8 +17,19 @@ class ClassroomResult extends Equatable {
   /// agregado da trilha inteira (ex.: média ponderada calculada no dashboard).
   final String? phaseId;
   final int totalQuestions;
-  final int correctAnswers;
+
+  /// Acertos: cada questão vale de 0 a 1, então pode ser fracionário.
+  final double correctAnswers;
   final DateTime completedAt;
+
+  /// Melhor nota (%) do aluno na fase — dá as estrelas.
+  final double? bestPct;
+
+  /// Estrelas da melhor nota (0 a 3).
+  final int stars;
+
+  /// Linha de "não entregou": a fase fechou e o aluno não respondeu (vale 0).
+  final bool missing;
 
   /// Nota já calculada (0.0 a 1.0), quando ela NÃO deriva de `correct/total` —
   /// usada para a média ponderada da trilha. Quando `null`, `percentage` usa
@@ -34,6 +45,9 @@ class ClassroomResult extends Equatable {
     required this.correctAnswers,
     required this.completedAt,
     this.finalScore,
+    this.bestPct,
+    this.stars = 0,
+    this.missing = false,
   });
 
   /// Porcentagem de acertos (0.0 a 1.0). Prioriza [finalScore] quando definido.
@@ -54,5 +68,8 @@ class ClassroomResult extends Equatable {
         correctAnswers,
         completedAt,
         finalScore,
+        bestPct,
+        stars,
+        missing,
       ];
 }

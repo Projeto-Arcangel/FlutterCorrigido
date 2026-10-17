@@ -11,9 +11,11 @@ import '../../../ia_quiz/domain/entities/ia_model_option.dart';
 import '../../../ia_quiz/domain/material_rules.dart';
 import '../../../ia_quiz/presentation/providers/ia_quiz_providers.dart';
 import '../../../ia_quiz/presentation/providers/study_materials_controller.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../../../plans/domain/entities/plan.dart';
 import '../../../plans/presentation/providers/plan_providers.dart';
 import '../widgets/ia_materials_panel.dart';
+import '../widgets/kind_editors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — exclusiva da tela de IA
@@ -171,6 +173,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
   _Difficulty _difficulty = _Difficulty.medium;
   double _quantity = 5;
   int _alternatives = 4;
+  QuestionType _questionType = QuestionType.multipleChoice;
   IaModelOption _selectedModel = IaModelOption.defaultOption;
 
   /// "Dos meus materiais" (true) ou "Por tema" (false).
@@ -193,7 +196,13 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
         quantity: _quantity.round(),
         modelKey: _effectiveModel(plan).key,
         modelLabel: _effectiveModel(plan).label,
+        weight: _weight,
       );
+
+  /// Cruzadinha conta 3 no limite do plano (custo da IA) e vai até 5.
+  bool get _isCrossword => _questionType == QuestionType.crossword;
+  int get _weight => _isCrossword ? 3 : 1;
+  double get _maxQuantity => _isCrossword ? 5 : 20;
 
   bool get _canGenerate {
     final isLoading = ref.read(iaGenerationNotifierProvider).isLoading;
@@ -276,6 +285,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
       model: _effectiveModel(plan),
       subject: widget.subject,
       materials: materials,
+      questionType: _questionType,
       // O professor pode sair antes do fim: o destino vai junto.
       target: IaReviewTarget(
         title: _reviewTitle,
@@ -483,6 +493,23 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       ),
                       const SizedBox(height: 28),
 
+                      // Tipo das questões
+                      _sectionLabel('TIPO DE QUESTÃO'),
+                      const SizedBox(height: 10),
+                      QuestionTypeSelector(
+                        value: _questionType,
+                        accent: _C.accent,
+                        onChanged: (t) => setState(() {
+                          _questionType = t;
+                          _quantity = _quantity.clamp(1, _maxQuantity);
+                        }),
+                      ),
+                      if (_isCrossword) ...[
+                        const SizedBox(height: 10),
+                        const _CrosswordWeightNote(),
+                      ],
+                      const SizedBox(height: 28),
+
                       // Dificuldade
                       _sectionLabel('DIFICULDADE'),
                       const SizedBox(height: 10),
@@ -498,7 +525,11 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                         children: [
                           _sectionLabel('QUANTIDADE'),
                           Text(
-                            '${_quantity.round()} questões',
+                            _isCrossword
+                                ? '${_quantity.round()} cruzadinha'
+                                    '${_quantity.round() == 1 ? '' : 's'} · '
+                                    'contam ${_quantity.round() * _weight}'
+                                : '${_quantity.round()} questões',
                             style: GoogleFonts.nunito(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -510,18 +541,21 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                       const SizedBox(height: 4),
                       _QuantitySlider(
                         value: _quantity,
+                        max: _maxQuantity,
                         onChanged: (v) => setState(() => _quantity = v),
                       ),
                       const SizedBox(height: 28),
 
-                      // Alternativas por questão
-                      _sectionLabel('ALTERNATIVAS POR QUESTÃO'),
-                      const SizedBox(height: 10),
-                      _AlternativesSelector(
-                        selected: _alternatives,
-                        onSelect: (n) => setState(() => _alternatives = n),
-                      ),
-                      const SizedBox(height: 28),
+                      // Alternativas por questão (só múltipla escolha)
+                      if (_questionType == QuestionType.multipleChoice) ...[
+                        _sectionLabel('ALTERNATIVAS POR QUESTÃO'),
+                        const SizedBox(height: 10),
+                        _AlternativesSelector(
+                          selected: _alternatives,
+                          onSelect: (n) => setState(() => _alternatives = n),
+                        ),
+                        const SizedBox(height: 28),
+                      ],
 
                       // Modelo de IA
                       _sectionLabel('MODELO DE IA'),
@@ -1361,14 +1395,51 @@ class _DifficultyOption extends StatelessWidget {
 // Heurística #7 (flexibilidade): controle contínuo com granularidade fina.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Aviso: cada cruzadinha conta 3 questões no limite do mês (decisão 6).
+class _CrosswordWeightNote extends StatelessWidget {
+  const _CrosswordWeightNote();
+
+  @override
+  Widget build(BuildContext context) {
+    const color = Color(0xFFE0A85B);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.info_outline_rounded, size: 18, color: color),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Cada cruzadinha conta como 3 questões no seu limite do mês '
+              '(é a que mais usa a IA). Gere até 5 por vez.',
+              style: GoogleFonts.nunito(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _QuantitySlider extends StatelessWidget {
   const _QuantitySlider({
     required this.value,
     required this.onChanged,
+    this.max = 20,
   });
 
   final double value;
   final ValueChanged<double> onChanged;
+  final double max;
 
   @override
   Widget build(BuildContext context) {
@@ -1384,10 +1455,10 @@ class _QuantitySlider extends StatelessWidget {
         overlayShape: const RoundSliderOverlayShape(overlayRadius: 20),
       ),
       child: Slider(
-        value: value,
+        value: value.clamp(1, max),
         min: 1,
-        max: 20,
-        divisions: 19,
+        max: max,
+        divisions: (max - 1).round(),
         onChanged: onChanged,
       ),
     );

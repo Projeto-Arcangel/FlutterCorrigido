@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../entities/ia_generation_result.dart';
 import '../entities/ia_model_option.dart';
 import '../entities/study_material.dart';
@@ -36,6 +37,7 @@ class GenerateQuestionsWithIa {
     required IaModelOption model,
     String? subject,
     List<MaterialForAi>? materials,
+    QuestionType questionType = QuestionType.multipleChoice,
   }) {
     final trimmedTopic = topic.trim();
     final fromMaterials = materials != null;
@@ -100,6 +102,7 @@ class GenerateQuestionsWithIa {
       model: model,
       subject: subject,
       materials: materials ?? const [],
+      questionType: questionType,
     );
   }
 }

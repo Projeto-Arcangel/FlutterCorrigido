@@ -14,7 +14,10 @@ import '../../../../core/utils/download_helper.dart';
 import '../../../classroom/domain/entities/classroom.dart';
 import '../../../classroom/domain/entities/classroom_phase.dart';
 import '../../../classroom/domain/entities/classroom_result.dart';
+import '../../../classroom/domain/entities/phase_attempt.dart';
+import '../../../classroom/domain/entities/phase_rules.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
+import '../gradebook.dart';
 import '../providers/student_dashboard_provider.dart';
 
 // ─── Cores internas ──────────────────────────────────────────────────────────
@@ -136,56 +139,31 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
 
   // ── Notas por escopo (fase específica ou trilha geral ponderada) ──────────
 
-  /// Constrói a lista de resultados conforme [_phaseFilter]:
-  /// - fase específica → as notas dos alunos naquela fase;
-  /// - "trilha geral" (null) → média ponderada por aluno sobre TODAS as fases
-  ///   com questões (fase não feita = 0), usando o peso de cada fase.
+  /// Notas do escopo escolhido (ver [gradebookScores]).
   List<ClassroomResult> _scoresFor(
     List<ClassroomPhase> phases,
     List<ClassroomResult> phaseRows,
-  ) {
-    if (_phaseFilter != null) {
-      return phaseRows.where((r) => r.phaseId == _phaseFilter).toList();
-    }
+    List<ClassroomMember> members,
+  ) =>
+      gradebookScores(
+        phases: phases,
+        rows: phaseRows,
+        members: members,
+        phaseId: _phaseFilter,
+      );
 
-    final gradable = phases.where((p) => p.totalQuestions > 0).toList();
-    final totalWeight = gradable.fold<double>(0, (s, p) => s + p.weight);
-    if (gradable.isEmpty || totalWeight <= 0) return const [];
-
-    final byStudent = <String, List<ClassroomResult>>{};
-    for (final r in phaseRows) {
-      byStudent.putIfAbsent(r.studentId, () => []).add(r);
-    }
-
-    final out = <ClassroomResult>[];
-    byStudent.forEach((studentId, rows) {
-      final pctByPhase = <String?, double>{};
-      var sumTotal = 0;
-      var sumCorrect = 0;
-      DateTime? last;
-      for (final r in rows) {
-        pctByPhase[r.phaseId] = r.percentage;
-        sumTotal += r.totalQuestions;
-        sumCorrect += r.correctAnswers;
-        if (last == null || r.completedAt.isAfter(last)) last = r.completedAt;
-      }
-      var weighted = 0.0;
-      for (final p in gradable) {
-        weighted += (pctByPhase[p.id] ?? 0.0) * p.weight; // ausente = 0
-      }
-      final first = rows.first;
-      out.add(ClassroomResult(
-        studentId: studentId,
-        studentName: first.studentName,
-        studentRegistration: first.studentRegistration,
-        totalQuestions: sumTotal,
-        correctAnswers: sumCorrect,
-        completedAt: last ?? DateTime.now(),
-        finalScore: weighted / totalWeight,
-      ),);
-    });
-    return out;
-  }
+  /// Quem ainda pode entregar e não entregou (ver [gradebookPending]).
+  List<ClassroomMember> _pendingFor(
+    List<ClassroomPhase> phases,
+    List<ClassroomResult> phaseRows,
+    List<ClassroomMember> members,
+  ) =>
+      gradebookPending(
+        phases: phases,
+        rows: phaseRows,
+        members: members,
+        phaseId: _phaseFilter,
+      );
 
   /// Título da fase atualmente filtrada (ou `null` quando em "Trilha geral").
   String? _selectedPhaseTitle(List<ClassroomPhase> phases) {
@@ -249,13 +227,14 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
   double _participationRate(Classroom? c, List<ClassroomResult> r) {
     final total = c?.studentIds.length ?? 0;
     if (total == 0) return 0;
-    return r.length / total;
+    return r.where((x) => !x.missing).length / total;
   }
 
-  ClassroomResult? _topStudent(List<ClassroomResult> r) =>
-      r.isEmpty ? null : (List<ClassroomResult>.from(r)
-            ..sort((a, b) => b.percentage.compareTo(a.percentage)))
-          .first;
+  ClassroomResult? _topStudent(List<ClassroomResult> r) {
+    final delivered = r.where((x) => !x.missing).toList()
+      ..sort((a, b) => b.percentage.compareTo(a.percentage));
+    return delivered.firstOrNull;
+  }
 
   // ── Exportar XLSX ─────────────────────────────────────────────────────────
 
@@ -446,8 +425,11 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
           final phasesAsync = ref.watch(classroomPhasesProvider(classroom.id));
           final phaseResultsAsync =
               ref.watch(classroomPhaseResultsProvider(classroom.id));
+          final rosterAsync = ref.watch(classroomRosterProvider(classroom.id));
 
-          if (phasesAsync.isLoading || phaseResultsAsync.isLoading) {
+          if (phasesAsync.isLoading ||
+              phaseResultsAsync.isLoading ||
+              rosterAsync.isLoading) {
             return const Center(
               child: CircularProgressIndicator(color: AppColors.primary),
             );
@@ -460,6 +442,9 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
           final phases = phasesAsync.value ?? const <ClassroomPhase>[];
           final phaseRows =
               phaseResultsAsync.value ?? const <ClassroomResult>[];
+          // Sem a lista da turma, mostra só quem entregou.
+          final members =
+              rosterAsync.valueOrNull ?? const <ClassroomMember>[];
 
           // Se o filtro aponta para uma fase que não existe mais, volta p/ geral.
           if (_phaseFilter != null &&
@@ -467,7 +452,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
             _phaseFilter = null;
           }
 
-          final scoped = _scoresFor(phases, phaseRows);
+          final scoped = _scoresFor(phases, phaseRows, members);
           return _buildBody(
             context,
             isDark,
@@ -475,6 +460,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
             classroom,
             phases,
             scoped,
+            _pendingFor(phases, phaseRows, members),
             criteria,
           );
         },
@@ -545,7 +531,11 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
                         .watch(classroomPhaseResultsProvider(classroom.id))
                         .value ??
                     const <ClassroomResult>[];
-                final scoped = _scoresFor(phases, phaseRows);
+                final members = ref
+                        .watch(classroomRosterProvider(classroom.id))
+                        .valueOrNull ??
+                    const <ClassroomMember>[];
+                final scoped = _scoresFor(phases, phaseRows, members);
                 if (scoped.isEmpty) return null;
 
                 final phaseTitle = _selectedPhaseTitle(phases);
@@ -593,6 +583,7 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
     Classroom classroom,
     List<ClassroomPhase> phases,
     List<ClassroomResult> results,
+    List<ClassroomMember> pending,
     GradeCriteria criteria,
   ) {
     final filtered = _applyFilters(results, criteria.approve, criteria.recovery);
@@ -689,16 +680,17 @@ class _StudentDashboardPageState extends ConsumerState<StudentDashboardPage> {
                     rank: i + 1,
                     approveT: criteria.approve,
                     recoveryT: criteria.recovery,
+                    showStars: _phaseFilter != null,
                   ),
                 ),
               ),
 
-        // ── Alunos sem resultado (só na visão geral da trilha) ───────────────
-        if (_phaseFilter == null && _filter == _Filter.all && _query.isEmpty)
+        // ── Quem ainda não entregou (fase aberta) ───────────────────────────
+        if (_filter == _Filter.all && _query.isEmpty && pending.isNotEmpty)
           SliverToBoxAdapter(
-            child: _NoResultsNote(
-              withResults: results.length,
-              total: classroom.studentIds.length,
+            child: _PendingNote(
+              pending: pending,
+              phaseId: _phaseFilter,
             ),
           ),
 
@@ -1233,12 +1225,16 @@ class _StudentCard extends StatelessWidget {
     required this.rank,
     required this.approveT,
     required this.recoveryT,
+    this.showStars = false,
   });
 
   final ClassroomResult result;
   final int rank;
   final double approveT;
   final double recoveryT;
+
+  /// Nota de uma fase (não a média da trilha): mostra as estrelas.
+  final bool showStars;
 
   @override
   Widget build(BuildContext context) {
@@ -1307,13 +1303,23 @@ class _StudentCard extends StatelessWidget {
                           color: color,
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '${result.totalQuestions} quest${result.totalQuestions == 1 ? 'ão' : 'ões'}  ·  '
-                          '${result.correctAnswers} corretas',
-                          style: GoogleFonts.nunito(
-                            fontSize: 11,
-                            color: _C.textMuted(isDark),
-                            fontWeight: FontWeight.w500,
+                        Flexible(
+                          child: Text(
+                            result.missing
+                                ? 'Não entregou'
+                                : '${result.totalQuestions} quest${result.totalQuestions == 1 ? 'ão' : 'ões'}  ·  '
+                                    '${formatPct(result.correctAnswers)} '
+                                    'certa${result.correctAnswers == 1 ? '' : 's'}',
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.nunito(
+                              fontSize: 11,
+                              color: result.missing
+                                  ? _C.bad
+                                  : _C.textMuted(isDark),
+                              fontWeight: result.missing
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -1324,7 +1330,7 @@ class _StudentCard extends StatelessWidget {
 
               // Percentual
               Text(
-                '${(result.percentage * 100).round()}%',
+                '${formatPct(result.percentage * 100)}%',
                 style: GoogleFonts.nunito(
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
@@ -1356,13 +1362,18 @@ class _StudentCard extends StatelessWidget {
             children: [
               _MetaChip(
                 icon: FontAwesomeIcons.star,
-                label:
-                    'Nota: ${(result.percentage * 10).toStringAsFixed(1)}',
+                label: 'Nota: '
+                    '${(result.percentage * 10).toStringAsFixed(1).replaceAll('.', ',')}',
                 color: color,
               ),
+              if (showStars && !result.missing) _MiniStars(count: result.stars),
               _MetaChip(
-                icon: FontAwesomeIcons.clockRotateLeft,
-                label: fmt.format(result.completedAt),
+                icon: result.missing
+                    ? FontAwesomeIcons.calendarXmark
+                    : FontAwesomeIcons.clockRotateLeft,
+                label: result.missing
+                    ? 'Encerrada em ${fmt.format(result.completedAt.toLocal())}'
+                    : fmt.format(result.completedAt.toLocal()),
                 color: _C.textMuted(isDark),
               ),
             ],
@@ -1434,20 +1445,52 @@ class _MetaChip extends StatelessWidget {
   }
 }
 
-// ─── Nota de alunos sem resultado ─────────────────────────────────────────────
+// ─── Estrelas da fase ─────────────────────────────────────────────────────────
 
-class _NoResultsNote extends StatelessWidget {
-  const _NoResultsNote({
-    required this.withResults,
-    required this.total,
-  });
-  final int withResults;
-  final int total;
+class _MiniStars extends StatelessWidget {
+  const _MiniStars({required this.count});
+
+  final int count;
 
   @override
   Widget build(BuildContext context) {
-    final pending = total - withResults;
-    if (pending <= 0) return const SizedBox.shrink();
+    final off = _C.textMuted(Theme.of(context).brightness == Brightness.dark)
+        .withValues(alpha: 0.5);
+    return Tooltip(
+      message: '$count de 3 estrelas (melhor tentativa)',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < 3; i++)
+            Icon(
+              i < count ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: 15,
+              color: i < count ? const Color(0xFFFFC83D) : off,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─── Quem ainda não entregou ──────────────────────────────────────────────────
+
+class _PendingNote extends StatelessWidget {
+  const _PendingNote({required this.pending, required this.phaseId});
+
+  final List<ClassroomMember> pending;
+
+  /// Fase escolhida (`null` = trilha geral).
+  final String? phaseId;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = pending.length;
+    final title = phaseId != null
+        ? '$n aluno${n > 1 ? 's' : ''} ainda não '
+            '${n > 1 ? 'entregaram' : 'entregou'} esta fase:'
+        : '$n aluno${n > 1 ? 's' : ''} ainda não '
+            '${n > 1 ? 'realizaram' : 'realizou'} nenhuma atividade:';
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
@@ -1458,24 +1501,71 @@ class _NoResultsNote extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _C.accent.withValues(alpha: 0.25)),
         ),
-        child: Row(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            FaIcon(FontAwesomeIcons.circleInfo,
-                size: 14, color: _C.accent.withValues(alpha: 0.8),),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '$pending aluno${pending > 1 ? 's' : ''} ainda '
-                'não ${pending > 1 ? 'realizaram' : 'realizou'} '
-                'nenhuma atividade nesta turma.',
-                style: GoogleFonts.nunito(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  color: _C.accent.withValues(alpha: 0.9),
+            Row(
+              children: [
+                FaIcon(FontAwesomeIcons.circleInfo,
+                    size: 14, color: _C.accent.withValues(alpha: 0.8),),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: _C.accent.withValues(alpha: 0.9),
+                    ),
+                  ),
                 ),
-              ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [
+                for (final m in pending)
+                  _PendingChip(
+                    name: m.name.trim().isEmpty ? 'Aluno sem nome' : m.name,
+                    inProgress: phaseId != null
+                        ? m.inProgressPhaseIds.contains(phaseId)
+                        : m.inProgressPhaseIds.isNotEmpty,
+                  ),
+              ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PendingChip extends StatelessWidget {
+  const _PendingChip({required this.name, required this.inProgress});
+
+  final String name;
+
+  /// Começou e ainda não entregou.
+  final bool inProgress;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: _C.card(isDark),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: _C.cardBorder(isDark)),
+      ),
+      child: Text(
+        inProgress ? '$name · em andamento' : name,
+        style: GoogleFonts.nunito(
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+          color: inProgress ? _C.medium : _C.primaryText(isDark),
         ),
       ),
     );

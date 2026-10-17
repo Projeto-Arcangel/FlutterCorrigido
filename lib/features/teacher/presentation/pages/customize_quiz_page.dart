@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../lesson/domain/entities/question.dart';
+import '../../../lesson/domain/entities/question_kinds.dart';
+import '../widgets/kind_editors.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — mesmo verde-teal de create_quiz_page (mesmo fluxo).
@@ -45,6 +47,24 @@ class _QuestionData {
   final List<TextEditingController> altCtrls;
   int? correctIndex;
 
+  /// Tipo da questão; ligar e ordenar guardam os itens nos rascunhos.
+  QuestionType type = QuestionType.multipleChoice;
+  final match = MatchPairsDraft();
+  final ordering = OrderingDraft();
+  final blanks = FillBlanksDraft();
+  final crossword = CrosswordDraft();
+  final wordSearch = WordSearchDraft();
+
+  /// Por que a questão ainda não pode ser salva (ligar/ordenar).
+  String? get kindProblem => switch (type) {
+        QuestionType.matchColumns => match.problem,
+        QuestionType.ordering => ordering.problem,
+        QuestionType.fillBlanks => blanks.problem,
+        QuestionType.crossword => crossword.problem,
+        QuestionType.wordSearch => wordSearch.problem,
+        _ => null,
+      };
+
   bool get canAdd => altCtrls.length < maxAlternatives;
   bool get canRemove => altCtrls.length > minAlternatives;
 
@@ -67,17 +87,53 @@ class _QuestionData {
     }
   }
 
-  bool get isComplete =>
-      textCtrl.text.trim().isNotEmpty &&
-      altCtrls.length >= minAlternatives &&
-      altCtrls.every((c) => c.text.trim().isNotEmpty) &&
-      correctIndex != null;
+  bool get isComplete {
+    if (textCtrl.text.trim().isEmpty) return false;
+    if (type.usesContent) return kindProblem == null;
+    return altCtrls.length >= minAlternatives &&
+        altCtrls.every((c) => c.text.trim().isNotEmpty) &&
+        correctIndex != null;
+  }
+
+  Question toQuestion() {
+    final text = textCtrl.text.trim();
+    return switch (type) {
+      QuestionType.matchColumns =>
+        buildMatchQuestion(text: text, pairs: match.pairs),
+      QuestionType.ordering =>
+        buildOrderingQuestion(text: text, orderedItems: ordering.items),
+      QuestionType.fillBlanks => buildFillBlanksQuestion(
+          text: text,
+          template: blanks.template,
+          distractors: blanks.distractors,
+        ),
+      // A grade já foi montada (e conferida) na prévia: mesma lista, mesma
+      // grade.
+      QuestionType.crossword =>
+        buildCrosswordQuestion(text: text, entries: crossword.entries)!,
+      QuestionType.wordSearch =>
+        buildWordSearchQuestion(text: text, words: wordSearch.words)!,
+      _ => Question(
+          id: '', // gerado pelo banco (Supabase)
+          text: text,
+          options: altCtrls.map((c) => c.text.trim()).toList(),
+          correctAnswer: correctIndex!,
+          explanation: '',
+          type: QuestionType.multipleChoice,
+        ),
+    };
+  }
 
   void dispose() {
     textCtrl.dispose();
     for (final c in altCtrls) {
       c.dispose();
     }
+    match.dispose();
+    ordering.dispose();
+    blanks.dispose();
+    crossword.dispose();
+    wordSearch.dispose();
   }
 }
 
@@ -142,18 +198,8 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
   bool get _canSave => _completedCount == widget.quantity && !_saving;
 
   /// Converte os dados locais em entidades [Question] prontas para persistir.
-  List<Question> _buildQuestionEntities() {
-    return _questions.map((q) {
-      return Question(
-        id: '', // gerado pelo banco (Supabase)
-        text: q.textCtrl.text.trim(),
-        options: q.altCtrls.map((c) => c.text.trim()).toList(),
-        correctAnswer: q.correctIndex!,
-        explanation: '',
-        type: QuestionType.multipleChoice,
-      );
-    }).toList();
-  }
+  List<Question> _buildQuestionEntities() =>
+      [for (final q in _questions) q.toQuestion()];
 
   Future<void> _onSave() async {
     if (!_canSave) return;
@@ -661,7 +707,19 @@ class _QuestionCard extends StatelessWidget {
               maxLines: 3,
               minLines: 2,
               decoration: InputDecoration(
-                hintText: 'Digite a pergunta...',
+                hintText: switch (data.type) {
+                  QuestionType.matchColumns =>
+                    'Ex.: Ligue cada país à sua capital.',
+                  QuestionType.ordering =>
+                    'Ex.: Ordene do mais antigo ao mais recente.',
+                  QuestionType.fillBlanks =>
+                    'Ex.: Complete a frase sobre o descobrimento.',
+                  QuestionType.crossword =>
+                    'Ex.: Resolva a cruzadinha das capitais.',
+                  QuestionType.wordSearch =>
+                    'Ex.: Ache os planetas do Sistema Solar.',
+                  _ => 'Digite a pergunta...',
+                },
                 hintStyle: GoogleFonts.nunito(
                   fontSize: 14,
                   color: _C.textMuted,
@@ -686,58 +744,116 @@ class _QuestionCard extends StatelessWidget {
             ),
           ),
 
-          // ── Cabeçalho das alternativas ────────────────────────────────
+          // ── Tipo da questão ───────────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
-            child: Row(
-              children: [
-                Text(
-                  'ALTERNATIVAS',
-                  style: GoogleFonts.nunito(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w700,
-                    color: _C.textMuted,
-                    letterSpacing: 1.8,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Text(
-                  '· toque no círculo para marcar a correta',
-                  style: GoogleFonts.nunito(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: _C.textMuted.withValues(alpha: 0.55),
-                  ),
-                ),
-              ],
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+            child: QuestionTypeSelector(
+              value: data.type,
+              accent: _C.accent,
+              onChanged: (t) {
+                data.type = t;
+                onChanged();
+              },
             ),
           ),
 
-          // ── Alternativas (2–5, dinâmicas) ─────────────────────────────
-          for (var i = 0; i < data.altCtrls.length; i++) ...[
-            if (i > 0)
-              const Divider(
-                height: 1,
-                color: _C.divider,
-                indent: 14,
-                endIndent: 14,
-              ),
-            _AlternativeTile(
-              letter: _letters[i],
-              controller: data.altCtrls[i],
-              isCorrect: data.correctIndex == i,
-              onSelectCorrect: () {
-                data.correctIndex = i;
-                onChanged();
+          if (data.type.usesContent) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+              child: switch (data.type) {
+                QuestionType.matchColumns => MatchPairsEditor(
+                    draft: data.match,
+                    accent: _C.accent,
+                    onChanged: onChanged,
+                  ),
+                QuestionType.fillBlanks => FillBlanksEditor(
+                    draft: data.blanks,
+                    accent: _C.accent,
+                    onChanged: onChanged,
+                  ),
+                QuestionType.crossword => CrosswordEditor(
+                    draft: data.crossword,
+                    accent: _C.accent,
+                    onChanged: onChanged,
+                  ),
+                QuestionType.wordSearch => WordSearchEditor(
+                    draft: data.wordSearch,
+                    accent: _C.accent,
+                    onChanged: onChanged,
+                  ),
+                _ => OrderingItemsEditor(
+                    draft: data.ordering,
+                    accent: _C.accent,
+                    onChanged: onChanged,
+                  ),
               },
-              onChanged: onChanged,
-              onRemove: data.canRemove
-                  ? () {
-                      data.removeAlternative(i);
-                      onChanged();
-                    }
-                  : null,
             ),
+            if (data.kindProblem case final problem?
+                when !problem.startsWith('Preencha'))
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: Text(
+                  problem,
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFE0A85B),
+                  ),
+                ),
+              ),
+          ] else ...[
+            // ── Cabeçalho das alternativas ────────────────────────────────
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 8),
+              child: Row(
+                children: [
+                  Text(
+                    'ALTERNATIVAS',
+                    style: GoogleFonts.nunito(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w700,
+                      color: _C.textMuted,
+                      letterSpacing: 1.8,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '· toque no círculo para marcar a correta',
+                    style: GoogleFonts.nunito(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      color: _C.textMuted.withValues(alpha: 0.55),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Alternativas (2–5, dinâmicas) ─────────────────────────────
+            for (var i = 0; i < data.altCtrls.length; i++) ...[
+              if (i > 0)
+                const Divider(
+                  height: 1,
+                  color: _C.divider,
+                  indent: 14,
+                  endIndent: 14,
+                ),
+              _AlternativeTile(
+                letter: _letters[i],
+                controller: data.altCtrls[i],
+                isCorrect: data.correctIndex == i,
+                onSelectCorrect: () {
+                  data.correctIndex = i;
+                  onChanged();
+                },
+                onChanged: onChanged,
+                onRemove: data.canRemove
+                    ? () {
+                        data.removeAlternative(i);
+                        onChanged();
+                      }
+                    : null,
+              ),
           ],
 
           // Adicionar alternativa (até o máximo de 5).
@@ -748,6 +864,7 @@ class _QuestionCard extends StatelessWidget {
                 onChanged();
               },
             ),
+          ],
 
           const SizedBox(height: 6),
         ],

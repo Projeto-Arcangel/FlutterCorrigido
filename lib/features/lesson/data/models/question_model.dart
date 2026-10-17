@@ -11,6 +11,9 @@ class QuestionModel extends Question {
     super.imageUrl,
     super.imageAuthor,
     super.imageSource,
+    super.timeLimitS,
+    super.content,
+    super.answer,
   });
 
   /// Constrói a partir de uma linha da tabela `questions` do Supabase.
@@ -28,6 +31,9 @@ class QuestionModel extends Question {
       imageUrl: map['image_url'] as String?,
       imageAuthor: map['image_author'] as String?,
       imageSource: map['image_source'] as String?,
+      timeLimitS: (map['time_limit_s'] as num?)?.toInt(),
+      content: _jsonMap(map['content']),
+      answer: _jsonMap(map['answer']),
     );
   }
 
@@ -40,10 +46,21 @@ class QuestionModel extends Question {
         return QuestionType.fillBlanks;
       case 'true_false':
         return QuestionType.trueFalse;
+      case 'match_columns':
+        return QuestionType.matchColumns;
+      case 'ordering':
+        return QuestionType.ordering;
+      case 'crossword':
+        return QuestionType.crossword;
+      case 'word_search':
+        return QuestionType.wordSearch;
       default:
         return QuestionType.multipleChoice;
     }
   }
+
+  static Map<String, dynamic>? _jsonMap(Object? value) =>
+      value is Map ? Map<String, dynamic>.from(value) : null;
 
   /// Mapeia [QuestionType] para o enum `question_type` do Postgres.
   /// `unknown` cai em `multiple_choice` (o enum do banco não tem 'unknown').
@@ -56,6 +73,14 @@ class QuestionModel extends Question {
         return 'fill_blanks';
       case QuestionType.trueFalse:
         return 'true_false';
+      case QuestionType.matchColumns:
+        return 'match_columns';
+      case QuestionType.ordering:
+        return 'ordering';
+      case QuestionType.crossword:
+        return 'crossword';
+      case QuestionType.wordSearch:
+        return 'word_search';
     }
   }
 }

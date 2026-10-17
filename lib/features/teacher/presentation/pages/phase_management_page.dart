@@ -14,8 +14,10 @@ import '../../../classroom/presentation/providers/classroom_providers.dart';
 import '../../../enem/presentation/pages/enem_bank_page.dart';
 import '../../../lesson/domain/entities/question.dart';
 import '../widgets/classroom_palette.dart';
+import '../widgets/kind_editors.dart';
 import '../widgets/phase_rules_card.dart';
 import '../widgets/question_detail_sheet.dart';
+import '../widgets/question_time_picker.dart';
 import 'question_bank_page.dart';
 
 /// Tela de gerenciamento de uma fase específica de uma turma.
@@ -424,6 +426,8 @@ class _PhaseManagementPageState extends ConsumerState<PhaseManagementPage> {
             const SizedBox(height: 24),
             _QuestionsSection(
               phaseQuestions: phase.questions,
+              timerEnabled: phase.timerEnabled,
+              timerLevel: phase.timerLevel,
               busy: _savingOrder,
               onReorder: _persistQuestionsOrder,
               onDelete: _onDeleteQuestion,
@@ -1010,7 +1014,7 @@ class _AddQuestionsSection extends StatelessWidget {
                 iconColor: const Color(0xFF72D09C),
                 iconBg: const Color(0x1A72D09C),
                 title: 'Criar questões próprias',
-                subtitle: 'Escreva e marque a alternativa correta',
+                subtitle: 'Alternativas, ligar, ordenar, lacunas, cruzadinha e mais',
                 onTap: onCustom,
               ),
               _AddDivider(),
@@ -1168,6 +1172,8 @@ class _AddOptionTile extends StatelessWidget {
 class _QuestionsSection extends StatefulWidget {
   const _QuestionsSection({
     required this.phaseQuestions,
+    required this.timerEnabled,
+    required this.timerLevel,
     required this.busy,
     required this.onReorder,
     required this.onDelete,
@@ -1175,6 +1181,10 @@ class _QuestionsSection extends StatefulWidget {
   });
 
   final List<Question> phaseQuestions;
+
+  /// Relógio da fase: com ele ligado, cada questão mostra o tempo dela.
+  final bool timerEnabled;
+  final String timerLevel;
 
   /// Gravando a nova ordem: o arraste fica bloqueado até terminar.
   final bool busy;
@@ -1228,7 +1238,12 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => QuestionDetailSheet(question: q, order: order),
+      builder: (_) => QuestionDetailSheet(
+        question: q,
+        order: order,
+        timerEnabled: widget.timerEnabled,
+        timerLevel: widget.timerLevel,
+      ),
     );
     if (updated != null) widget.onEdit(updated);
   }
@@ -1254,7 +1269,9 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
                         ? 'Adicione questões usando uma das opções acima'
                         : '${_local.length} '
                             'quest${_local.length == 1 ? 'ão' : 'ões'} '
-                            'na fase',
+                            'na fase'
+                            '${widget.timerEnabled ? ' · toque no relógio '
+                                'para mudar o tempo' : ''}',
                     style: GoogleFonts.nunito(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -1335,6 +1352,10 @@ class _QuestionsSectionState extends State<_QuestionsSection> {
                   disabled: widget.busy,
                   onDelete: () => _confirmDelete(q, i + 1),
                   onTap: _reordering ? null : () => _openDetail(q, i + 1),
+                  autoSeconds: widget.timerEnabled
+                      ? autoTimeLimitOf(q, widget.timerLevel)
+                      : null,
+                  onTimeChanged: (s) => widget.onEdit(q.withTimeLimit(s)),
                 );
               },
             ),
@@ -1353,11 +1374,18 @@ class _QuestionTile extends StatelessWidget {
     required this.disabled,
     required this.onDelete,
     required this.onTap,
+    required this.autoSeconds,
+    required this.onTimeChanged,
   });
 
   final int index;
   final Question question;
   final bool reordering;
+
+  /// Tempo automático desta questão; `null` = relógio da fase desligado
+  /// (sem etiqueta de tempo).
+  final int? autoSeconds;
+  final ValueChanged<int?> onTimeChanged;
 
   /// Ordem sendo gravada: a alça de arrastar fica inativa.
   final bool disabled;
@@ -1555,21 +1583,61 @@ class _QuestionTile extends StatelessWidget {
                     const SizedBox(width: 10),
                   ],
                   Expanded(
-                    child: Text(
-                      question.text.isEmpty
-                          ? 'Questão sem enunciado'
-                          : _stripUrls(question.text),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: GoogleFonts.nunito(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: ClassroomPalette.primaryText(isDark),
-                        height: 1.35,
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          question.text.isEmpty
+                              ? 'Questão sem enunciado'
+                              : _stripUrls(question.text),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.nunito(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: ClassroomPalette.primaryText(isDark),
+                            height: 1.35,
+                          ),
+                        ),
+                        // Tipo (ligar/ordenar); múltipla escolha não leva.
+                        if (question.type.usesContent) ...[
+                          const SizedBox(height: 3),
+                          Row(
+                            children: [
+                              Icon(
+                                questionTypeIcon(question.type),
+                                size: 13,
+                                color: const Color(0xFF26A69A),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                question.type.label,
+                                style: GoogleFonts.nunito(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w800,
+                                  color: const Color(0xFF26A69A),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                   const SizedBox(width: 8),
+                  if (autoSeconds != null && !reordering) ...[
+                    QuestionTimeMenu(
+                      value: question.timeLimitS,
+                      autoSeconds: autoSeconds!,
+                      enabled: !disabled,
+                      onSelected: onTimeChanged,
+                      child: QuestionTimeChip(
+                        value: question.timeLimitS,
+                        autoSeconds: autoSeconds!,
+                      ),
+                    ),
+                    const SizedBox(width: 2),
+                  ],
                   if (reordering)
                     ReorderableDragStartListener(
                       index: index,

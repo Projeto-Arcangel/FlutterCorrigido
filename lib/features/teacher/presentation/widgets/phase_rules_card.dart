@@ -6,8 +6,9 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../classroom/domain/entities/phase_rules.dart';
 import 'classroom_palette.dart';
 
-/// "Prazo e nota mínima" da fase, em Gerenciar fase: abertura e fechamento
-/// (opcionais) e a nota mínima para liberar a próxima fase (opcional).
+/// Regras da fase, em Gerenciar fase: abertura e fechamento (opcionais),
+/// a nota mínima para liberar a próxima fase (opcional) e o relógio por
+/// questão (desligado por padrão).
 ///
 /// [onSave] devolve a mensagem de erro, ou `null` se salvou.
 class PhaseRulesCard extends StatefulWidget {
@@ -29,6 +30,8 @@ class _PhaseRulesCardState extends State<PhaseRulesCard> {
   DateTime? _opensAt;
   DateTime? _closesAt;
   bool _requirePass = false;
+  bool _timer = false;
+  String _timerLevel = 'normal';
 
   @override
   void initState() {
@@ -56,6 +59,8 @@ class _PhaseRulesCardState extends State<PhaseRulesCard> {
     _closesAt = r.closesAt;
     _requirePass = r.passPct != null;
     _passCtrl.text = r.passPct == null ? '70' : formatPct(r.passPct!);
+    _timer = r.timerEnabled;
+    _timerLevel = r.timerLevel;
     _error = null;
   }
 
@@ -67,6 +72,8 @@ class _PhaseRulesCardState extends State<PhaseRulesCard> {
         opensAt: _opensAt,
         closesAt: _closesAt,
         passPct: _requirePass ? (_typedPass ?? -1) : null,
+        timerEnabled: _timer,
+        timerLevel: _timerLevel,
       );
 
   bool get _dirty => _draft != widget.rules;
@@ -179,7 +186,7 @@ class _PhaseRulesCardState extends State<PhaseRulesCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Prazo e nota mínima',
+                              'Prazo, nota mínima e relógio',
                               style: GoogleFonts.nunito(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -309,6 +316,56 @@ class _PhaseRulesCardState extends State<PhaseRulesCard> {
               'O aluno pode refazer a fase até atingir; a nota oficial '
               'continua a da 1ª tentativa. Se a fase fechar, a próxima '
               'libera mesmo sem a nota.',
+            ),
+          ],
+          const SizedBox(height: 14),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: _timer,
+            onChanged: _saving
+                ? null
+                : (v) => setState(() {
+                      _timer = v;
+                      _error = null;
+                    }),
+            activeTrackColor: AppColors.primary,
+            title: Text(
+              'Relógio: tempo para responder cada questão',
+              style: GoogleFonts.nunito(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: ClassroomPalette.primaryText(isDark),
+              ),
+            ),
+          ),
+          if (_timer) ...[
+            const SizedBox(height: 4),
+            const _Label('TEMPO AUTOMÁTICO'),
+            const SizedBox(height: 6),
+            SegmentedButton<String>(
+              segments: [
+                for (final level in timerLevels)
+                  ButtonSegment(
+                    value: level,
+                    label: Text(_capitalize(timerLevelLabel(level))),
+                  ),
+              ],
+              selected: {_timerLevel},
+              showSelectedIcon: false,
+              onSelectionChanged: _saving
+                  ? null
+                  : (s) => setState(() {
+                        _timerLevel = s.first;
+                        _error = null;
+                      }),
+            ),
+            const SizedBox(height: 8),
+            const _Hint(
+              'Sem tempo escolhido na questão, o tempo cresce com o tamanho '
+              'do texto: numa questão curta, cerca de 15 s (curto), 25 s '
+              '(normal) ou 40 s (longo). Para escolher o tempo de uma '
+              'questão, toque no relógio dela na lista de questões. Tempo '
+              'esgotado vale 0, e quem responde rápido ganha pontos extras.',
             ),
           ],
           if (_error != null) ...[

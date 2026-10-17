@@ -58,6 +58,35 @@ void main() {
       );
     });
 
+    test('cruzadinha conta 3 no limite', () {
+      // Free: 50 por tema; usou 44, restam 6 = 2 cruzadinhas.
+      final p = _plan(PlanCatalog.free, topic: 44);
+      String? crossword(int n) => p.generationBlock(
+            source: GenerationSource.topic,
+            quantity: n,
+            modelKey: 'gemini-flash',
+            modelLabel: 'Gemini Flash',
+            weight: 3,
+          );
+      expect(crossword(2), isNull);
+      expect(
+        crossword(3),
+        'Restam 6 questões por tema até 12 de novembro às 15h04, e cada '
+        'cruzadinha conta 3. Peça 2 ou menos.',
+      );
+      final almost = _plan(PlanCatalog.free, topic: 48);
+      expect(
+        almost.generationBlock(
+          source: GenerationSource.topic,
+          quantity: 1,
+          modelKey: 'gemini-flash',
+          modelLabel: 'Gemini Flash',
+          weight: 3,
+        ),
+        contains('renovam em'),
+      );
+    });
+
     test('esgotado → diz quando renova', () {
       expect(
         _block(_plan(PlanCatalog.free, topic: 50)),

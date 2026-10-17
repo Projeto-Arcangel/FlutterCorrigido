@@ -24,6 +24,9 @@ import {
   generateQuestionsWithFallback,
   GenerationError,
   type GenerateResult,
+  planWeight,
+  QUESTION_TYPES,
+  type QuestionType,
   type MaterialInput,
   type Usage,
   validateMaterials,
@@ -79,6 +82,11 @@ async function logGeneration(
       })) ?? null,
       difficulty: (body.difficulty as string) ?? null,
       quantity: body.quantity != null ? Number(body.quantity) : null,
+      // Quanto contou no limite (cruzadinha = 3 por questão).
+      question_type: typeof body.questionType === "string" ? body.questionType : "multiple_choice",
+      charged: body.quantity != null
+        ? Number(body.quantity) * planWeight(String(body.questionType ?? ""))
+        : null,
       model_requested: (body.modelKey as string) ?? null,
       model_used: result?.modelUsed ?? null,
       status,
@@ -151,6 +159,19 @@ Deno.serve(async (req: Request) => {
   if (typeof modelKey !== "string" || !ALLOWED_MODELS[modelKey]) {
     return json(400, { error: `Modelo "${String(modelKey)}" não é permitido.` });
   }
+  // Tipo das questões (Estágio 4). Cada questão conta 1 no limite do plano.
+  const questionType = body.questionType === undefined ? "multiple_choice" : body.questionType;
+  if (
+    typeof questionType !== "string" ||
+    !(QUESTION_TYPES as readonly string[]).includes(questionType)
+  ) {
+    return json(400, { error: `Tipo de questão "${String(questionType)}" não é permitido.` });
+  }
+  // Cruzadinha é a mais pesada: conta 3 no limite e vai até 5 por vez.
+  const weight = planWeight(questionType);
+  if (questionType === "crossword" && requested > 5) {
+    return json(400, { error: "Gere até 5 cruzadinhas por vez." });
+  }
 
   const apiKey = Deno.env.get("OPENROUTER_API_KEY");
   if (!apiKey) {
@@ -168,14 +189,14 @@ Deno.serve(async (req: Request) => {
   const resource = fromMaterials ? "materials" : "topic";
   let reservation: PlanReservation;
   try {
-    reservation = await reservePlanUsage(admin, user.id, resource, requested, modelKey);
+    reservation = await reservePlanUsage(admin, user.id, resource, requested * weight, modelKey);
   } catch (e) {
     if (e instanceof PlanCheckError) return json(503, { error: e.message, code: "plan_unavailable" });
     throw e;
   }
   if (!reservation.ok) {
     return json(reservation.reason === "model" ? 403 : 429, {
-      error: questionLimitMessage(reservation, resource, modelKey),
+      error: questionLimitMessage(reservation, resource, modelKey, weight),
       code: reservation.reason === "model" ? "plan_model" : "plan_limit",
       plan: reservation.plan,
       limit: reservation.limit,
@@ -195,6 +216,7 @@ Deno.serve(async (req: Request) => {
       alternatives: body.alternatives != null ? Number(body.alternatives) : undefined,
       description: body.description as string | undefined,
       modelKey,
+      questionType: questionType as QuestionType,
       // Só nome, tipo e texto vão para o prompt (coverage é só para o log).
       materials: fromMaterials
         ? (body.materials as MaterialInput[]).map(({ name, kind, text }) => ({

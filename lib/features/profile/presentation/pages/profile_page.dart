@@ -7,9 +7,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/errors/error_messages.dart';
 import '../../../../core/theme/app_colors.dart';
-import '../../domain/entities/achievement.dart';
+import '../../../progress/domain/entities/user_progress.dart';
+import '../../domain/entities/classmate_profile.dart';
 import '../providers/profile_providers.dart';
-
+import '../widgets/achievement_badge.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Page – ponto de entrada da feature
@@ -74,10 +75,7 @@ class _ProfileContent extends StatelessWidget {
                 const SizedBox(height: 28),
                 _StatsRow(progress: profile.progress),
                 const SizedBox(height: 32),
-                _AchievementsSection(
-                  achievements: profile.achievements,
-                  unlockedCount: profile.unlockedAchievementsCount,
-                ),
+                const _AchievementsSection(),
               ] else ...[
                 const SizedBox(height: 28),
                 Padding(
@@ -371,7 +369,7 @@ class _XpProgressBar extends StatelessWidget {
 class _StatsRow extends StatelessWidget {
   const _StatsRow({required this.progress});
 
-  final dynamic progress; // UserProgress
+  final UserProgress progress;
 
   @override
   Widget build(BuildContext context) {
@@ -471,18 +469,15 @@ class _StatItem extends StatelessWidget {
 // Seção de conquistas com grid 3×N
 // ─────────────────────────────────────────────────────────────────────────────
 
-class _AchievementsSection extends StatelessWidget {
-  const _AchievementsSection({
-    required this.achievements,
-    required this.unlockedCount,
-  });
-
-  final List<Achievement> achievements;
-  final int unlockedCount;
+class _AchievementsSection extends ConsumerWidget {
+  const _AchievementsSection();
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final muted = isDark ? Colors.white54 : AppColors.textSecondary;
+    final asyncMine = ref.watch(myAchievementsProvider);
+    final mine = asyncMine.valueOrNull;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Column(
@@ -499,36 +494,74 @@ class _AchievementsSection extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.surfaceDark : Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  '$unlockedCount / ${achievements.length}',
-                  style: const TextStyle(
-                    color: AppColors.primary,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+              if (mine != null && !mine.partial)
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppColors.surfaceDark : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    '${mine.unlockedCount} / ${mine.achievements.length}',
+                    style: const TextStyle(
+                      color: AppColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(height: 16),
-          GridView.builder(
-            physics: const NeverScrollableScrollPhysics(),
-            shrinkWrap: true,
-            itemCount: achievements.length,
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+          if (mine == null)
+            asyncMine.hasError
+                ? Text(
+                    'Não foi possível carregar as conquistas.',
+                    style: TextStyle(color: muted, fontSize: 13),
+                  )
+                : const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  )
+          else ...[
+            if (mine.partial) _PartialAchievementsNotice(color: muted),
+            _AchievementsGrid(mine: mine),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+/// O servidor não respondeu: só as de XP aparecem, e a tela diz isso.
+class _PartialAchievementsNotice extends ConsumerWidget {
+  const _PartialAchievementsNotice({required this.color});
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_rounded, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'As conquistas por tipo de questão não carregaram agora. '
+              'Aqui estão só as de XP.',
+              style: TextStyle(color: color, fontSize: 12, height: 1.3),
             ),
-            itemBuilder: (_, i) =>
-                _AchievementBadge(achievement: achievements[i]),
+          ),
+          TextButton(
+            onPressed: () => ref.invalidate(myAchievementsProvider),
+            child: const Text('Tentar de novo'),
           ),
         ],
       ),
@@ -536,107 +569,24 @@ class _AchievementsSection extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Badge individual de conquista
-// Heurística #8 (design estético e minimalista)
-// ─────────────────────────────────────────────────────────────────────────────
+class _AchievementsGrid extends StatelessWidget {
+  const _AchievementsGrid({required this.mine});
 
-class _AchievementBadge extends StatelessWidget {
-  const _AchievementBadge({required this.achievement});
-
-  final Achievement achievement;
-
-  Color get _rarityColor {
-    if (!achievement.unlocked) return Colors.white12;
-    return switch (achievement.rarity) {
-      AchievementRarity.bronze   => const Color(0xFFCD7F32),
-      AchievementRarity.silver   => const Color(0xFFC0C0C0),
-      AchievementRarity.gold     => const Color(0xFFEAD47F),
-      AchievementRarity.platinum => AppColors.primary,
-    };
-  }
-
-  String get _rarityLabel => switch (achievement.rarity) {
-        AchievementRarity.bronze   => 'Bronze',
-        AchievementRarity.silver   => 'Prata',
-        AchievementRarity.gold     => 'Ouro',
-        AchievementRarity.platinum => 'Platina',
-      };
+  final MyAchievements mine;
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final cardBg = isDark ? AppColors.surfaceDark : Colors.white;
-    final lockedIcon = isDark ? Colors.white24 : Colors.black12;
-    final lockedText = isDark ? Colors.white24 : AppColors.textSecondary;
-    return Tooltip(
-      message: '${achievement.title}\n${achievement.description}',
-      preferBelow: false,
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(10),
+    return GridView.builder(
+      physics: const NeverScrollableScrollPhysics(),
+      shrinkWrap: true,
+      itemCount: mine.achievements.length,
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
       ),
-      textStyle: TextStyle(
-        color: isDark ? Colors.white : AppColors.textPrimary,
-        fontSize: 12,
-      ),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          color: cardBg,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: achievement.unlocked
-                ? _rarityColor.withValues(alpha: 0.6)
-                : (isDark ? Colors.white10 : Colors.black12),
-            width: 1.5,
-          ),
-          boxShadow: achievement.unlocked
-              ? [
-                  BoxShadow(
-                    color: _rarityColor.withValues(alpha: 0.25),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ]
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              achievement.unlocked ? achievement.icon : Icons.lock_outlined,
-              color: achievement.unlocked ? _rarityColor : lockedIcon,
-              size: 28,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              achievement.title,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: achievement.unlocked
-                    ? (isDark ? Colors.white : AppColors.textPrimary)
-                    : lockedText,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 2),
-            if (achievement.unlocked)
-              Text(
-                _rarityLabel,
-                style: TextStyle(
-                  color: _rarityColor,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-          ],
-        ),
-      ),
+      itemBuilder: (_, i) =>
+          AchievementBadge(achievement: mine.achievements[i]),
     );
   }
 }

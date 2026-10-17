@@ -7,8 +7,8 @@ import '../entities/classroom.dart';
 import '../entities/classroom_activity.dart';
 import '../entities/classroom_phase.dart';
 import '../entities/classroom_result.dart';
+import '../entities/phase_attempt.dart';
 import '../entities/phase_rules.dart';
-import '../entities/quiz_submission_result.dart';
 
 /// Contrato do repositório de salas de aula.
 ///
@@ -98,13 +98,29 @@ abstract class ClassroomRepository {
 
   // ─── Resultados ───────────────────────────────────────────────
 
-  /// Envia as respostas do aluno (mapa `questionId → índice escolhido`) para
-  /// correção NO SERVIDOR. O servidor calcula e grava a nota; devolve o resumo.
-  Future<Either<Failure, QuizSubmissionResult>> submitQuiz({
+  /// Abre uma tentativa na fase (ou retoma a que ficou pela metade). As
+  /// questões vêm sem gabarito; cada resposta é corrigida no servidor.
+  Future<Either<Failure, PhaseAttempt>> startAttempt({
     required String classroomId,
     required String phaseId,
-    required Map<String, int> answers,
   });
+
+  /// Com relógio: marca no servidor quando a questão apareceu.
+  Future<Either<Failure, OpenedQuestion>> openQuestion({
+    required String attemptId,
+    required String questionId,
+  });
+
+  /// Envia e trava UMA resposta (`null` = sem resposta, tempo esgotado).
+  /// A última resposta entrega a tentativa e traz o resultado.
+  Future<Either<Failure, AnswerOutcome>> answerQuestion({
+    required String attemptId,
+    required String questionId,
+    Map<String, dynamic>? response,
+  });
+
+  /// Alunos da turma (para o painel do professor: "não entregou").
+  Future<Either<Failure, List<ClassroomMember>>> getRoster(String classroomId);
 
   /// Retorna os resultados (agregados por aluno) de uma sala — para o ranking.
   Future<Either<Failure, List<ClassroomResult>>> getResults(

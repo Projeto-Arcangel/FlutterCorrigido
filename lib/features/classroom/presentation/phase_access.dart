@@ -73,6 +73,7 @@ String? phaseCaption(ClassroomPhase phase, {DateTime? now}) {
   if (phase.status == PhaseStatus.scheduled && opens != null) {
     return 'Abre ${PhaseDateFormat.short(opens, now: now)}';
   }
+  if (phase.inProgress && !phase.locked) return 'Em andamento';
   if (phase.needsPassScore) {
     return 'Precisa de ${formatPct(phase.passPct!)}%';
   }

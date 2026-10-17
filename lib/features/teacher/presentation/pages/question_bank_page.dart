@@ -407,11 +407,18 @@ class _BankTile extends StatelessWidget {
                         color: _C.textMuted,
                       ),
                     ),
-                    if (entry.inThisPhase || q.aiGenerated) ...[
+                    if (entry.inThisPhase ||
+                        q.aiGenerated ||
+                        q.question.type.usesContent) ...[
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 6,
                         children: [
+                          if (q.question.type.usesContent)
+                            _Badge(
+                              text: q.question.type.label,
+                              color: const Color(0xFF26A69A),
+                            ),
                           if (entry.inThisPhase)
                             const _Badge(
                               text: 'Já está nesta fase',

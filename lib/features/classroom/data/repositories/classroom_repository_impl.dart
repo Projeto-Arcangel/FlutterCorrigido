@@ -10,8 +10,8 @@ import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
+import '../../domain/entities/phase_attempt.dart';
 import '../../domain/entities/phase_rules.dart';
-import '../../domain/entities/quiz_submission_result.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../datasources/supabase/classroom_supabase_datasource.dart';
 
@@ -243,29 +243,86 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
 
   // ─── Resultados ───────────────────────────────────────────────
 
+  // ─── Tentativas ───────────────────────────────────────────────
+
+  /// Recusas das regras da fase (não abriu, fechou, bloqueada, fora de
+  /// ordem) chegam com a mensagem pronta do servidor e não adianta
+  /// repetir; o resto é rede (repetir é seguro: o servidor não corrige a
+  /// mesma questão duas vezes).
+  Failure _attemptFailure(Object e, String fallback) {
+    if (e is PostgrestException && (e.code == '22023' || e.code == '42501')) {
+      return ValidationFailure(e.message);
+    }
+    return NetworkFailure(ErrorMessages.from(e, fallback: fallback));
+  }
+
   @override
-  Future<Either<Failure, QuizSubmissionResult>> submitQuiz({
+  Future<Either<Failure, PhaseAttempt>> startAttempt({
     required String classroomId,
     required String phaseId,
-    required Map<String, int> answers,
   }) async {
     try {
-      final result = await _datasource.submitQuiz(
-        classroomId: classroomId,
-        phaseId: phaseId,
-        answers: answers,
+      return Right(
+        await _datasource.startAttempt(
+          classroomId: classroomId,
+          phaseId: phaseId,
+        ),
       );
-      return Right(result);
     } catch (e, st) {
-      _logger.e('submitQuiz failed', error: e, stackTrace: st);
-      // Recusas da regra da fase (não abriu, fechou, bloqueada) chegam com
-      // a mensagem pronta do servidor.
-      if (e is PostgrestException && e.code == '22023') {
-        return Left(ValidationFailure(e.message));
-      }
+      _logger.e('startAttempt failed', error: e, stackTrace: st);
+      return Left(_attemptFailure(e, 'Não foi possível abrir a fase.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, OpenedQuestion>> openQuestion({
+    required String attemptId,
+    required String questionId,
+  }) async {
+    try {
+      return Right(
+        await _datasource.openQuestion(
+          attemptId: attemptId,
+          questionId: questionId,
+        ),
+      );
+    } catch (e, st) {
+      _logger.e('openQuestion failed', error: e, stackTrace: st);
+      return Left(_attemptFailure(e, 'Não foi possível abrir a questão.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, AnswerOutcome>> answerQuestion({
+    required String attemptId,
+    required String questionId,
+    Map<String, dynamic>? response,
+  }) async {
+    try {
+      return Right(
+        await _datasource.answerQuestion(
+          attemptId: attemptId,
+          questionId: questionId,
+          response: response,
+        ),
+      );
+    } catch (e, st) {
+      _logger.e('answerQuestion failed', error: e, stackTrace: st);
+      return Left(_attemptFailure(e, 'Não foi possível enviar a resposta.'));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<ClassroomMember>>> getRoster(
+    String classroomId,
+  ) async {
+    try {
+      return Right(await _datasource.fetchRoster(classroomId));
+    } catch (e, st) {
+      _logger.e('getRoster failed', error: e, stackTrace: st);
       return Left(
         NetworkFailure(
-          ErrorMessages.from(e, fallback: 'Falha ao enviar respostas'),
+          ErrorMessages.from(e, fallback: 'Falha ao carregar os alunos da turma'),
         ),
       );
     }
@@ -468,12 +525,19 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
             ValidationFailure('A nota mínima vai de 1% a 100%.'),
           );
         }
+        if (e.message.contains('timer_level')) {
+          return const Left(
+            ValidationFailure(
+              'Escolha o tempo do relógio: curto, normal ou longo.',
+            ),
+          );
+        }
       }
       return Left(
         NetworkFailure(
           ErrorMessages.from(
             e,
-            fallback: 'Não foi possível salvar o prazo e a nota mínima.',
+            fallback: 'Não foi possível salvar as regras da fase.',
           ),
         ),
       );

@@ -20,12 +20,17 @@ class IaGenerationResult extends Equatable {
   /// O UI pode usar isso para mostrar um aviso "Gerado com X em vez de Y".
   final bool usedFallback;
 
+  /// Questões que a IA mandou mas não couberam numa grade (cruzadinha ou
+  /// caça-palavras) e ficaram de fora — a revisão avisa.
+  final int skipped;
+
   const IaGenerationResult({
     required this.questions,
     required this.modelUsed,
     required this.usedFallback,
+    this.skipped = 0,
   });
 
   @override
-  List<Object?> get props => [questions, modelUsed, usedFallback];
+  List<Object?> get props => [questions, modelUsed, usedFallback, skipped];
 }

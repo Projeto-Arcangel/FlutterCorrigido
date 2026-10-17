@@ -4,11 +4,12 @@ import '../../../../lesson/data/models/question_model.dart';
 import '../../../../lesson/domain/entities/question.dart';
 import '../../../domain/entities/bank_question.dart';
 import '../../../domain/entities/classroom_activity.dart';
+import '../../../domain/entities/phase_attempt.dart';
 import '../../../domain/entities/phase_rules.dart';
-import '../../../domain/entities/quiz_submission_result.dart';
 import '../../models/classroom_model.dart';
 import '../../models/classroom_phase_model.dart';
 import '../../models/classroom_result_model.dart';
+import '../../models/phase_attempt_model.dart';
 
 /// Acesso ao Supabase para a feature `classroom`.
 ///
@@ -144,30 +145,55 @@ class ClassroomSupabaseDatasource {
 
   /// Envia as respostas para correção no servidor (RPC `submit_quiz`).
   /// [answers] = `{ questionId: índiceEscolhido }`.
-  Future<QuizSubmissionResult> submitQuiz({
+  // ─── Tentativas (resposta a resposta, corrigidas no servidor) ───
+
+  /// Abre uma tentativa na fase, ou retoma a que ficou pela metade.
+  Future<PhaseAttempt> startAttempt({
     required String classroomId,
     required String phaseId,
-    required Map<String, int> answers,
   }) async {
-    final data = await _client.rpc<dynamic>('submit_quiz', params: {
+    final data = await _client.rpc<dynamic>('start_attempt', params: {
       'p_classroom': classroomId,
       'p_phase': phaseId,
-      'p_answers': answers,
     },);
-    final map = Map<String, dynamic>.from(data as Map);
-    final review = ((map['questions'] as List?) ?? const [])
-        .map((e) => QuizAnswerReview.fromMap(Map<String, dynamic>.from(e as Map)))
-        .toList();
-    double? number(Object? v) =>
-        v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
-    return QuizSubmissionResult(
-      total: (map['total'] as num?)?.toInt() ?? 0,
-      correct: (map['correct'] as num?)?.toInt() ?? 0,
-      firstAttempt: (map['first_attempt'] as bool?) ?? false,
-      review: review,
-      attemptPct: number(map['attempt_pct']),
-      bestPct: number(map['best_pct']),
+    return AttemptJson.attempt(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// Com relógio: marca no servidor a hora em que a questão apareceu.
+  Future<OpenedQuestion> openQuestion({
+    required String attemptId,
+    required String questionId,
+  }) async {
+    final data = await _client.rpc<dynamic>('open_question', params: {
+      'p_attempt': attemptId,
+      'p_question': questionId,
+    },);
+    return AttemptJson.opened(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// Envia UMA resposta (`null` = sem resposta, quando o tempo acaba).
+  Future<AnswerOutcome> answerQuestion({
+    required String attemptId,
+    required String questionId,
+    Map<String, dynamic>? response,
+  }) async {
+    final data = await _client.rpc<dynamic>('answer_question', params: {
+      'p_attempt': attemptId,
+      'p_question': questionId,
+      'p_response': response,
+    },);
+    return AttemptJson.outcome(Map<String, dynamic>.from(data as Map));
+  }
+
+  /// Alunos da turma (só o professor dono recebe a lista).
+  Future<List<ClassroomMember>> fetchRoster(String classroomId) async {
+    final data = await _client.rpc<dynamic>(
+      'get_classroom_roster',
+      params: {'p_classroom': classroomId},
     );
+    return ((data as List?) ?? const [])
+        .map((e) => AttemptJson.member(Map<String, dynamic>.from(e as Map)))
+        .toList();
   }
 
   Future<List<ClassroomResultModel>> fetchResults(String classroomId) async {
@@ -182,9 +208,6 @@ class ClassroomSupabaseDatasource {
         .toList();
   }
 
-  /// IDs das fases que o ALUNO logado já concluiu nesta sala (tem resultado).
-  /// Lê direto de `classroom_results` — a RLS libera as próprias linhas
-  /// (`student_id = auth.uid()`). Usado para travar a trilha em ordem.
   /// Resultados POR FASE (cada item com `phaseId`) — para o dashboard.
   Future<List<ClassroomResultModel>> fetchPhaseResults(
     String classroomId,
@@ -215,6 +238,9 @@ class ClassroomSupabaseDatasource {
         'image_url': q.imageUrl,
         'image_author': q.imageAuthor,
         'image_source': q.imageSource,
+        'time_limit_s': q.timeLimitS,
+        'content': q.content,
+        'answer': q.answer,
         'sort_order': order,
       };
 
@@ -358,6 +384,8 @@ class ClassroomSupabaseDatasource {
       'opens_at': rules.opensAt?.toUtc().toIso8601String(),
       'closes_at': rules.closesAt?.toUtc().toIso8601String(),
       'pass_pct': rules.passPct,
+      'timer_enabled': rules.timerEnabled,
+      'timer_level': rules.timerLevel,
     }).eq('id', phaseId);
   }
 
@@ -419,8 +447,9 @@ class ClassroomSupabaseDatasource {
     const maxRows = 2000;
     final rows = await _questions
         .select(
-          'id, text, options, correct_answer, explanation, type, image_url, '
-          'image_author, image_source, ai_generated, created_at, '
+          'id, text, options, correct_answer, explanation, type, content, '
+          'answer, time_limit_s, image_url, image_author, image_source, '
+          'ai_generated, created_at, '
           'classroom_phases!inner(id, title, classrooms!inner(id, name))',
         )
         .order('created_at', ascending: false)
@@ -497,6 +526,9 @@ class ClassroomSupabaseDatasource {
       'image_url': question.imageUrl,
       'image_author': question.imageAuthor,
       'image_source': question.imageSource,
+      'time_limit_s': question.timeLimitS,
+      'content': question.content,
+      'answer': question.answer,
     }).eq('id', question.id);
   }
 
@@ -554,5 +586,8 @@ class ClassroomSupabaseDatasource {
         imageUrl: q.imageUrl,
         imageAuthor: q.imageAuthor,
         imageSource: q.imageSource,
+        timeLimitS: q.timeLimitS,
+        content: q.content,
+        answer: q.answer,
       );
 }

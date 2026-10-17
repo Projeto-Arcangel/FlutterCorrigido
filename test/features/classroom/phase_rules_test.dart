@@ -9,6 +9,7 @@ ClassroomPhase _phase({
   PhaseStatus status = PhaseStatus.open,
   bool locked = false,
   bool completed = false,
+  bool inProgress = false,
   double? passPct,
   double? bestPct,
   double? scorePct,
@@ -26,6 +27,7 @@ ClassroomPhase _phase({
       status: status,
       locked: locked,
       completed: completed,
+      inProgress: inProgress,
       passPct: passPct,
       bestPct: bestPct,
       scorePct: scorePct,
@@ -54,6 +56,11 @@ void main() {
       expect(const PhaseRules(passPct: 0).validate(), contains('1% a 100%'));
       expect(const PhaseRules(passPct: 101).validate(), contains('1% a 100%'));
       expect(const PhaseRules(passPct: 100).validate(), isNull);
+      expect(
+        const PhaseRules(timerEnabled: true, timerLevel: 'turbo').validate(),
+        contains('curto, normal ou longo'),
+      );
+      expect(const PhaseRules(timerEnabled: true).isEmpty, isFalse);
     });
 
     test('resumo curto para listas', () {
@@ -63,6 +70,11 @@ void main() {
             .summary(now: now),
         'abre 20/10 às 8h · até 25/10 às 18h30 · mín. 70%',
       );
+      expect(
+        const PhaseRules(timerEnabled: true, timerLevel: 'short').summary(),
+        'relógio curto',
+      );
+      expect(const PhaseRules(timerLevel: 'long').summary(), '');
     });
 
     test('datas: ano só quando não é o atual', () {
@@ -160,6 +172,10 @@ void main() {
         'Precisa de 70%',
       );
       expect(phaseCaption(_phase()), isNull);
+      expect(
+        phaseCaption(_phase(inProgress: true, closesAt: closes), now: now),
+        'Em andamento',
+      );
     });
   });
 
@@ -180,6 +196,8 @@ void main() {
         'completed': true,
         'score_pct': '50.00',
         'best_pct': 100,
+        'stars': 3,
+        'in_progress': true,
       },
       const [],
     );
@@ -192,9 +210,16 @@ void main() {
     expect(phase.completed, isTrue);
     expect(phase.scorePct, 50);
     expect(phase.bestPct, 100);
+    expect(phase.stars, 3);
+    expect(phase.inProgress, isTrue);
     expect(
       phase.rules,
-      PhaseRules(opensAt: DateTime.utc(2026, 10, 20, 11), passPct: 70),
+      PhaseRules(
+        opensAt: DateTime.utc(2026, 10, 20, 11),
+        passPct: 70,
+        timerEnabled: true,
+        timerLevel: 'short',
+      ),
     );
   });
 

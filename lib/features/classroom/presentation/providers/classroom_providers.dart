@@ -11,6 +11,7 @@ import '../../domain/entities/classroom.dart';
 import '../../domain/entities/classroom_activity.dart';
 import '../../domain/entities/classroom_phase.dart';
 import '../../domain/entities/classroom_result.dart';
+import '../../domain/entities/phase_attempt.dart';
 import '../../domain/repositories/classroom_repository.dart';
 import '../../domain/usecases/add_question_to_classroom.dart';
 import '../../domain/usecases/create_classroom.dart';
@@ -23,7 +24,6 @@ import '../../domain/usecases/join_classroom.dart';
 import '../../domain/usecases/leave_classroom.dart';
 import '../../domain/usecases/manage_classroom_phases.dart';
 import '../../domain/usecases/save_classroom_quiz.dart';
-import '../../domain/usecases/submit_quiz.dart';
 import '../../domain/usecases/update_classroom.dart';
 import '../../domain/usecases/update_question_in_classroom.dart';
 
@@ -99,10 +99,6 @@ final deleteQuestionFromClassroomProvider =
   return DeleteQuestionFromClassroom(ref.watch(classroomRepositoryProvider));
 });
 
-final submitQuizProvider = Provider<SubmitQuiz>((ref) {
-  return SubmitQuiz(ref.watch(classroomRepositoryProvider));
-});
-
 final getClassroomResultsProvider = Provider<GetClassroomResults>((ref) {
   return GetClassroomResults(ref.watch(classroomRepositoryProvider));
 });
@@ -165,6 +161,18 @@ final classroomPhaseResultsProvider = FutureProvider.autoDispose
   );
 });
 
+/// Alunos da turma (só para o professor dono), com as fases que cada
+/// um começou e não entregou. O painel usa para mostrar "não entregou".
+final classroomRosterProvider = FutureProvider.autoDispose
+    .family<List<ClassroomMember>, String>((ref, classroomId) async {
+  final result =
+      await ref.watch(classroomRepositoryProvider).getRoster(classroomId);
+  return result.fold(
+    (failure) => throw FailureException(failure),
+    (members) => members,
+  );
+});
+
 /// Ranking da sala, ordenado por porcentagem de acertos (maior → menor).
 /// Usado pelo chip de ranking e pelo bottom sheet de ranking na ClassroomTrailPage.
 final classroomRankingProvider = FutureProvider.autoDispose
@@ -214,9 +222,9 @@ final classroomPhasesProvider = FutureProvider.autoDispose
 /// Fases de uma sala para o ALUNO — questões SEM gabarito (anti-cola).
 ///
 /// Diferente de [classroomPhasesProvider] (que é do professor e traz o
-/// `correctAnswer`), aqui o gabarito não sai do servidor: o feedback só vem
-/// pela correção do `submit_quiz` na tela de resultado. Usado pela trilha
-/// do aluno (`ClassroomTrailPage`).
+/// `correctAnswer`), aqui o gabarito não sai do servidor: cada resposta é
+/// corrigida na tentativa (`answer_question`). Usado pela trilha do aluno
+/// (`ClassroomTrailPage`).
 final studentPhasesProvider = FutureProvider.autoDispose
     .family<List<ClassroomPhase>, String>((ref, classroomId) async {
   final repo = ref.watch(classroomRepositoryProvider);

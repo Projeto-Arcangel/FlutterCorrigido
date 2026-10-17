@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 
 import '../../../lesson/domain/entities/question.dart';
+import '../../../lesson/domain/entities/question_kinds.dart';
 
 /// Uma questão do banco do professor ("Reutilizar minhas questões"): a
 /// questão e onde ela está hoje (turma e fase).
@@ -26,10 +27,25 @@ class BankQuestion extends Equatable {
   String get id => question.id;
 
   /// Texto normalizado para busca e para reconhecer repetidas (mesmo
-  /// enunciado e alternativas, sem diferença de maiúsculas e espaços).
+  /// enunciado e alternativas — ou pares/itens na ordem certa, que não
+  /// dependem do embaralhamento —, sem diferença de maiúsculas e espaços).
   String get signature => [
         question.text,
-        ...question.options,
+        ...switch (question.type) {
+          QuestionType.matchColumns => [
+              for (final p in question.matchPairs) '${p.left} → ${p.right}',
+            ],
+          QuestionType.ordering => question.orderedItems,
+          QuestionType.fillBlanks => [
+              question.blankTemplate,
+              ...([...question.blankDistractors]..sort()),
+            ],
+          QuestionType.crossword => [
+              for (final e in question.crosswordEntries) '${e.word}: ${e.clue}',
+            ]..sort(),
+          QuestionType.wordSearch => [...question.wordSearchWords]..sort(),
+          _ => question.options,
+        },
       ].map(normalize).join('\u0001');
 
   static String normalize(String text) =>

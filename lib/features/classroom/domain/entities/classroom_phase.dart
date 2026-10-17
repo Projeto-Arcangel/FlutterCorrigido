@@ -31,7 +31,7 @@ class ClassroomPhase extends Equatable {
   /// Nota (%) para liberar a próxima fase (`null` = basta concluir).
   final double? passPct;
 
-  /// Relógio por questão (o efeito entra com as tentativas no servidor).
+  /// Relógio por questão (tempo conforme o texto e [timerLevel]).
   final bool timerEnabled;
 
   /// 'short' | 'normal' | 'long'.
@@ -53,6 +53,12 @@ class ClassroomPhase extends Equatable {
   /// Melhor nota (%) — a que libera a próxima fase.
   final double? bestPct;
 
+  /// Estrelas da melhor nota (0 a 3: 60%, 80%, 100%).
+  final int stars;
+
+  /// Começou uma tentativa e ainda não entregou.
+  final bool inProgress;
+
   const ClassroomPhase({
     required this.id,
     required this.classroomId,
@@ -72,12 +78,19 @@ class ClassroomPhase extends Equatable {
     this.completed = false,
     this.scorePct,
     this.bestPct,
+    this.stars = 0,
+    this.inProgress = false,
   });
 
   int get totalQuestions => questions.length;
 
-  PhaseRules get rules =>
-      PhaseRules(opensAt: opensAt, closesAt: closesAt, passPct: passPct);
+  PhaseRules get rules => PhaseRules(
+        opensAt: opensAt,
+        closesAt: closesAt,
+        passPct: passPct,
+        timerEnabled: timerEnabled,
+        timerLevel: timerLevel,
+      );
 
   /// Respondeu, mas a melhor nota ainda não alcança a nota mínima (e a
   /// fase segue aberta para refazer).
@@ -109,5 +122,7 @@ class ClassroomPhase extends Equatable {
         completed,
         scorePct,
         bestPct,
+        stars,
+        inProgress,
       ];
 }

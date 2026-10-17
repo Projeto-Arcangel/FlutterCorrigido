@@ -10,6 +10,8 @@ import '../../../ia_quiz/domain/entities/ia_generation_result.dart';
 import '../../../ia_quiz/domain/entities/ia_model_option.dart';
 import '../../../ia_quiz/domain/entities/ia_question_draft.dart';
 import '../../../lesson/domain/entities/question.dart';
+import '../widgets/kind_editors.dart';
+import '../widgets/question_detail_sheet.dart';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Paleta local — verde-teal igual ao customize_quiz (mesmo fluxo de
@@ -112,7 +114,14 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _EditQuestionSheet(question: _drafts[index].question),
+      // Ligar/ordenar usam a ficha da questão (editores de pares e itens).
+      builder: (_) => _drafts[index].question.type.usesContent
+          ? QuestionDetailSheet(
+              question: _drafts[index].question,
+              order: index + 1,
+              initiallyEditing: true,
+            )
+          : _EditQuestionSheet(question: _drafts[index].question),
     );
 
     if (updated != null) {
@@ -244,6 +253,24 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
               acceptedCount: _acceptedCount,
               totalCount: _drafts.length,
             ),
+            // Cruzadinha/caça-palavras que não couberam na grade: avisa,
+            // em vez de sumir sem explicação.
+            if (widget.result.skipped > 0)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                child: Text(
+                  widget.result.skipped == 1
+                      ? '1 questão gerada não coube numa grade de 15×15 e '
+                          'ficou de fora.'
+                      : '${widget.result.skipped} questões geradas não '
+                          'couberam numa grade de 15×15 e ficaram de fora.',
+                  style: GoogleFonts.nunito(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: const Color(0xFFE0A85B),
+                  ),
+                ),
+              ),
             Expanded(
               child: SingleChildScrollView(
                 physics: const BouncingScrollPhysics(),
@@ -625,13 +652,19 @@ class _QuestionReviewCard extends StatelessWidget {
               ),
             ),
 
-            // Alternativas
-            for (var i = 0; i < q.options.length; i++)
-              _AlternativeRow(
-                letter: _letters[i],
-                text: q.options[i],
-                isCorrect: i == q.correctAnswer,
-              ),
+            // Alternativas (ou pares / ordem certa)
+            if (questionKindView(q) case final kindView?)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                child: kindView,
+              )
+            else
+              for (var i = 0; i < q.options.length; i++)
+                _AlternativeRow(
+                  letter: _letters[i],
+                  text: q.options[i],
+                  isCorrect: i == q.correctAnswer,
+                ),
 
             // Explicação
             if (q.explanation.isNotEmpty) ...[

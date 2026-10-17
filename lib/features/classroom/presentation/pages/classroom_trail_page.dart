@@ -16,6 +16,7 @@ import '../../domain/entities/classroom_result.dart';
 import '../../domain/entities/phase_rules.dart';
 import '../phase_access.dart';
 import '../providers/classroom_providers.dart';
+import '../widgets/classmate_profile_sheet.dart';
 
 
 // ── Trilha de fases de uma sala de aula ──────────────────────────────────────
@@ -490,6 +491,14 @@ class _RankingSheet extends ConsumerWidget {
                           position: i + 1,
                           isCurrentUser:
                               results[i].studentId == currentUserId,
+                          onTap: () => showClassmateProfile(
+                            context,
+                            classroomId: classroomId,
+                            studentId: results[i].studentId,
+                            name: results[i].studentName,
+                            isCurrentUser:
+                                results[i].studentId == currentUserId,
+                          ),
                         ),
                       ),
               ),
@@ -525,11 +534,15 @@ class _RankingTile extends StatelessWidget {
     required this.result,
     required this.position,
     required this.isCurrentUser,
+    required this.onTap,
   });
 
   final ClassroomResult result;
   final int position;
   final bool isCurrentUser;
+
+  /// Abre o perfil do aluno.
+  final VoidCallback onTap;
 
   Color _positionColor(int pos) {
     if (pos == 1) return const Color(0xFFEAD47F);
@@ -550,24 +563,37 @@ class _RankingTile extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final posColor = _positionColor(position);
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 200),
-      margin: const EdgeInsets.only(bottom: 8),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-      decoration: BoxDecoration(
+    // Tocar abre o perfil (nome, nível, estrelas e conquistas na turma).
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Material(
         color: isCurrentUser
             ? AppColors.primary.withValues(alpha: isDark ? 0.2 : 0.1)
             : (isDark ? AppColors.surfaceDark : Colors.grey.shade50),
-        borderRadius: BorderRadius.circular(14),
-        border: isCurrentUser
-            ? Border.all(
-                color: AppColors.primary.withValues(alpha: 0.5),
-                width: 1.5,
-              )
-            : null,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: isCurrentUser
+              ? BorderSide(
+                  color: AppColors.primary.withValues(alpha: 0.5),
+                  width: 1.5,
+                )
+              : BorderSide.none,
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: onTap,
+          child: Padding(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: _row(isDark, posColor),
+          ),
+        ),
       ),
-      child: Row(
+    );
+  }
+
+  Widget _row(bool isDark, Color posColor) {
+    return Row(
         children: [
           // Posição / medalha
           SizedBox(
@@ -645,8 +671,13 @@ class _RankingTile extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(width: 6),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: isDark ? Colors.white38 : AppColors.textSecondary,
+          ),
         ],
-      ),
     );
   }
 }
@@ -883,6 +914,10 @@ class _PhaseButton extends StatelessWidget {
             unavailable: _unavailable,
             icon: _iconFor(phase),
           ),
+          if (phase.completed) ...[
+            const SizedBox(height: 4),
+            _TrailStars(count: phase.stars),
+          ],
           const SizedBox(height: 6),
           Text(
             phase.title,
@@ -958,6 +993,8 @@ class _ClosedPhaseResultDialog extends StatelessWidget {
             const SizedBox(height: 4),
             Text('Melhor tentativa: ${formatPct(best)}%'),
           ],
+          const SizedBox(height: 8),
+          _TrailStars(count: phase.stars, size: 22),
         ],
       ),
       actions: [
@@ -966,6 +1003,36 @@ class _ClosedPhaseResultDialog extends StatelessWidget {
           child: const Text('Ok'),
         ),
       ],
+    );
+  }
+}
+
+// ── Estrelas da fase (melhor tentativa) ───────────────────────────────────────
+
+class _TrailStars extends StatelessWidget {
+  const _TrailStars({required this.count, this.size = 16});
+
+  final int count;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final off = Theme.of(context).brightness == Brightness.dark
+        ? Colors.white24
+        : Colors.black26;
+    return Semantics(
+      label: '$count de 3 estrelas',
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (var i = 0; i < 3; i++)
+            Icon(
+              i < count ? Icons.star_rounded : Icons.star_outline_rounded,
+              size: size,
+              color: i < count ? const Color(0xFFFFC83D) : off,
+            ),
+        ],
+      ),
     );
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/infrastructure/supabase_providers.dart';
 import '../../../../core/utils/logger_provider.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../../../plans/presentation/providers/plan_providers.dart';
 import '../../data/datasources/supabase_ia_datasource.dart';
 import '../../data/repositories/ia_quiz_repository_impl.dart';
@@ -122,6 +123,7 @@ class IaGenerationNotifier extends AsyncNotifier<IaGenerationOutcome?> {
     required IaReviewTarget target,
     String? subject,
     List<MaterialForAi>? materials,
+    QuestionType questionType = QuestionType.multipleChoice,
   }) async {
     final run = ++_run;
     state = const AsyncLoading();
@@ -135,6 +137,7 @@ class IaGenerationNotifier extends AsyncNotifier<IaGenerationOutcome?> {
       model: model,
       subject: subject,
       materials: materials,
+      questionType: questionType,
     );
     if (run != _run) return;
 

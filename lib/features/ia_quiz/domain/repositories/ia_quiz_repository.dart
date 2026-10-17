@@ -1,6 +1,7 @@
 import 'package:dartz/dartz.dart';
 
 import '../../../../core/errors/failure.dart';
+import '../../../lesson/domain/entities/question.dart';
 import '../entities/ia_generation_result.dart';
 import '../entities/ia_model_option.dart';
 import '../entities/study_material.dart';
@@ -23,5 +24,8 @@ abstract class IaQuizRepository {
     /// Materiais do professor ("Dos meus materiais"). Vazio = geração por
     /// tema; com materiais não há tema, e o foco vai em [description].
     List<MaterialForAi> materials = const [],
+
+    /// Tipo das questões (múltipla escolha, ligar colunas, ordenar).
+    QuestionType questionType = QuestionType.multipleChoice,
   });
 }
