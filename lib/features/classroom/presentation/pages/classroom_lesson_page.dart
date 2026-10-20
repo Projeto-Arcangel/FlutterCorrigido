@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/widgets/app_button.dart';
 import '../../../auth/presentation/providers/login_controller.dart';
@@ -17,6 +19,7 @@ import '../../domain/entities/phase_attempt.dart';
 import '../../domain/entities/phase_rules.dart';
 import '../providers/attempt_controller.dart';
 import '../providers/classroom_providers.dart';
+import '../widgets/achievement_celebration.dart';
 import '../widgets/crossword_board.dart';
 import '../widgets/fill_blanks_board.dart';
 import '../widgets/match_columns_board.dart';
@@ -82,6 +85,22 @@ class _AttemptView extends ConsumerWidget {
     // Tentativa entregue (ou recusada porque a fase fechou): a trilha e o
     // XP mudaram no servidor.
     ref.listen(provider, (prev, next) {
+      // Acabou de terminar a fase ("Ver resultado"): parabeniza pelas
+      // conquistas desta entrega. Reabrir uma fase já entregue não repete.
+      final unlocked = next.result?.achievements ?? const <UnlockedAchievement>[];
+      if (prev?.stage == AttemptStage.feedback &&
+          next.stage == AttemptStage.finished &&
+          unlocked.isNotEmpty) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          showAchievementCelebration(
+            context,
+            unlocked,
+            onOpenProfile: () => context.push(AppRoutes.profileInClassroom),
+          );
+        });
+      }
+
       final delivered = next.result != null &&
           next.result?.attemptId != prev?.result?.attemptId;
       final refused = next.stage == AttemptStage.error &&
@@ -313,17 +332,29 @@ class _QuestionView extends ConsumerWidget {
                                 'Verde: palavra certa. Vermelho: errada, com '
                                     'a certa ao lado.',
                               (QuestionType.crossword, true) =>
-                                'Toque numa dica (ou numa casa) e escreva a '
-                                    'palavra. Pode confirmar com o que tiver.',
+                                question.gridInstant
+                                    ? 'Toque numa dica (ou numa casa) e escreva '
+                                        'a palavra: o app diz na hora se acertou.'
+                                    : 'Toque numa dica (ou numa casa) e escreva '
+                                        'a palavra. Pode confirmar com o que tiver.',
                               (QuestionType.crossword, false) =>
                                 'Na grade, as letras certas: verde onde você '
                                     'acertou, vermelho onde não.',
-                              (QuestionType.wordSearch, true) =>
-                                'Toque na primeira e na última letra de cada '
-                                    'palavra (ou arraste).',
+                              (QuestionType.wordSearch, true) => !question
+                                      .gridInstant
+                                  ? 'Marque a primeira e a última letra de cada '
+                                      'palavra. Você vê o que acertou só no fim.'
+                                  : question.wordSearchWords.contains('')
+                                      ? 'Toque na primeira e na última letra de '
+                                          'cada palavra. As de _ _ _ estão ocultas.'
+                                      : 'Toque na primeira e na última letra de '
+                                          'cada palavra (ou arraste).',
                               (QuestionType.wordSearch, false) =>
-                                'Verde: palavras achadas. Tracejado: onde '
-                                    'estavam as que faltaram.',
+                                question.gridInstant
+                                    ? 'Verde: palavras achadas. Tracejado: onde '
+                                        'estavam as que faltaram.'
+                                    : 'Verde: achadas. Vermelho: marcação errada. '
+                                        'Tracejado: as que faltaram.',
                               (_, true) =>
                                 'Arraste ou use as setas para pôr na ordem '
                                     'certa.',
@@ -373,8 +404,16 @@ class _QuestionView extends ConsumerWidget {
                           cols: question.gridCols,
                           slots: question.crosswordSlots,
                           words: _stringList(state.draft?['words']),
+                          confirmed: {..._intsOrNull(state.draft?['ok']) ?? const []},
                           onChanged: playing
-                              ? (w) => controller.setDraft({'words': w})
+                              ? (w) => controller.patchDraft({'words': w})
+                              : null,
+                          onCheck: playing && question.gridInstant
+                              ? (slot, word) async {
+                                  final r = await controller.checkCrosswordWord(slot, word);
+                                  if (context.mounted) _showCheckError(context, r.error);
+                                  return r.correct;
+                                }
                               : null,
                           reveal: feedback == null
                               ? null
@@ -384,13 +423,26 @@ class _QuestionView extends ConsumerWidget {
                         WordSearchBoard(
                           grid: question.wordSearchGrid,
                           words: question.wordSearchWords,
+                          lens: question.wordSearchLens,
+                          instant: question.gridInstant,
                           found: _positionList(state.draft?['found']),
+                          known: _knownWords(state.draft?['known']),
                           onChanged: playing
-                              ? (f) => controller.setDraft({'found': f})
+                              ? (f) => controller.patchDraft({'found': f})
+                              : null,
+                          onCheck: playing && question.gridInstant
+                              ? (sel) async {
+                                  final r = await controller.checkWordSearchMark(sel);
+                                  if (context.mounted) _showCheckError(context, r.error);
+                                  return r.found;
+                                }
                               : null,
                           reveal: feedback == null
                               ? null
                               : _positionList(feedback.reveal['positions']),
+                          revealWords: feedback == null
+                              ? null
+                              : _stringList(feedback.reveal['words']),
                         )
                       else
                         ...List.generate(question.options.length, (i) {
@@ -741,6 +793,11 @@ class _TimerBarState extends State<_TimerBar>
   @override
   void didUpdateWidget(_TimerBar old) {
     super.didUpdateWidget(old);
+    // Prazo novo (a questão abriu no servidor): recalcula na hora, senão a
+    // barra continuaria no valor do prazo anterior.
+    if (widget.deadline != old.deadline || widget.limitS != old.limitS) {
+      _remaining = _compute();
+    }
     if (widget.running && !_ticker.isActive && _remaining > 0) {
       _ticker.start();
     } else if (!widget.running && _ticker.isActive) {
@@ -1429,8 +1486,11 @@ class _ReviewItem extends StatelessWidget {
             WordSearchBoard(
               grid: question.wordSearchGrid,
               words: question.wordSearchWords,
+              lens: question.wordSearchLens,
+              instant: question.gridInstant,
               found: _positionList(item.response?['found']),
               reveal: _positionList(item.reveal['positions']),
+              revealWords: _stringList(item.reveal['words']),
             )
           else if (question.isOrdering)
             item.response == null
@@ -1576,6 +1636,21 @@ List<int>? _intsOrNull(Object? value) => value is List
     : null;
 
 /// Lista de textos vinda do JSON (cruzadinha).
+/// Caça-palavras: palavras ocultas já achadas na hora (índice → palavra).
+Map<int, String> _knownWords(Object? value) => {
+      if (value is Map)
+        for (final e in value.entries)
+          if (int.tryParse('${e.key}') case final i?) i: '${e.value}',
+    };
+
+/// Conferência na hora que não deu certo (tempo, limite, rede): avisa.
+void _showCheckError(BuildContext context, String? error) {
+  if (error == null) return;
+  ScaffoldMessenger.of(context)
+    ..hideCurrentSnackBar()
+    ..showSnackBar(SnackBar(content: Text(error)));
+}
+
 List<String> _stringList(Object? value) =>
     value is List ? [for (final v in value) '${v ?? ''}'] : const [];
 

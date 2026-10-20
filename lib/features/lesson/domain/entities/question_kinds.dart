@@ -162,8 +162,30 @@ extension QuestionKinds on Question {
   /// Caça-palavras: a grade (uma linha por item).
   List<String> get wordSearchGrid => _strings(content?['grid']);
 
-  /// Caça-palavras: as palavras a achar (o aluno vê a lista).
+  /// Caça-palavras: as palavras a achar. O aluno recebe as ocultas
+  /// vazias (""), só com o tamanho em [wordSearchLens].
   List<String> get wordSearchWords => _strings(content?['words']);
+
+  /// Caça-palavras: índices das palavras ocultas para o aluno (ele vê só
+  /// _ _ _ com o número de letras).
+  Set<int> get wordSearchHidden => {
+        for (final v in (content?['hidden'] as List?) ?? const []) _int(v),
+      };
+
+  /// Caça-palavras: letras de cada palavra (o servidor manda `lens` ao aluno
+  /// quando há ocultas; o professor tem as palavras).
+  List<int> get wordSearchLens => switch (content?['lens']) {
+        final List<dynamic> lens => [for (final v in lens) _int(v)],
+        _ => [for (final w in wordSearchWords) w.length],
+      };
+
+  /// Cruzadinha e caça-palavras: mostrar cada palavra certa na hora. Sem a
+  /// opção gravada vale o que era antes: cruzadinha só no fim, caça-palavras
+  /// na hora.
+  bool get gridInstant => switch (content?['instant']) {
+        final bool instant => instant,
+        _ => type == QuestionType.wordSearch,
+      };
 
   /// Caça-palavras: onde está cada palavra, [r1, c1, r2, c2] (só o
   /// professor tem).
@@ -210,7 +232,7 @@ const crosswordMinWords = 4;
 const crosswordMaxWords = 10;
 const wordSearchMinWords = 4;
 const wordSearchMaxWords = 12;
-const gridWordMinLetters = 3;
+const gridWordMinLetters = 1;
 const gridWordMaxLetters = 12;
 const gridMaxSize = 15;
 const crosswordClueMaxChars = 200;
@@ -561,6 +583,7 @@ Question? buildCrosswordQuestion({
   required List<CrosswordEntry> entries,
   String explanation = '',
   int? timeLimitS,
+  bool instant = false,
 }) {
   final layout = buildCrosswordLayout(entries);
   if (layout == null || layout.unplaced.isNotEmpty) return null;
@@ -576,6 +599,7 @@ Question? buildCrosswordQuestion({
       'rows': layout.rows,
       'cols': layout.cols,
       'entries': [for (final s in layout.slots) s.toJson()],
+      'instant': instant,
     },
     answer: {'words': layout.words},
   );
@@ -667,6 +691,8 @@ Question? buildWordSearchQuestion({
   required List<String> words,
   String explanation = '',
   int? timeLimitS,
+  bool instant = true,
+  Set<int> hidden = const {},
 }) {
   final layout = buildWordSearchLayout(words);
   if (layout == null) return null;
@@ -683,6 +709,12 @@ Question? buildWordSearchQuestion({
       'cols': layout.size,
       'grid': layout.grid,
       'words': layout.words,
+      'instant': instant,
+      if (hidden.isNotEmpty)
+        'hidden': [
+          for (final i in [...hidden]..sort())
+            if (i >= 0 && i < layout.words.length) i,
+        ],
     },
     answer: {'positions': layout.positions},
   );

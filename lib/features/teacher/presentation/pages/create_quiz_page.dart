@@ -157,7 +157,7 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
   final _focusNode = FocusNode();
 
   _Difficulty _difficulty = _Difficulty.medium;
-  double _quantity = 5;
+  double _quantity = 1;
 
   bool get _canSave => _topicCtrl.text.trim().isNotEmpty;
 
@@ -243,7 +243,7 @@ class _CreateQuizPageState extends ConsumerState<CreateQuizPage> {
                         children: [
                           _sectionLabel('QUANTIDADE'),
                           Text(
-                            '${_quantity.round()} questões',
+                            '${_quantity.round()} quest${_quantity.round() == 1 ? 'ão' : 'ões'}',
                             style: GoogleFonts.nunito(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,
@@ -711,7 +711,7 @@ class _ConfigSummary extends StatelessWidget {
                   ),
                   const SizedBox(height: 2),
                   Text(
-                    '$quantity questões · ${difficulty.label}',
+                    '$quantity quest${quantity == 1 ? 'ão' : 'ões'} · ${difficulty.label}',
                     style: GoogleFonts.nunito(
                       fontSize: 12,
                       fontWeight: FontWeight.w500,

@@ -111,6 +111,15 @@ abstract class ClassroomRepository {
     required String questionId,
   });
 
+  /// Confere na hora uma parte da resposta da questão aberta (cruzadinha ou
+  /// caça-palavras com "acertos na hora"). O gabarito não vem: só se aquela
+  /// palavra está certa (ou qual palavra a marcação achou).
+  Future<Either<Failure, PartCheck>> checkAnswerPart({
+    required String attemptId,
+    required String questionId,
+    required Map<String, dynamic> part,
+  });
+
   /// Envia e trava UMA resposta (`null` = sem resposta, tempo esgotado).
   /// A última resposta entrega a tentativa e traz o resultado.
   Future<Either<Failure, AnswerOutcome>> answerQuestion({

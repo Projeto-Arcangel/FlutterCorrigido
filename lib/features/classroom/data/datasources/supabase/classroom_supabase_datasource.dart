@@ -185,6 +185,24 @@ class ClassroomSupabaseDatasource {
     return AttemptJson.outcome(Map<String, dynamic>.from(data as Map));
   }
 
+  Future<PartCheck> checkAnswerPart({
+    required String attemptId,
+    required String questionId,
+    required Map<String, dynamic> part,
+  }) async {
+    final data = await _client.rpc<dynamic>('check_answer_part', params: {
+      'p_attempt': attemptId,
+      'p_question': questionId,
+      'p_part': part,
+    },);
+    final map = Map<String, dynamic>.from(data as Map);
+    return PartCheck(
+      index: (map['index'] as num?)?.toInt(),
+      correct: map['correct'] == true,
+      word: map['word'] as String?,
+    );
+  }
+
   /// Alunos da turma (só o professor dono recebe a lista).
   Future<List<ClassroomMember>> fetchRoster(String classroomId) async {
     final data = await _client.rpc<dynamic>(

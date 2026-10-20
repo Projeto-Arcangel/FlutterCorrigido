@@ -18,13 +18,8 @@ class SubjectChoicePage extends ConsumerWidget {
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
-          // Perfil (dados da conta; nível e conquistas aparecem pelo perfil
-          // aberto dentro de uma turma) e configurações.
-          IconButton(
-            icon: const Icon(Icons.person_outline_rounded),
-            tooltip: 'Perfil',
-            onPressed: () => context.push(AppRoutes.profile),
-          ),
+          // O perfil (nível, moedas e conquistas) só abre de dentro da turma,
+          // pelo avatar da trilha. Aqui ficam as configurações da conta.
           IconButton(
             icon: const Icon(Icons.settings_outlined),
             tooltip: 'Configurações',

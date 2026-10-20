@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/router/app_router.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../auth/presentation/widgets/auth_panel.dart';
+import '../../../settings/presentation/pages/preferences_page.dart';
 import '../landing_section.dart';
 import '../widgets/back_to_top_button.dart';
 import '../widgets/landing_about.dart';
@@ -18,7 +20,7 @@ import '../widgets/landing_plans.dart';
 import '../widgets/landing_section_container.dart';
 import '../widgets/landing_support.dart';
 
-class LandingPage extends StatefulWidget {
+class LandingPage extends ConsumerStatefulWidget {
   const LandingPage({super.key, this.initialAuthView});
 
   /// Vem de `/?auth=...`, para onde as rotas antigas (/login, /register,
@@ -26,10 +28,10 @@ class LandingPage extends StatefulWidget {
   final AuthPanelView? initialAuthView;
 
   @override
-  State<LandingPage> createState() => _LandingPageState();
+  ConsumerState<LandingPage> createState() => _LandingPageState();
 }
 
-class _LandingPageState extends State<LandingPage> {
+class _LandingPageState extends ConsumerState<LandingPage> {
   static const _pageTitle = 'Arcangel — Conhecimento também é uma aventura!';
 
   final _scaffoldKey = GlobalKey<ScaffoldState>();
@@ -186,6 +188,10 @@ class _LandingPageState extends State<LandingPage> {
           onLoginTap: _openLogin,
           onRegisterTap: _openRegister,
           onMenuTap: () => _scaffoldKey.currentState?.openDrawer(),
+          // A mesma preferência de Configurações → Preferências: vale para
+          // o app todo e fica salva no navegador.
+          onThemeTap: () =>
+              ref.read(preferencesProvider.notifier).toggleLightMode(),
         ),
         drawer: isDesktop
             ? null

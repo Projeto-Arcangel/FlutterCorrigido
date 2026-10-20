@@ -293,6 +293,26 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
   }
 
   @override
+  Future<Either<Failure, PartCheck>> checkAnswerPart({
+    required String attemptId,
+    required String questionId,
+    required Map<String, dynamic> part,
+  }) async {
+    try {
+      return Right(
+        await _datasource.checkAnswerPart(
+          attemptId: attemptId,
+          questionId: questionId,
+          part: part,
+        ),
+      );
+    } catch (e, st) {
+      _logger.e('checkAnswerPart failed', error: e, stackTrace: st);
+      return Left(_attemptFailure(e, 'Não foi possível conferir agora.'));
+    }
+  }
+
+  @override
   Future<Either<Failure, AnswerOutcome>> answerQuestion({
     required String attemptId,
     required String questionId,

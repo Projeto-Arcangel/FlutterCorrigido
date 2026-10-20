@@ -421,7 +421,10 @@ class _RankingSheet extends ConsumerWidget {
     final sheetBg = isDark ? AppColors.backgroundDark : Colors.white;
     final asyncRanking = ref.watch(classroomRankingProvider(classroomId));
 
+    // expand: false — a folha ocupa só a própria altura, então tocar acima
+    // dela (no fundo escurecido) fecha o ranking.
     return DraggableScrollableSheet(
+      expand: false,
       initialChildSize: 0.55,
       minChildSize: 0.35,
       maxChildSize: 0.9,

@@ -52,7 +52,9 @@ class ClassmateProfileSheet extends ConsumerWidget {
     final asyncProfile = ref.watch(classmateProfileProvider(key));
     final muted = isDark ? Colors.white54 : AppColors.textSecondary;
 
+    // expand: false — tocar fora da folha (no fundo escurecido) fecha.
     return DraggableScrollableSheet(
+      expand: false,
       initialChildSize: 0.7,
       minChildSize: 0.4,
       maxChildSize: 0.92,

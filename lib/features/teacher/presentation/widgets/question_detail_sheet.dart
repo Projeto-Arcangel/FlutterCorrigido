@@ -83,10 +83,14 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
     _wordSearch?.dispose();
     final q = widget.question;
     _crossword = q.type == QuestionType.crossword
-        ? CrosswordDraft(q.crosswordEntries)
+        ? CrosswordDraft(entries: q.crosswordEntries, instant: q.gridInstant)
         : null;
     _wordSearch = q.type == QuestionType.wordSearch
-        ? WordSearchDraft(q.wordSearchWords)
+        ? WordSearchDraft(
+            words: q.wordSearchWords,
+            hidden: q.wordSearchHidden,
+            instant: q.gridInstant,
+          )
         : null;
     _match = q.isMatchColumns ? MatchPairsDraft(q.matchPairs) : null;
     _ordering = q.isOrdering ? OrderingDraft(q.orderedItems) : null;
@@ -190,6 +194,7 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
               entries: crossword.entries,
               explanation: _explanationCtrl.text,
               timeLimitS: _timeLimit,
+              instant: crossword.instant,
             )
           : buildWordSearchQuestion(
               id: q.id,
@@ -197,6 +202,8 @@ class _QuestionDetailSheetState extends State<QuestionDetailSheet> {
               words: wordSearch!.words,
               explanation: _explanationCtrl.text,
               timeLimitS: _timeLimit,
+              instant: wordSearch.instant,
+              hidden: wordSearch.hidden,
             );
       if (updated != null) Navigator.of(context).pop(updated);
       return;

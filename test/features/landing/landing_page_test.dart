@@ -1,11 +1,17 @@
+import 'package:arcangel_o_oficial/core/providers/core_providers.dart';
 import 'package:arcangel_o_oficial/features/landing/presentation/pages/landing_page.dart';
+import 'package:arcangel_o_oficial/features/landing/presentation/widgets/landing_header.dart';
 import 'package:arcangel_o_oficial/features/landing/presentation/widgets/landing_reveal.dart';
+import 'package:arcangel_o_oficial/features/settings/presentation/pages/preferences_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Renderiza a landing inteira (viewport alto) para que todas as seções sejam
-/// construídas e qualquer overflow de layout falhe o teste.
-Future<void> _pumpLanding(
+/// construídas e qualquer overflow de layout falhe o teste. O tema vem da
+/// preferência "Modo claro", como no app. Devolve as preferências salvas.
+Future<SharedPreferences> _pumpLanding(
   WidgetTester tester, {
   required Size size,
   Brightness brightness = Brightness.light,
@@ -24,13 +30,27 @@ Future<void> _pumpLanding(
     addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
   }
 
+  SharedPreferences.setMockInitialValues(
+    {'pref_light_mode': brightness == Brightness.light},
+  );
+  final prefs = await SharedPreferences.getInstance();
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(brightness: brightness, useMaterial3: true),
-      home: const LandingPage(),
+    ProviderScope(
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: Consumer(
+        builder: (_, ref, __) => MaterialApp(
+          themeMode: ref.watch(preferencesProvider).lightMode
+              ? ThemeMode.light
+              : ThemeMode.dark,
+          theme: ThemeData(brightness: Brightness.light, useMaterial3: true),
+          darkTheme: ThemeData(brightness: Brightness.dark, useMaterial3: true),
+          home: const LandingPage(),
+        ),
+      ),
     ),
   );
   if (settle) await tester.pumpAndSettle();
+  return prefs;
 }
 
 /// Opacidade do [LandingReveal] mais próximo acima do texto.
@@ -76,6 +96,33 @@ void main() {
     expect(find.text('Ainda precisa de ajuda?'), findsOneWidget);
     expect(find.textContaining('Todos os direitos reservados'), findsOneWidget);
   });
+
+  for (final width in [390.0, 1440.0]) {
+    testWidgets('botão do cabeçalho alterna o tema em ${width.toInt()}px',
+        (tester) async {
+      final prefs = await _pumpLanding(
+        tester,
+        size: Size(width, 900),
+        brightness: Brightness.dark,
+      );
+      Brightness current() =>
+          Theme.of(tester.element(find.byType(LandingHeader))).brightness;
+
+      expect(current(), Brightness.dark);
+      await tester.tap(find.byTooltip('Mudar para o modo claro'));
+      await tester.pumpAndSettle();
+
+      expect(current(), Brightness.light);
+      expect(prefs.getBool('pref_light_mode'), isTrue); // vale para o app todo
+      expect(find.byTooltip('Mudar para o modo escuro'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('Mudar para o modo escuro'));
+      await tester.pumpAndSettle();
+      expect(current(), Brightness.dark);
+      expect(prefs.getBool('pref_light_mode'), isFalse);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('pergunta do FAQ expande e mostra a resposta', (tester) async {
     await _pumpLanding(tester, size: const Size(1440, 9000));

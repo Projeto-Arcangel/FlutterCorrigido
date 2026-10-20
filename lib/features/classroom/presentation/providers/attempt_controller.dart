@@ -230,6 +230,95 @@ class AttemptController
     _set(state.copyWith(draft: () => draft));
   }
 
+  /// Atualiza só as chaves dadas da resposta em montagem (as palavras da
+  /// cruzadinha sem perder as já conferidas, por exemplo).
+  void patchDraft(Map<String, dynamic> patch) {
+    if (state.stage != AttemptStage.playing) return;
+    _set(state.copyWith(draft: () => {...?state.draft, ...patch}));
+  }
+
+  /// Cruzadinha com acertos na hora: confere a palavra [index] no servidor.
+  /// Certa, entra em `ok` (fica travada na grade). [correct] nulo = não deu
+  /// para conferir, e [error] diz por quê.
+  Future<({bool? correct, String? error})> checkCrosswordWord(
+    int index,
+    String word,
+  ) async {
+    final q = state.question;
+    final attempt = state.attempt;
+    if (q == null || attempt == null || state.stage != AttemptStage.playing) {
+      return (correct: null, error: null);
+    }
+    final res = await _repo.checkAnswerPart(
+      attemptId: attempt.attemptId,
+      questionId: q.id,
+      part: {'index': index, 'word': word},
+    );
+    if (_disposed) return (correct: null, error: null);
+    return res.fold(
+      (f) => (correct: null, error: f.message),
+      (check) {
+        if (check.correct && _stillOn(q)) {
+          final ok = {..._ints(state.draft?['ok']), index}.toList()..sort();
+          patchDraft({'ok': ok});
+        }
+        return (correct: check.correct, error: null);
+      },
+    );
+  }
+
+  /// Caça-palavras com acertos na hora: confere no servidor uma marcação que
+  /// pode ser uma palavra oculta. Achou: a marcação entra em `found` e a
+  /// palavra em `known` (índice → texto), para a lista mostrá-la.
+  Future<({bool found, String? error})> checkWordSearchMark(
+    List<int> sel,
+  ) async {
+    final q = state.question;
+    final attempt = state.attempt;
+    if (q == null || attempt == null || state.stage != AttemptStage.playing) {
+      return (found: false, error: null);
+    }
+    final res = await _repo.checkAnswerPart(
+      attemptId: attempt.attemptId,
+      questionId: q.id,
+      part: {'sel': sel},
+    );
+    if (_disposed) return (found: false, error: null);
+    return res.fold(
+      (f) => (found: false, error: f.message),
+      (check) {
+        final index = check.index;
+        final word = check.word;
+        if (index == null || word == null) return (found: false, error: null);
+        if (_stillOn(q)) {
+          patchDraft({
+            'found': [..._positions(state.draft?['found']), sel],
+            'known': {
+              ...?(state.draft?['known'] as Map?)
+                  ?.map((k, v) => MapEntry('$k', '$v')),
+              '$index': word,
+            },
+          });
+        }
+        return (found: true, error: null);
+      },
+    );
+  }
+
+  /// A conferência voltou e o aluno ainda está na mesma questão.
+  bool _stillOn(Question q) =>
+      state.question?.id == q.id && state.stage == AttemptStage.playing;
+
+  static List<int> _ints(Object? value) => [
+        for (final v in (value as List?) ?? const [])
+          if (v is num) v.toInt(),
+      ];
+
+  static List<List<int>> _positions(Object? value) => [
+        for (final p in (value as List?) ?? const [])
+          if (p is List) [for (final v in p) (v as num).toInt()],
+      ];
+
   /// Confirma a resposta: trava e manda corrigir.
   Future<void> confirm() async {
     if (!state.canConfirm) return;
@@ -257,10 +346,16 @@ class AttemptController
       await start();
       return;
     }
+    // O relógio já mostra o tempo cheio da próxima (parado até o servidor
+    // abrir a questão), nunca o prazo vencido da anterior.
+    final limit = state.attempt!.timeLimits[qs[i].id];
     _set(state.copyWith(
       index: i,
       selected: () => null,
       draft: () => _initialDraft(qs[i]),
+      limitS: () => limit,
+      deadline: () =>
+          limit == null ? null : _now().add(Duration(seconds: limit)),
     ),);
     await _present();
   }
@@ -316,12 +411,14 @@ class AttemptController
 
     final expired = open.expired;
     if (expired != null) {
-      // Saiu e voltou depois do tempo: a questão já valeu 0.
+      // Saiu e voltou depois do tempo: a questão já valeu 0 (o relógio
+      // aparece parado em 0, como num tempo esgotado na tela).
       _set(state.copyWith(
         stage: AttemptStage.feedback,
         answers: {...state.answers, q.id: expired},
         streak: 0,
-        deadline: () => null,
+        limitS: () => open!.limitS,
+        deadline: _now,
       ),);
       return;
     }

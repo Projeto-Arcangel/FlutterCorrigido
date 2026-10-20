@@ -96,6 +96,20 @@ class AttemptReviewItem extends Equatable {
       ];
 }
 
+/// Conferência na hora de uma parte da resposta (RPC `check_answer_part`).
+/// Cruzadinha: [correct] da palavra [index]. Caça-palavras: a palavra
+/// [word] (índice [index]) que a marcação formou, ou nada.
+class PartCheck extends Equatable {
+  final int? index;
+  final bool correct;
+  final String? word;
+
+  const PartCheck({this.index, this.correct = false, this.word});
+
+  @override
+  List<Object?> get props => [index, correct, word];
+}
+
 /// Conquista liberada numa entrega, com as moedas que deu.
 class UnlockedAchievement extends Equatable {
   final String id;

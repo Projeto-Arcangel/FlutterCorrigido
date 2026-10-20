@@ -17,6 +17,7 @@ class LandingHeader extends StatelessWidget implements PreferredSizeWidget {
     required this.onLoginTap,
     required this.onRegisterTap,
     required this.onMenuTap,
+    required this.onThemeTap,
   });
 
   static const double height = 72;
@@ -28,6 +29,9 @@ class LandingHeader extends StatelessWidget implements PreferredSizeWidget {
   final VoidCallback onLoginTap;
   final VoidCallback onRegisterTap;
   final VoidCallback onMenuTap;
+
+  /// Alterna entre o modo claro e o escuro.
+  final VoidCallback onThemeTap;
 
   @override
   Size get preferredSize => const Size.fromHeight(height);
@@ -108,6 +112,8 @@ class LandingHeader extends StatelessWidget implements PreferredSizeWidget {
                         ),
                       ),
                     ),
+                  _ThemeToggle(onPressed: onThemeTap),
+                  const SizedBox(width: 4),
                   if (isCompact)
                     _LoginButton(onPressed: onLoginTap, outlined: true)
                   else ...[
@@ -213,6 +219,38 @@ class _NavItem extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Sol no modo escuro (vai para o claro) e lua no claro (vai para o escuro).
+class _ThemeToggle extends StatelessWidget {
+  const _ThemeToggle({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = LandingPalette.of(context);
+    final toLight = palette.isDark;
+
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: toLight ? 'Mudar para o modo claro' : 'Mudar para o modo escuro',
+      icon: AnimatedSwitcher(
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 250),
+        transitionBuilder: (child, animation) => RotationTransition(
+          turns: Tween<double>(begin: 0.75, end: 1).animate(animation),
+          child: FadeTransition(opacity: animation, child: child),
+        ),
+        child: Icon(
+          toLight ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+          key: ValueKey(toLight),
+          color: palette.textPrimary,
         ),
       ),
     );

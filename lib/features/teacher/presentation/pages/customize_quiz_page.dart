@@ -109,10 +109,17 @@ class _QuestionData {
         ),
       // A grade já foi montada (e conferida) na prévia: mesma lista, mesma
       // grade.
-      QuestionType.crossword =>
-        buildCrosswordQuestion(text: text, entries: crossword.entries)!,
-      QuestionType.wordSearch =>
-        buildWordSearchQuestion(text: text, words: wordSearch.words)!,
+      QuestionType.crossword => buildCrosswordQuestion(
+          text: text,
+          entries: crossword.entries,
+          instant: crossword.instant,
+        )!,
+      QuestionType.wordSearch => buildWordSearchQuestion(
+          text: text,
+          words: wordSearch.words,
+          instant: wordSearch.instant,
+          hidden: wordSearch.hidden,
+        )!,
       _ => Question(
           id: '', // gerado pelo banco (Supabase)
           text: text,
@@ -253,7 +260,7 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
     final result = await useCase(
       classroomId: classroomId,
       title: widget.topic,
-      description: '${widget.quantity} questões · ${widget.difficulty}',
+      description: '${widget.quantity} quest${widget.quantity == 1 ? 'ão' : 'ões'} · ${widget.difficulty}',
       questions: questions,
     );
 

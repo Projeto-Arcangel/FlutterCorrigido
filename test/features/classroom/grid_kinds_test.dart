@@ -103,9 +103,25 @@ void main() {
       validateCrossword([..._capitals.take(3), const CrosswordEntry('Belem', 'x'), const CrosswordEntry('belém', 'y')]),
       contains('repetida'),
     );
+    // Palavras de 1 e 2 letras valem (pedido do professor); acima de 12, não.
     expect(
-      validateCrossword([..._capitals.take(3), const CrosswordEntry('Oi', 'Curta')]),
-      contains('3 a 12 letras'),
+      validateCrossword([..._capitals.take(3), const CrosswordEntry('Ó', 'Vogal')]),
+      isNull,
+    );
+    expect(
+      validateCrossword([..._capitals.take(3), const CrosswordEntry('Oi', 'Saudação')]),
+      isNull,
+    );
+    expect(
+      validateCrossword([
+        ..._capitals.take(3),
+        const CrosswordEntry('Paralelepípedo', 'Longa'),
+      ]),
+      contains('1 a 12 letras'),
+    );
+    expect(
+      validateCrossword([..._capitals.take(3), const CrosswordEntry('!', 'Sem letra')]),
+      contains('Preencha'),
     );
     expect(
       validateCrossword([..._capitals.take(3), const CrosswordEntry('Recife', ' ')]),
@@ -143,7 +159,45 @@ void main() {
     expect(validateWordSearch(['sol', 'lua', 'mar', 'céu']), isNull);
     expect(validateWordSearch(['sol', 'lua', 'mar']), contains('4 a 12'));
     expect(validateWordSearch(['sol', 'lua', 'mar', 'SOL']), contains('repetida'));
-    expect(validateWordSearch(['sol', 'lua', 'mar', 'paralelepipedos']), contains('3 a 12'));
+    expect(validateWordSearch(['sol', 'lua', 'mar', 'paralelepipedos']), contains('1 a 12'));
+    expect(validateWordSearch(['sol', 'lua', 'mar', 'a']), isNull);
+  });
+
+  test('cruzadinha com palavras de 1 letra', () {
+    const entries = [
+      CrosswordEntry('Ouro', 'Metal amarelo'),
+      CrosswordEntry('Prata', 'Metal cinza'),
+      CrosswordEntry('Cobre', 'Metal dos fios'),
+      CrosswordEntry('O', 'Símbolo do oxigênio'),
+      CrosswordEntry('C', 'Símbolo do carbono'),
+    ];
+    final layout = buildCrosswordLayout(entries)!;
+    expect(layout.unplaced, isEmpty);
+    _expectValidCrossword(layout);
+    expect(layout.slots.where((s) => s.len == 1).length, 2);
+    final q = buildCrosswordQuestion(text: 'Resolva.', entries: entries)!;
+    expect(validateCrossword(q.crosswordEntries), isNull);
+  });
+
+  test('cruzadinha só com letras soltas cruzando uma palavra', () {
+    // Grade de 1 linha: o banco passou a aceitar de 1 a 15 linhas.
+    final layout = buildCrosswordLayout(const [
+      CrosswordEntry('Ouro', 'Metal'),
+      CrosswordEntry('U', 'Vogal'),
+      CrosswordEntry('R', 'Consoante'),
+      CrosswordEntry('O', 'Outra vogal'),
+    ])!;
+    expect(layout.unplaced, isEmpty);
+    _expectValidCrossword(layout);
+  });
+
+  test('caça-palavras com palavra de 1 letra', () {
+    final layout = buildWordSearchLayout(['Sol', 'Lua', 'Mar', 'X'])!;
+    final i = layout.words.indexOf('X');
+    final p = layout.positions[i];
+    expect(p[0], p[2]);
+    expect(p[1], p[3]);
+    expect(gridLine(layout.grid, p[0], p[1], p[2], p[3]), 'X');
   });
 
   test('tempo automático: mesma conta do servidor', () {

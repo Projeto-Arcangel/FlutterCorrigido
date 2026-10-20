@@ -49,7 +49,7 @@ const BLANKS_MAX = 8, BLANK_EXTRAS_MAX = 6;
 const BLANK_WORD_MAX_CHARS = 80, BLANK_TEXT_MAX_CHARS = 1500;
 const CROSSWORD_MIN = 4, CROSSWORD_MAX = 10;
 const WORD_SEARCH_MIN = 4, WORD_SEARCH_MAX = 12;
-const GRID_WORD_MIN = 3, GRID_WORD_MAX = 12;
+const GRID_WORD_MIN = 1, GRID_WORD_MAX = 12;
 
 /** Quanto cada questão do tipo conta no limite do plano (decisão 6). */
 export function planWeight(type: string): number {
@@ -274,7 +274,7 @@ Não inclua texto antes nem depois do JSON. Não use markdown.`;
 
 function crosswordRules(): string {
   return `- Cada cruzadinha tem uma instrução curta ("text", ex.: "Resolva a cruzadinha sobre as capitais do Nordeste.") e de 6 a 8 palavras com dica ("entries"; entre ${CROSSWORD_MIN} e ${CROSSWORD_MAX}).
-- Cada palavra é um termo do tema com ${GRID_WORD_MIN} a ${GRID_WORD_MAX} letras (de preferência uma palavra só; acentos e espaços são retirados na grade).
+- Cada palavra é um termo do tema com ${GRID_WORD_MIN} a ${GRID_WORD_MAX} letras (de preferência uma palavra só; acentos e espaços são retirados na grade). Prefira palavras com 3 letras ou mais; use 1 ou 2 letras só quando o termo for assim mesmo (ex.: um símbolo químico).
 - Escolha palavras que compartilhem letras entre si, para cruzarem na grade.
 - Cada dica é curta (até 100 caracteres), leva a uma única resposta e não contém a própria palavra.
 - Não repita palavras.
@@ -297,7 +297,7 @@ Não inclua texto antes nem depois do JSON. Não use markdown.`;
 
 function wordSearchRules(): string {
   return `- Cada caça-palavras tem uma instrução curta ("text", ex.: "Encontre os planetas do Sistema Solar.") e de 6 a 10 palavras do tema ("words"; entre ${WORD_SEARCH_MIN} e ${WORD_SEARCH_MAX}).
-- Cada palavra tem de ${GRID_WORD_MIN} a ${GRID_WORD_MAX} letras (de preferência uma palavra só; acentos e espaços são retirados na grade).
+- Cada palavra tem de ${GRID_WORD_MIN} a ${GRID_WORD_MAX} letras (de preferência uma palavra só; acentos e espaços são retirados na grade). Prefira palavras com 3 letras ou mais; use 1 ou 2 letras só quando o termo for assim mesmo (ex.: um símbolo químico).
 - Não repita palavras.
 - A explicação resume o que as palavras têm em comum, de forma pedagógica, em até 2 frases.
 - Todo o conteúdo deve estar em português do Brasil.

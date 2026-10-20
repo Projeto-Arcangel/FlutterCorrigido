@@ -12,6 +12,10 @@ import '../../../lesson/domain/entities/question_kinds.dart';
 /// casa vazia). Com [onChanged] `null` a resposta está travada e, se vier
 /// [reveal] (as palavras certas), cada casa mostra a letra certa — verde
 /// se o aluno acertou a casa, vermelha se não.
+///
+/// Com [onCheck] (o professor ligou "acertos na hora"), cada palavra
+/// completa é conferida no servidor ao ser escrita: a certa entra em
+/// [confirmed] e fica verde e travada; a errada fica marcada até mudar.
 class CrosswordBoard extends StatefulWidget {
   const CrosswordBoard({
     super.key,
@@ -21,6 +25,8 @@ class CrosswordBoard extends StatefulWidget {
     required this.words,
     this.onChanged,
     this.reveal,
+    this.confirmed = const {},
+    this.onCheck,
   });
 
   final int rows;
@@ -29,6 +35,12 @@ class CrosswordBoard extends StatefulWidget {
   final List<String> words;
   final ValueChanged<List<String>>? onChanged;
   final List<String>? reveal;
+
+  /// Palavras já conferidas certas (índices de [slots]).
+  final Set<int> confirmed;
+
+  /// Confere uma palavra na hora; `null` = não deu para conferir.
+  final Future<bool?> Function(int slot, String word)? onCheck;
 
   static const rightColor = Color(0xFF4CAF50);
 
@@ -40,6 +52,11 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
   int? _selected;
   final _input = TextEditingController();
   final _focus = FocusNode();
+
+  /// Palavra sendo conferida e as que o servidor disse que estão erradas.
+  int? _checking;
+  final _wrong = <int>{};
+  String? _inputError;
 
   bool get _locked => widget.onChanged == null;
 
@@ -82,11 +99,24 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
     return [for (var k = 0; k < s.len; k++) cells[s.cell(k)] ?? ' '].join();
   }
 
+  /// Casas das palavras já conferidas certas: não mudam mais.
+  Map<(int, int), String> get _confirmedCells {
+    final cells = _cells;
+    return {
+      for (final i in widget.confirmed)
+        if (i < widget.slots.length)
+          for (var k = 0; k < widget.slots[i].len; k++)
+            if (cells[widget.slots[i].cell(k)] case final letter?)
+              widget.slots[i].cell(k): letter,
+    };
+  }
+
   void _select(int i) {
-    if (_locked) return;
+    if (_locked || widget.confirmed.contains(i)) return;
     final word = _wordOf(i, _cells);
     setState(() {
       _selected = i;
+      _inputError = null;
       _input.text = word.contains(' ') ? '' : word;
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
     });
@@ -96,7 +126,9 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
   void _tapCell((int, int) cell) {
     final containing = [
       for (var i = 0; i < widget.slots.length; i++)
-        if (List.generate(widget.slots[i].len, widget.slots[i].cell).contains(cell)) i,
+        if (!widget.confirmed.contains(i) &&
+            List.generate(widget.slots[i].len, widget.slots[i].cell).contains(cell))
+          i,
     ];
     if (containing.isEmpty) return;
     final current = _selected;
@@ -112,15 +144,38 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
     final s = widget.slots[i];
     final typed = normalizeGridWord(_input.text);
     final cells = _cells;
+    // Uma letra de palavra já conferida certa não pode ser trocada.
+    final fixed = _confirmedCells;
+    for (var k = 0; k < s.len && k < typed.length; k++) {
+      final letter = fixed[s.cell(k)];
+      if (letter != null && letter != typed[k]) {
+        setState(
+          () => _inputError =
+              'A ${k + 1}ª letra é $letter: ela já está certa em outra palavra.',
+        );
+        return;
+      }
+    }
     for (var k = 0; k < s.len && k < typed.length; k++) {
       cells[s.cell(k)] = typed[k];
     }
-    widget.onChanged!([for (var j = 0; j < widget.slots.length; j++) _wordOf(j, cells)]);
+    final before = [for (var j = 0; j < widget.slots.length; j++) _wordOf(j, _cells)];
+    final after = [for (var j = 0; j < widget.slots.length; j++) _wordOf(j, cells)];
+    widget.onChanged!(after);
+    setState(() {
+      _inputError = null;
+      // Palavra que mudou deixa de estar marcada como errada.
+      _wrong.removeWhere((j) => before[j] != after[j]);
+    });
+    final written = after[i];
+    if (widget.onCheck != null && !written.contains(' ')) _check(i, written);
     // Vai para a próxima palavra ainda incompleta.
     final order = [
       for (var j = 1; j <= widget.slots.length; j++) (i + j) % widget.slots.length,
     ];
-    final next = order.where((j) => _wordOf(j, cells).contains(' ')).firstOrNull;
+    final next = order
+        .where((j) => !widget.confirmed.contains(j) && _wordOf(j, cells).contains(' '))
+        .firstOrNull;
     if (next == null) {
       setState(() => _selected = null);
       _focus.unfocus();
@@ -129,11 +184,22 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
     }
   }
 
+  Future<void> _check(int i, String word) async {
+    setState(() => _checking = i);
+    final ok = await widget.onCheck!(i, word);
+    if (!mounted) return;
+    setState(() {
+      if (_checking == i) _checking = null;
+      if (ok == false) _wrong.add(i);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final cells = _cells;
     final right = _rightCells;
+    final fixed = _locked ? const <(int, int), String>{} : _confirmedCells;
     final numbers = {for (final s in widget.slots) (s.row, s.col): s.num};
     final active = {
       for (final s in widget.slots) ...List.generate(s.len, s.cell),
@@ -164,7 +230,7 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
                                   number: numbers[(r, c)],
                                   selected: selectedCells.contains((r, c)),
                                   result: right.isEmpty
-                                      ? null
+                                      ? (fixed.containsKey((r, c)) ? true : null)
                                       : cells[(r, c)] == right[(r, c)],
                                   isDark: isDark,
                                   onTap: () => _tapCell((r, c)),
@@ -185,6 +251,14 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
             focus: _focus,
             onSubmit: _commit,
           ),
+          if (_inputError case final error?)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                error,
+                style: const TextStyle(fontSize: 13, color: AppColors.error),
+              ),
+            ),
         ],
         const SizedBox(height: 16),
         for (final across in [true, false])
@@ -267,9 +341,11 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
   Widget _clue(int i, Map<(int, int), String> cells, bool isDark) {
     final s = widget.slots[i];
     final reveal = widget.reveal;
-    final ok = reveal == null || i >= reveal.length
-        ? null
-        : _wordOf(i, cells) == reveal[i];
+    // Travada: compara com o gabarito. Jogando: o que a conferência disse.
+    final ok = reveal != null
+        ? (i >= reveal.length ? null : _wordOf(i, cells) == reveal[i])
+        : (widget.confirmed.contains(i) ? true : (_wrong.contains(i) ? false : null));
+    final checking = !_locked && _checking == i;
     final selected = _selected == i;
     return InkWell(
       onTap: _locked ? null : () => _select(i),
@@ -295,9 +371,9 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
                 TextSpan(
                   text: '${s.clue} (${s.len})',
                   children: [
-                    if (ok == false)
+                    if (ok == false && reveal != null)
                       TextSpan(
-                        text: '  ${reveal![i]}',
+                        text: '  ${reveal[i]}',
                         style: const TextStyle(
                           fontWeight: FontWeight.w800,
                           color: CrosswordBoard.rightColor,
@@ -312,11 +388,18 @@ class _CrosswordBoardState extends State<CrosswordBoard> {
                 ),
               ),
             ),
-            if (ok != null)
+            if (checking)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else if (ok != null)
               Icon(
                 ok ? Icons.check_circle_rounded : Icons.cancel_rounded,
                 size: 18,
                 color: ok ? CrosswordBoard.rightColor : AppColors.error,
+                semanticLabel: ok ? 'certa' : 'errada',
               ),
           ],
         ),
@@ -355,7 +438,8 @@ class _InputBar extends StatelessWidget {
             decoration: InputDecoration(
               isDense: true,
               labelText:
-                  '${slot.num} ${slot.across ? 'horizontal' : 'vertical'} · ${slot.len} letras',
+                  '${slot.num} ${slot.across ? 'horizontal' : 'vertical'} · '
+                  '${slot.len} letra${slot.len == 1 ? '' : 's'}',
               counterText: '',
               border: const OutlineInputBorder(),
             ),

@@ -535,7 +535,7 @@ class FillBlanksEditor extends StatelessWidget {
 /// Palavras e dicas em edição; a grade é montada na hora (a mesma lista
 /// sempre dá a mesma grade, então a prévia é o que vai salvo).
 class CrosswordDraft {
-  CrosswordDraft([List<CrosswordEntry>? entries]) {
+  CrosswordDraft({List<CrosswordEntry>? entries, this.instant = false}) {
     final initial = entries == null || entries.isEmpty
         ? List.filled(crosswordMinWords, const CrosswordEntry('', ''))
         : entries;
@@ -547,6 +547,9 @@ class CrosswordDraft {
   final _rows = <(TextEditingController, TextEditingController)>[];
   String? _cacheKey;
   CrosswordLayout? _cache;
+
+  /// Mostrar ao aluno cada palavra certa assim que ele escreve.
+  bool instant;
 
   int get length => _rows.length;
   bool get canAdd => _rows.length < crosswordMaxWords;
@@ -684,6 +687,14 @@ class CrosswordEditor extends StatelessWidget {
               ),
             ),
           ),
+        _InstantSwitch(
+          value: draft.instant,
+          accent: accent,
+          onChanged: (v) {
+            draft.instant = v;
+            onChanged();
+          },
+        ),
         if (layout != null && layout.unplaced.isEmpty) ...[
           const SizedBox(height: 8),
           Text(
@@ -706,16 +717,36 @@ class CrosswordEditor extends StatelessWidget {
 // ─── Caça-palavras ───────────────────────────────────────────────────────────
 
 class WordSearchDraft {
-  WordSearchDraft([List<String>? words]) {
+  WordSearchDraft({
+    List<String>? words,
+    Set<int> hidden = const {},
+    this.instant = true,
+  }) {
     final initial = words == null || words.isEmpty
         ? List.filled(wordSearchMinWords, '')
         : words;
-    for (final w in initial) {
-      _words.add(TextEditingController(text: w));
+    for (var i = 0; i < initial.length; i++) {
+      _words.add(TextEditingController(text: initial[i]));
+      _hidden.add(hidden.contains(i));
     }
   }
 
   final _words = <TextEditingController>[];
+
+  /// Palavra oculta para o aluno (ele vê só _ _ _), na mesma ordem.
+  final _hidden = <bool>[];
+
+  /// Mostrar ao aluno cada palavra achada na hora.
+  bool instant;
+
+  Set<int> get hidden => {
+        for (var i = 0; i < _hidden.length; i++)
+          if (_hidden[i]) i,
+      };
+
+  bool isHidden(int i) => _hidden[i];
+
+  void toggleHidden(int i) => _hidden[i] = !_hidden[i];
   String? _cacheKey;
   WordSearchLayout? _cache;
 
@@ -741,11 +772,15 @@ class WordSearchDraft {
       (layout == null ? 'As palavras não couberam numa grade de 15×15.' : null);
 
   void add() {
-    if (canAdd) _words.add(TextEditingController());
+    if (!canAdd) return;
+    _words.add(TextEditingController());
+    _hidden.add(false);
   }
 
   void removeAt(int i) {
-    if (canRemove) _words.removeAt(i).dispose();
+    if (!canRemove) return;
+    _words.removeAt(i).dispose();
+    _hidden.removeAt(i);
   }
 
   void dispose() {
@@ -776,7 +811,8 @@ class WordSearchEditor extends StatelessWidget {
       children: [
         Text(
           'Escreva as palavras que o aluno vai procurar. O app monta a grade '
-          '(→ ↓ ↘ ↗) e completa com letras aleatórias.',
+          '(→ ↓ ↘ ↗) e completa com letras aleatórias. Toque no olho para '
+          'ocultar uma palavra: o aluno vê só os tracinhos (_ _ _).',
           style: GoogleFonts.nunito(fontSize: 11, color: ClassroomPalette.textMuted),
         ),
         const SizedBox(height: 8),
@@ -786,7 +822,7 @@ class WordSearchEditor extends StatelessWidget {
           children: [
             for (var i = 0; i < draft.length; i++)
               SizedBox(
-                width: 150,
+                width: 186,
                 child: Row(
                   children: [
                     Expanded(
@@ -797,6 +833,27 @@ class WordSearchEditor extends StatelessWidget {
                         accent: accent,
                         onChanged: onChanged,
                         maxChars: 30,
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: draft.isHidden(i)
+                          ? 'Mostrar para o aluno'
+                          : 'Ocultar para o aluno',
+                      visualDensity: VisualDensity.compact,
+                      isSelected: draft.isHidden(i),
+                      onPressed: () {
+                        draft.toggleHidden(i);
+                        onChanged();
+                      },
+                      icon: const Icon(
+                        Icons.visibility_rounded,
+                        size: 18,
+                        color: ClassroomPalette.textMuted,
+                      ),
+                      selectedIcon: Icon(
+                        Icons.visibility_off_rounded,
+                        size: 18,
+                        color: accent,
                       ),
                     ),
                     if (draft.canRemove)
@@ -829,6 +886,14 @@ class WordSearchEditor extends StatelessWidget {
               ),
             ),
           ),
+        _InstantSwitch(
+          value: draft.instant,
+          accent: accent,
+          onChanged: (v) {
+            draft.instant = v;
+            onChanged();
+          },
+        ),
         if (layout != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -957,6 +1022,8 @@ class CrosswordView extends StatelessWidget {
       children: [
         GridPreview.crossword(question.gridRows, question.gridCols, slots, words),
         const SizedBox(height: 10),
+        _InstantNote(instant: question.gridInstant),
+        const SizedBox(height: 6),
         for (var i = 0; i < slots.length && i < words.length; i++)
           Padding(
             padding: const EdgeInsets.only(bottom: 4),
@@ -993,17 +1060,108 @@ class WordSearchView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final words = question.wordSearchWords;
+    final hidden = question.wordSearchHidden;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         GridPreview.wordSearch(question.wordSearchGrid, question.wordSearchPositions),
         const SizedBox(height: 10),
-        Text(
-          question.wordSearchWords.join(' · '),
+        _InstantNote(instant: question.gridInstant),
+        const SizedBox(height: 6),
+        Text.rich(
+          TextSpan(
+            children: [
+              for (var i = 0; i < words.length; i++) ...[
+                if (i > 0) const TextSpan(text: ' · '),
+                TextSpan(text: words[i]),
+                if (hidden.contains(i))
+                  TextSpan(
+                    text: ' (oculta)',
+                    style: GoogleFonts.nunito(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: ClassroomPalette.textMuted,
+                    ),
+                  ),
+              ],
+            ],
+          ),
           style: GoogleFonts.nunito(
             fontSize: 13,
             fontWeight: FontWeight.w800,
             color: const Color(0xFF4CAF50),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Opção "acertos na hora" da cruzadinha e do caça-palavras.
+class _InstantSwitch extends StatelessWidget {
+  const _InstantSwitch({
+    required this.value,
+    required this.onChanged,
+    required this.accent,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Mesmo estilo dos interruptores das regras da fase.
+    return SwitchListTile.adaptive(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      value: value,
+      activeTrackColor: accent,
+      onChanged: onChanged,
+      title: Text(
+        'Mostrar cada acerto na hora',
+        style: GoogleFonts.nunito(
+          fontSize: 14,
+          fontWeight: FontWeight.w800,
+          color: ClassroomPalette.primaryText(isDark),
+        ),
+      ),
+      subtitle: Text(
+        value
+            ? 'O aluno vê cada palavra certa assim que ela é escrita ou achada.'
+            : 'O aluno só vê o que acertou depois de confirmar a questão.',
+        style: GoogleFonts.nunito(fontSize: 12, color: ClassroomPalette.textMuted),
+      ),
+    );
+  }
+}
+
+/// Na ficha da questão: quando o aluno vê os acertos.
+class _InstantNote extends StatelessWidget {
+  const _InstantNote({required this.instant});
+
+  final bool instant;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(
+          instant ? Icons.bolt_rounded : Icons.schedule_rounded,
+          size: 16,
+          color: ClassroomPalette.textMuted,
+        ),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            instant ? 'Acertos na hora' : 'Acertos só no fim',
+            style: GoogleFonts.nunito(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: ClassroomPalette.textMuted,
+            ),
           ),
         ),
       ],

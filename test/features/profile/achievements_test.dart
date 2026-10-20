@@ -221,5 +221,39 @@ void main() {
       expect(find.text('Este perfil não está disponível.'), findsOneWidget);
       expect(find.text('Bia'), findsOneWidget);
     });
+
+    testWidgets('tocar fora da folha fecha o perfil', (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            classmateProfileProvider(key).overrideWith((ref) async => null),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: Builder(
+                builder: (context) => Center(
+                  child: TextButton(
+                    onPressed: () => showClassmateProfile(
+                      context,
+                      classroomId: 'c1',
+                      studentId: 'u2',
+                      name: 'Bia',
+                    ),
+                    child: const Text('abrir'),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('abrir'));
+      await tester.pumpAndSettle();
+      expect(find.text('Este perfil não está disponível.'), findsOneWidget);
+
+      await tester.tapAt(const Offset(400, 20)); // fundo escurecido, acima
+      await tester.pumpAndSettle();
+      expect(find.text('Este perfil não está disponível.'), findsNothing);
+    });
   });
 }

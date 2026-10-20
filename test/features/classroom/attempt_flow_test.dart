@@ -424,6 +424,7 @@ void main() {
           repo
             ..starts.add(Right(_attempt(timer: true)))
             ..opens.add(const Right(OpenedQuestion(questionId: 'q1', limitS: 15)))
+            ..opens.add(const Right(OpenedQuestion(questionId: 'q2', limitS: 20)))
             ..answers.add(Right(AnswerOutcome(
               feedback: _fb('q1', correct: false, timedOut: true, points: 0, streak: 0, right: 1),
               totalPoints: 0,
@@ -444,6 +445,17 @@ void main() {
       expect(repo.sent.single, (questionId: 'q1', response: null));
       expect(find.text('Tempo esgotado'), findsOneWidget);
       expect(find.text('0 s'), findsOneWidget); // relógio parado no lugar
+
+      // A próxima começa com o tempo cheio e corre (não fica no 0 da
+      // anterior).
+      await tester.tap(find.text('Continuar'));
+      await tester.pump();
+      await tester.pump();
+      expect(repo.opened, ['q1', 'q2']);
+      expect(find.text('20 s'), findsOneWidget);
+      now = now.add(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 5));
+      expect(find.text('15 s'), findsOneWidget);
     });
 
     testWidgets('fase que fechou: diz por que e não oferece repetir',
@@ -489,11 +501,80 @@ void main() {
       });
       await tester.pumpAndSettle();
       expect(find.text('Perfeito!'), findsOneWidget);
+      // Reabrir uma fase já entregue não repete o aviso de conquista.
+      expect(find.text('Parabéns!'), findsNothing);
       expect(find.text('Conquista liberada!'), findsOneWidget);
       expect(find.text('Três estrelas'), findsOneWidget);
       expect(find.text('+10'), findsOneWidget);
       // As moedas da conquista não se misturam com as das estrelas.
       expect(find.text('+9 XP  •  +15 moedas'), findsOneWidget);
+    });
+
+    testWidgets('ao terminar a fase, parabeniza pelas conquistas alcançadas',
+        (tester) async {
+      const result = AttemptResult(
+        attemptId: 'a1',
+        attemptNo: 1,
+        firstAttempt: true,
+        total: 2,
+        score: 2,
+        pct: 100,
+        stars: 3,
+        points: 20,
+        bestStreak: 2,
+        xp: 9,
+        gold: 15,
+        officialTotal: 2,
+        officialCorrect: 2,
+        officialPct: 100,
+        bestPct: 100,
+        bestStars: 3,
+        achievements: [
+          UnlockedAchievement(id: 'three_stars', title: 'Três estrelas', gold: 10),
+          UnlockedAchievement(id: 'first_step', title: 'Primeiro Passo', gold: 0),
+        ],
+      );
+      await pump(tester, (repo) {
+        repo
+          ..starts.add(Right(_attempt()))
+          ..answers.add(Right(AnswerOutcome(
+            feedback: _fb('q1', right: 1),
+            totalPoints: 10,
+          ),),)
+          ..answers.add(Right(AnswerOutcome(
+            feedback: _fb('q2', right: 2, streak: 2),
+            totalPoints: 20,
+            result: result,
+          ),),);
+      });
+
+      await tester.tap(find.text('Paris'));
+      await tester.pump();
+      await tester.tap(find.text('Confirmar'));
+      await tester.pump();
+      await tester.pump();
+      await tester.tap(find.text('Continuar'));
+      await tester.pump();
+      await tester.tap(find.text('4'));
+      await tester.pump();
+      await tester.tap(find.text('Confirmar'));
+      await tester.pump();
+      await tester.pump();
+      // Ainda na correção da última: nada de aviso.
+      expect(find.text('Parabéns!'), findsNothing);
+
+      await tester.tap(find.text('Ver resultado'));
+      await tester.pumpAndSettle();
+      expect(find.text('Parabéns!'), findsOneWidget);
+      expect(find.text('Você alcançou 2 conquistas nesta fase.'), findsOneWidget);
+      expect(find.text('Tire 3 estrelas numa fase'), findsOneWidget);
+      expect(find.text('Ganhe seus primeiros 50 XP'), findsOneWidget);
+      expect(find.text('Ver minhas conquistas'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Continuar'));
+      await tester.pumpAndSettle();
+      expect(find.text('Parabéns!'), findsNothing);
+      expect(find.text('Perfeito!'), findsOneWidget);
     });
   });
 }

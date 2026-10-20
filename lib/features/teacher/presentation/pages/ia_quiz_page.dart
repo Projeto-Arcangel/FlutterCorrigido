@@ -171,7 +171,8 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
   final _topicFocus = FocusNode();
 
   _Difficulty _difficulty = _Difficulty.medium;
-  double _quantity = 5;
+  // Começa em 1 em todos os tipos (a cruzadinha conta 3 no plano).
+  double _quantity = 1;
   int _alternatives = 4;
   QuestionType _questionType = QuestionType.multipleChoice;
   IaModelOption _selectedModel = IaModelOption.defaultOption;
@@ -529,7 +530,7 @@ class _IaQuizPageState extends ConsumerState<IaQuizPage> {
                                 ? '${_quantity.round()} cruzadinha'
                                     '${_quantity.round() == 1 ? '' : 's'} · '
                                     'contam ${_quantity.round() * _weight}'
-                                : '${_quantity.round()} questões',
+                                : '${_quantity.round()} quest${_quantity.round() == 1 ? 'ão' : 'ões'}',
                             style: GoogleFonts.nunito(
                               fontSize: 13,
                               fontWeight: FontWeight.w700,

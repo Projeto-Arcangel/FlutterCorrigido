@@ -109,6 +109,39 @@ void main() {
       await tester.pump(const Duration(milliseconds: 700));
     });
 
+    testWidgets('palavra de 1 letra: toca duas vezes na mesma letra',
+        (tester) async {
+      var found = <List<int>>[];
+      Future<void> pump() => _pump(
+            tester,
+            WordSearchBoard(
+              grid: _grid,
+              words: const ['SOL', 'MAR', 'X'],
+              found: found,
+              onChanged: (f) => found = f,
+            ),
+          );
+      await pump();
+      final origin = tester.getTopLeft(find.byType(CustomPaint).last);
+      Offset cell(int r, int c) => origin + Offset(c * 34 + 17, r * 34 + 17);
+
+      // Letra que não é palavra: dois toques só desmarcam.
+      await tester.tapAt(cell(0, 4));
+      await tester.pump();
+      await tester.tapAt(cell(0, 4));
+      await pump();
+      expect(found, isEmpty);
+
+      await tester.tapAt(cell(0, 3)); // X
+      await tester.pump();
+      await tester.tapAt(cell(0, 3));
+      await pump();
+      expect(found, [
+        [0, 3, 0, 3],
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('travado: achadas riscadas, faltantes em vermelho', (tester) async {
       await _pump(
         tester,
