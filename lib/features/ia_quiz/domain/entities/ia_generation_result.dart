@@ -3,7 +3,7 @@ import 'package:equatable/equatable.dart';
 import '../../../lesson/domain/entities/question.dart';
 import 'ia_model_option.dart';
 
-/// Resultado da chamada à Cloud Function `generateQuestionsAI`.
+/// Resultado da chamada à Edge Function `generate-questions`.
 ///
 /// Carrega as questões geradas + metadados sobre qual modelo
 /// efetivamente respondeu (pode ter sido um fallback).

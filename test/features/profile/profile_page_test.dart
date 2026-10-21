@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Pela tela inicial o aluno vê só os dados da conta; nível, XP, moedas e
-/// conquistas aparecem no perfil aberto de dentro de uma turma.
+/// Fora da turma (rota `/profile`) o aluno vê só os dados da conta; nível,
+/// XP, moedas e conquistas aparecem no perfil aberto de dentro de uma turma.
 void main() {
   const profile = ProfileData(
     displayName: 'Ana Souza',
@@ -42,7 +42,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('pela tela inicial: só os dados da conta', (tester) async {
+  testWidgets('fora da turma: só os dados da conta', (tester) async {
     await pump(tester, showProgress: false);
 
     expect(find.text('Ana Souza'), findsOneWidget);

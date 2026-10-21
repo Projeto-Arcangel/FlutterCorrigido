@@ -24,7 +24,10 @@ fvm flutter build web --dart-define-from-file=env/prod.json
 - A `SUPABASE_ANON_KEY` é **pública** (vai embutida em qualquer app cliente; a
   RLS é quem protege os dados). Por isso estes arquivos podem ir para o git.
   Se preferir não versioná-los, adicione `env/` ao `.gitignore`.
-- **Emulador Android**: `127.0.0.1` é o próprio emulador. Para alcançar o host,
-  crie um `env/local_android.json` com `"SUPABASE_URL": "http://10.0.2.2:54321"`.
+- **Nada secreto entra aqui.** As chaves das Edge Functions (OpenRouter, Gemini,
+  Asaas) ficam em `supabase/functions/.env` no local e nas Secrets do Dashboard
+  em produção.
 - Para apontar a um **novo** projeto cloud, troque `SUPABASE_URL` e
   `SUPABASE_ANON_KEY` (pegue em: Dashboard → Project Settings → API).
+- Para ligar o pagamento pelo app quando a conta do Asaas existir, o build leva
+  também `--dart-define=BILLING_ENABLED=true`.

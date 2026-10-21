@@ -2,11 +2,10 @@ import 'dart:math';
 
 import 'question.dart';
 
-/// Ligar colunas, ordenar (Estágio 4, Etapa 2) e completar lacunas
-/// (Etapa 3).
+/// Regras dos tipos além da múltipla escolha: ligar colunas, ordenar,
+/// completar lacunas, cruzadinha e caça-palavras (a grade, mais abaixo).
 ///
-/// No banco (migrations 20261017120100_match_ordering e
-/// 20261017140000_fill_blanks):
+/// No banco:
 /// - ligar colunas: `content {left, right}` com a direita embaralhada e
 ///   `answer {match}` — esquerda i ↔ direita `match[i]`;
 /// - ordenar: `content {items}` embaralhados e `answer {order}` —
@@ -226,7 +225,15 @@ extension QuestionKinds on Question {
       };
 }
 
-// ─── Cruzadinha e caça-palavras (Etapa 4) ──────────────────────────────
+// ─── Cruzadinha e caça-palavras ────────────────────────────────────────
+// No banco:
+// - cruzadinha: `content {rows, cols, entries, instant}` (cada entrada com
+//   posição, direção, tamanho e dica) e `answer {words}`;
+// - caça-palavras: `content {rows, cols, grid, words, instant, hidden?}` e
+//   `answer {positions}`. `hidden` são os índices das palavras que o aluno
+//   procura sem ver (aparecem como `_ _ _`).
+// `instant` = conferir cada palavra na hora (padrão: cruzadinha não,
+// caça-palavras sim).
 
 const crosswordMinWords = 4;
 const crosswordMaxWords = 10;

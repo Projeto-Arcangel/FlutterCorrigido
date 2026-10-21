@@ -31,9 +31,8 @@ import 'question_bank_page.dart';
 ///   - excluir a fase.
 ///
 /// A criação de questões aqui é **sempre vinculada a esta fase**
-/// (passando `phaseId`), eliminando o problema antigo em que as
-/// questões eram criadas na "última turma" ou em uma fase nova
-/// solta.
+/// (passando `phaseId`): as questões nunca caem em outra turma nem
+/// numa fase nova solta.
 class PhaseManagementPage extends ConsumerStatefulWidget {
   const PhaseManagementPage({
     super.key,

@@ -173,7 +173,7 @@ class CustomizeQuizPage extends ConsumerStatefulWidget {
   final String? classroomId;
 
   /// ID da fase existente em que as questões serão anexadas.
-  /// Quando ausente, o quiz vira uma fase nova (comportamento antigo).
+  /// Quando ausente, o quiz vira uma fase nova da turma.
   final String? phaseId;
 
   /// Título da fase-alvo (para contexto/UX).
@@ -255,7 +255,7 @@ class _CustomizeQuizPageState extends ConsumerState<CustomizeQuizPage> {
       return;
     }
 
-    // ── Sem phaseId: comportamento antigo (cria fase nova) ─────────
+    // ── Sem phaseId: cria uma fase nova com as questões ────────────
     final useCase = ref.read(saveClassroomQuizProvider);
     final result = await useCase(
       classroomId: classroomId,

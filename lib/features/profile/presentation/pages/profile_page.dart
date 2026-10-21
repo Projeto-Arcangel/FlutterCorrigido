@@ -19,9 +19,10 @@ import '../widgets/achievement_badge.dart';
 class ProfilePage extends ConsumerWidget {
   const ProfilePage({super.key, this.showProgress = false});
 
-  /// Nível, XP, moedas e conquistas aparecem só quando o aluno abre o
-  /// perfil de dentro de uma turma. Pela tela inicial, o perfil mostra só os
-  /// dados da conta (e o caminho para as configurações).
+  /// Nível, XP, moedas e conquistas aparecem quando o aluno abre o perfil
+  /// de dentro de uma turma (`/profile?turma=1`), que é o único caminho pelo
+  /// app. Na rota `/profile` sem turma, só os dados da conta (e o caminho
+  /// para as configurações).
   final bool showProgress;
 
   @override
@@ -159,7 +160,7 @@ class _HeroSection extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24),
-      // Largura total: sem a barra de XP (perfil pela tela inicial), a
+      // Largura total: sem a barra de XP (perfil fora da turma), a
       // coluna encolheria e o conteúdo sairia do centro.
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,

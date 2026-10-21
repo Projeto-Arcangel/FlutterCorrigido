@@ -10,7 +10,7 @@ import '../entities/study_material.dart';
 ///
 /// Implementado por `IaQuizRepositoryImpl` na camada data/.
 abstract class IaQuizRepository {
-  /// Gera questões através da Cloud Function `generateQuestionsAI`,
+  /// Gera questões através da Edge Function `generate-questions`,
   /// que por sua vez roteia para o OpenRouter com fallback automático.
   Future<Either<Failure, IaGenerationResult>> generateQuestions({
     required String topic,
@@ -25,7 +25,7 @@ abstract class IaQuizRepository {
     /// tema; com materiais não há tema, e o foco vai em [description].
     List<MaterialForAi> materials = const [],
 
-    /// Tipo das questões (múltipla escolha, ligar colunas, ordenar).
+    /// Tipo das questões (um dos seis tipos do app).
     QuestionType questionType = QuestionType.multipleChoice,
   });
 }

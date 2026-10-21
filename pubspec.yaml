@@ -1,5 +1,5 @@
 name: arcangel_o_oficial
-description: A new Flutter project.
+description: Arcangel — plataforma web de atividades gamificadas para turmas (Flutter + Supabase).
 
 # The following line prevents the package from being accidentally published to
 # pub.dev using `pub publish`. This is preferred for private packages.

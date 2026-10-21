@@ -1,7 +1,11 @@
 # Importador de questões do ENEM (enem.dev → Supabase)
 
 Sobe as imagens para o bucket `enem-questions` (Storage) e popula a tabela
-`enem_questions`. Idempotente (pode rodar de novo sem duplicar).
+`enem_questions` com as provas de 2009 a 2023, que o professor usa na opção
+"Utilizar questões do ENEM". Idempotente (pode rodar de novo sem duplicar).
+
+> A chave `service_role` ignora a RLS: use só no terminal, nesta janela, e nunca
+> grave em arquivo do repositório.
 
 ## Pré-requisitos
 - Dataset enem.dev em disco (default: `D:\DownloadsHD\questoes`).

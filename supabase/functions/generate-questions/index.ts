@@ -1,5 +1,5 @@
 // Edge Function: generate-questions
-// Substitui a Cloud Function `generateQuestionsAI` (firebase/functions/index.js).
+// Gera questões com IA para o professor, por tema ou a partir dos materiais.
 //
 // Fluxo:
 //   1. Valida o JWT do usuário (header Authorization).
@@ -159,7 +159,7 @@ Deno.serve(async (req: Request) => {
   if (typeof modelKey !== "string" || !ALLOWED_MODELS[modelKey]) {
     return json(400, { error: `Modelo "${String(modelKey)}" não é permitido.` });
   }
-  // Tipo das questões (Estágio 4). Cada questão conta 1 no limite do plano.
+  // Tipo das questões (um dos seis do app).
   const questionType = body.questionType === undefined ? "multiple_choice" : body.questionType;
   if (
     typeof questionType !== "string" ||

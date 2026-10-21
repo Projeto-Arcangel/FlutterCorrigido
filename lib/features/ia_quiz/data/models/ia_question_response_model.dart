@@ -1,10 +1,11 @@
 import '../../../lesson/domain/entities/question.dart';
 import '../../../lesson/domain/entities/question_kinds.dart';
 
-/// Converte o payload JSON retornado pela Cloud Function em
-/// entidades [Question] usáveis pela tela de revisão.
+/// Converte o payload JSON retornado pela Edge Function `generate-questions`
+/// em entidades [Question] usáveis pela tela de revisão.
 ///
-/// O backend já valida a estrutura (4 opções, correctAnswer 0-3, etc),
+/// O backend já valida a estrutura de cada tipo (alternativas, pares, itens,
+/// lacunas, palavras da grade),
 /// então aqui assumimos que os campos estão presentes — se algo vier
 /// fora do esperado, a exceção sobe naturalmente para o repository.
 class IaQuestionResponseModel {

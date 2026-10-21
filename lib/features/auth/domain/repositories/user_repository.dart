@@ -18,15 +18,15 @@ abstract class UserRepository {
     required String studentId,
   });
 
-  /// Retorna o role salvo em `Users/{userId}.role`.
+  /// Retorna o role salvo em `profiles.role`.
   ///
-  /// `null` significa que o documento existe mas o campo `role` não está
-  /// preenchido — é o sinal usado pelo router para forçar a passagem pela
-  /// `RoleSelectionPage`. Documento inexistente também retorna `null`.
+  /// `null` significa que o perfil existe mas o `role` não está preenchido —
+  /// é o sinal usado pelo router para forçar a passagem pela
+  /// `RoleSelectionPage`. Perfil inexistente também retorna `null`.
   Future<Either<Failure, UserRole?>> getRole(String userId);
 
-  /// Grava `role` em `Users/{userId}.role` usando merge — não sobrescreve
-  /// xp, level, gold, etc. Cria o documento se ainda não existir.
+  /// Grava o `role` do próprio usuário pela RPC `set_role` (a escrita direta
+  /// na coluna é bloqueada pelo trigger anti-escalada).
   Future<Either<Failure, void>> setRole({
     required String userId,
     required UserRole role,

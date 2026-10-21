@@ -1,7 +1,8 @@
 /// Representa um evento recente de uma sala de aula.
 ///
 /// Usado na seção "Atividade Recente" do dashboard do professor.
-/// Os eventos são gravados na subcoleção `activities` de cada sala.
+/// Os eventos ficam na tabela `classroom_activities`, gravados pelas funções
+/// do banco (ex.: `join_classroom`).
 class ClassroomActivity {
   const ClassroomActivity({
     required this.type,

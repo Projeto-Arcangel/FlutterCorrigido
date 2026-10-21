@@ -76,8 +76,8 @@ class QuizController extends _$QuizController {
         confirmed: false,
       );
     } else {
-      // XP/gold NÃO são concedidos aqui: a correção e os prêmios acontecem no
-      // servidor (RPC submit_quiz), disparada pela tela de quiz da turma.
+      // XP/moedas NÃO são concedidos aqui: a correção e os prêmios
+      // acontecem no servidor (RPCs answer_question e finalize_attempt).
       final correct = state.answers.entries
           .where((e) => _questions[e.key].isCorrect(e.value))
           .length;

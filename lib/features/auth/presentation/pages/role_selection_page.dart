@@ -154,7 +154,7 @@ class _RoleSelectionPageState extends ConsumerState<RoleSelectionPage>
                       icon: Icons.school_rounded,
                       accentColor: AppColors.primary,
                       title: 'Sou Aluno',
-                      subtitle: 'Estudar por conta própria ou via turma',
+                      subtitle: 'Entrar na turma do professor e jogar as fases',
                       onTap: () => _onRoleSelected(UserRole.student),
                     ),
                   ),

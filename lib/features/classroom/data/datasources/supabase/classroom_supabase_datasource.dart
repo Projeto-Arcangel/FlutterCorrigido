@@ -141,10 +141,6 @@ class ClassroomSupabaseDatasource {
     required String questionId,
   }) async {}
 
-  // ─── Resultados ───────────────────────────────────────────────
-
-  /// Envia as respostas para correção no servidor (RPC `submit_quiz`).
-  /// [answers] = `{ questionId: índiceEscolhido }`.
   // ─── Tentativas (resposta a resposta, corrigidas no servidor) ───
 
   /// Abre uma tentativa na fase, ou retoma a que ficou pela metade.
@@ -335,7 +331,8 @@ class ClassroomSupabaseDatasource {
 
   /// Fases + questões para o ALUNO, SEM gabarito (RPC `get_student_phases`,
   /// `SECURITY DEFINER`). `correct_answer`/`explanation` não vêm no payload —
-  /// o feedback só chega pela correção do servidor (`submit_quiz`) após o envio.
+  /// o gabarito só chega pela correção do servidor (`answer_question`) depois
+  /// que o aluno responde.
   Future<List<ClassroomPhaseModel>> fetchStudentPhases(
     String classroomId,
   ) async {

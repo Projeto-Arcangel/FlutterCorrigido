@@ -75,7 +75,7 @@ class _SubjectList extends StatelessWidget {
 
 // ── Botão "Entrar em Turma" ───────────────────────────────────────────────────
 /// Sempre abre o bottom sheet de turmas — o sheet já mostra as turmas
-/// actuais do aluno em "MINHAS TURMAS" e permite entrar numa nova.
+/// atuais do aluno em "MINHAS TURMAS" e permite entrar numa nova.
 class _EnterClassroomButton extends StatelessWidget {
   const _EnterClassroomButton();
 

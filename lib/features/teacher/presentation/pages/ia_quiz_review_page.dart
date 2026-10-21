@@ -171,7 +171,7 @@ class _IaQuizReviewPageState extends ConsumerState<IaQuizReviewPage> {
       return;
     }
 
-    // ── Sem phaseId: comportamento antigo (cria uma fase nova) ─────
+    // ── Sem phaseId: cria uma fase nova com as questões ────────────
     final useCase = ref.read(saveClassroomQuizProvider);
     final result = await useCase(
       classroomId: widget.classroomId!,

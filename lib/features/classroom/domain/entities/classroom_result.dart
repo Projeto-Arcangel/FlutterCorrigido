@@ -1,9 +1,9 @@
 import 'package:equatable/equatable.dart';
 
-/// Resultado de um aluno ao completar o quiz de uma sala.
+/// Resultado de um aluno numa sala (nota oficial = 1ª tentativa de cada fase).
 ///
-/// Armazenado em `Classrooms/{classroomId}/results/{studentUid}`.
-/// O professor usa isso para ver a porcentagem final de acertos.
+/// Armazenado na tabela `classroom_results` e lido pela RPC
+/// `get_classroom_results`. O professor usa isso no Dashboard de Alunos.
 class ClassroomResult extends Equatable {
   final String studentId;
   final String studentName;

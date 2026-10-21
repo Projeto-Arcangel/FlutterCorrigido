@@ -2,8 +2,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Datasource que invoca a Edge Function `generate-questions` (Supabase).
 ///
-/// Substitui a antiga Cloud Function `generateQuestionsAI`.
-///
 /// `functions.invoke` lança [FunctionException] em respostas não-2xx
 /// (401 não-autenticado, 403 não-professor, 400 input inválido, 500 falha da
 /// IA com `{ error, attempts }`). O repository converte para [Failure].
@@ -24,7 +22,7 @@ class SupabaseIaDatasource {
     String? subject,
     List<Map<String, Object>> materials = const [],
     /// Tipo das questões no banco ('multiple_choice', 'match_columns',
-    /// 'ordering').
+    /// 'ordering', 'fill_blanks', 'crossword' ou 'word_search').
     String questionType = 'multiple_choice',
   }) async {
     final res = await _client.functions.invoke(

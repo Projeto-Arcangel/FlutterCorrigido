@@ -43,8 +43,8 @@ abstract class ClassroomRepository {
     required String newName,
   });
 
-  /// Apaga a sala e todas as suas subcoleções (questions, results,
-  /// phases). Operação irreversível.
+  /// Apaga a sala e, em cascata, alunos, fases, questões, tentativas e
+  /// resultados dela. Operação irreversível.
   Future<Either<Failure, void>> deleteClassroom(String classroomId);
 
   /// Busca uma sala pelo código de 6 caracteres.
@@ -60,7 +60,8 @@ abstract class ClassroomRepository {
 
   // ─── Aluno entra/sai ──────────────────────────────────────────
 
-  /// Adiciona o aluno à sala (max 50). Falha se já está em outra sala.
+  /// Adiciona o aluno à sala (máx. 50). Se já for membro, nada muda; falha se
+  /// a sala estiver inativa ou lotada.
   Future<Either<Failure, void>> joinClassroom({
     required String classroomId,
     required String studentId,
@@ -73,27 +74,30 @@ abstract class ClassroomRepository {
     required String studentId,
   });
 
-  // ─── Questões ─────────────────────────────────────────────────
+  // ─── Questões soltas de sala ───────────────────────────────────
+  // Não existem no schema atual: as questões vivem nas fases (ver
+  // addQuestionsToPhase). Mantidos por contrato; a implementação é no-op e
+  // getQuestions devolve vazio.
 
-  /// Adiciona uma questão à subcoleção da sala.
+  /// Adiciona uma questão solta à sala (no-op).
   Future<Either<Failure, void>> addQuestion({
     required String classroomId,
     required Question question,
   });
 
-  /// Atualiza uma questão existente.
+  /// Atualiza uma questão solta da sala (no-op).
   Future<Either<Failure, void>> updateQuestion({
     required String classroomId,
     required Question question,
   });
 
-  /// Exclui uma questão da sala.
+  /// Exclui uma questão solta da sala (no-op).
   Future<Either<Failure, void>> deleteQuestion({
     required String classroomId,
     required String questionId,
   });
 
-  /// Busca todas as questões de uma sala.
+  /// Busca as questões soltas da sala (sempre vazio).
   Future<Either<Failure, List<Question>>> getQuestions(String classroomId);
 
   // ─── Resultados ───────────────────────────────────────────────

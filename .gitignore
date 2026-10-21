@@ -87,8 +87,6 @@ coverage/
 .agents/
 
 # Secrets / credenciais — NUNCA versionar
-**/serviceAccountKey*.json
-**/firebase-adminsdk-*.json
 .env
 .env.*
 !.env.example

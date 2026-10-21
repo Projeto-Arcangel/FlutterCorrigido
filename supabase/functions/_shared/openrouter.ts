@@ -1,5 +1,6 @@
-// Port de firebase/functions/openrouter.js para Deno/TypeScript.
-// Mantém ALLOWED_MODELS, FALLBACK_ORDER, o prompt e a validação idênticos.
+// Geração de questões pelo OpenRouter: modelos permitidos, ordem de fallback,
+// prompt de cada tipo de questão e validação da resposta da IA.
+// Usado pela Edge Function generate-questions.
 
 const OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions";
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -29,7 +30,7 @@ export const MAX_MATERIALS = 10;
 // "video" = anotações de um vídeo do YouTube feitas pela extract-video.
 export const MATERIAL_KINDS = ["pdf", "docx", "pptx", "link", "video"] as const;
 
-// Tipos de questão que a IA gera (Estágio 4). Múltipla escolha é o padrão.
+// Tipos de questão que a IA gera (os seis do app). Múltipla escolha é o padrão.
 export const QUESTION_TYPES = [
   "multiple_choice",
   "match_columns",
@@ -40,8 +41,8 @@ export const QUESTION_TYPES = [
 ] as const;
 export type QuestionType = (typeof QUESTION_TYPES)[number];
 
-// Limites dos tipos novos — os mesmos da CHECK do banco
-// (migration 20261017120100_match_ordering) e de question_kinds.dart.
+// Limites de cada tipo — os mesmos da CHECK questions_shape_check do banco
+// e de question_kinds.dart (mudou num, muda nos três).
 const MATCH_MIN = 3, MATCH_MAX = 6;
 const ORDER_MIN = 3, ORDER_MAX = 8;
 const ITEM_MAX_CHARS = 200;
@@ -51,7 +52,7 @@ const CROSSWORD_MIN = 4, CROSSWORD_MAX = 10;
 const WORD_SEARCH_MIN = 4, WORD_SEARCH_MAX = 12;
 const GRID_WORD_MIN = 1, GRID_WORD_MAX = 12;
 
-/** Quanto cada questão do tipo conta no limite do plano (decisão 6). */
+/** Quanto cada questão do tipo conta no limite do plano (cruzadinha = 3). */
 export function planWeight(type: string): number {
   return type === "crossword" ? 3 : 1;
 }

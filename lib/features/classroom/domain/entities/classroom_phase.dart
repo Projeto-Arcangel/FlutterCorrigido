@@ -6,11 +6,11 @@ import 'phase_rules.dart';
 /// Representa uma fase (phase/lesson) criada pelo professor e vinculada
 /// a uma sala de aula (classroom).
 ///
-/// Diferente das fases globais (da trilha), esta fase aparece SOMENTE
-/// para os alunos que estão na sala do professor que a criou.
+/// A fase aparece SOMENTE para os alunos que estão na sala do professor
+/// que a criou, na ordem da trilha.
 ///
-/// Armazenada em `Classrooms/{classroomId}/phases/{phaseId}`.
-/// As questões ficam em `Classrooms/{classroomId}/phases/{phaseId}/questions/{qId}`.
+/// Armazenada na tabela `classroom_phases`; as questões ficam na tabela
+/// `questions` (coluna `phase_id`).
 class ClassroomPhase extends Equatable {
   final String id;
   final String classroomId;
